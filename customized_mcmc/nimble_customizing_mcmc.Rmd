@@ -1,0 +1,93 @@
+# Changing the samplers used in an MCMC
+
+This example shows how you can control which samplers are included in an MCMC.
+
+## Bones example
+
+Let's use another of the classic [WinBUGS](http://www.mrc-bsu.cam.ac.uk/software/bugs/) examples: the bones example.
+
+A description can be found [here](http://www.mrc-bsu.cam.ac.uk/wp-content/uploads/WinBUGS_Vol1.pdf). The example can be found in our GitHub repository [here](https://github.com/nimble-dev/nimble/tree/devel/packages/nimble/inst/classic-bugs/vol1/bones).
+
+The BUGS code looks like this:
+```
+{
+   for (i in 1:nChild) {
+      theta[i] ~ dnorm(0.0, 0.001);
+
+      for (j in 1:nInd) { 
+         # Cumulative probability of > grade k given theta
+         for (k in 1:(ncat[j]-1)) {
+            logit(Q[i,j,k]) <- delta[j]*(theta[i] - gamma[j,k]);
+         }
+         Q[i,j,ncat[j]] <- 0;
+      }
+
+      for (j in 1:nInd) {
+         # Probability of observing grade k given theta
+         p[i,j,1] <- 1 - Q[i,j,1];
+         for (k in 2:ncat[j]) {
+            p[i,j,k] <- Q[i,j,(k-1)] - Q[i,j,k];
+         }
+         grade[i,j] ~ dcat(p[i,j,1:ncat[j]]);
+      }
+   }
+}   
+```
+
+We will load it this way to avoid showing a bunch of data here:
+```{r}
+library(nimble)
+bonesModel <- readBUGSmodel('bones', dir = getBUGSexampleDir('bones'))
+```
+
+## Make an MCMC configuration object
+
+An MCMC configuration holds the information on which samplers are included in the MCMC, which nodes they operate on, and any parameters needed for them.  It also has a set of nodes to include (monitor) in the MCMC output.  Actually it allows two different sets of nodes to be monitored, each with its own thinning interval.  We can modify the MCMC configuration before we build the MCMC algorithm from it.
+
+Here is how to make the configuration and look at the default samplers:
+
+```{r}
+bonesMCMCconfiguration <- configureMCMC(bonesModel)
+bonesMCMCconfiguration$getSamplers()
+```
+
+Now we can see that `theta[1]`-`theta[13]` have each been assigned adaptive random walk Metropolis-Hastings samplers.  A smattering of entries in the grade matrix are missing.  Those have no dependencies -- they are essentially posterior predictive nodes -- so they have been assigned end samplers.
+
+Note that if we had called `buildMCMC(bonesModel)`, it would have made the default MCMC configuration and then built the MCMC algorithm in one step.
+
+## Customize by replacing the univariate samplers for theta dimensions with a block sampler.
+
+Let's say we want to compare the efficiency of the univariate samplers to a block sampler.  We can remove the univariate samplers and insert a block sampler like this:
+```{r}
+bonesMCMCconfiguration$removeSamplers('theta', print = FALSE)
+bonesMCMCconfiguration$addSampler(target = 'theta[1:13]', type = 'RW_block')
+```
+
+## Build the customized MCMC
+```{r}
+bonesMCMC <- buildMCMC(bonesMCMCconfiguration)
+```
+
+## Compile the model and MCMC
+```{r}
+Cbones <- compileNimble(bonesModel, bonesMCMC)
+```
+
+## Run the MCMC
+```{r}
+Cbones$bonesMCMC$run(10000)
+MCMCsamples <- as.matrix(Cbones$bonesMCMC$mvSamples)
+```
+
+Look at samples from `theta[1:4]` because that fits conveniently on one plot:
+```{r}
+pairs(MCMCsamples[,1:4], pch = '.')
+```
+
+Of course we haven't actually compared the efficiencies of the default to the customized MCMC.  We'll do that kind of thing in other examples.
+
+## Writing your own samplers and running different MCMCs side by side
+
+You can learn to write your own samplers and include them in an MCMC in Chapter 7 of the User Manual.  You can also learn to run multiple MCMCs side by side, including from WinBUGS, JAGS, and Stan (if you provide the necessary files) using NIMBLE's `MCMCsuite` function.
+
+

@@ -1,0 +1,97 @@
+#Building a model from BUGS code in R using NIMBLE
+
+The BUGS language for declaring statistical models was popularized by [WinBUGS](http://www.mrc-bsu.cam.ac.uk/software/bugs/), [OpenBUGS](http://www.openbugs.net/w/FrontPage) and [JAGS](http://mcmc-jags.sourceforge.net/).  Those generate and run an MCMC for the model, but they don't allow a programmer to use the model in any other way.  NIMBLE provides a new implementation of the BUGS language and creates model objects you can program with.
+
+NIMBLE accommodates most of BUGS, but it doesn't yet handle stochastic indices (indices that are random variables).  It also extends the BUGS language in a bunch of ways that we won't go into here. See the User Manual for more details.
+
+## Dyes example
+
+Let's pick a simple model from the classic WinBUGS examples: the dyes example. This is a simple normal hierarchical model. A description can be found [here](http://www.mrc-bsu.cam.ac.uk/wp-content/uploads/WinBUGS_Vol1.pdf).  A copy of the original is on our GitHub repository [here](https://github.com/nimble-dev/nimble/tree/devel/packages/nimble/inst/classic-bugs/vol1/dyes).  A modified version we will use is set up like this:
+```{r}
+library(nimble)
+
+dyesCode <- nimbleCode({
+   for (i in 1:BATCHES) {
+      for (j in 1:SAMPLES) {
+         y[i,j] ~ dnorm(mu[i], sd = sigma.within);
+      }
+      mu[i] ~ dnorm(theta, sd = sigma.between);
+   }
+   
+   theta ~ dnorm(0.0, 1.0E-10);
+   sigma.within ~ dunif(0, 100)
+   sigma.between ~ dunif(0, 100)
+})
+```
+
+Compared to the original, this has been modified by using standard deviation parameters instead of precision parameters in two places -- for the sole purpose of illustrating NIMBLE's ability to handle different parameterizations -- and removing the posterior predictive nodes.
+
+By the way, any of the standard WinBUGS examples can be loaded automatically in NIMBLE like this:
+```
+classicDyesModel <- readBUGSmodel('dyes', dir = getBUGSexampleDir('dyes'))
+```
+
+## Create the model
+
+We can create a model from `dyesCode` like this:
+```{r}
+dyesModel <- nimbleModel(dyesCode, constants = list(BATCHES = 6, SAMPLES = 5))
+```
+
+And we can set data values in it like this:
+```{r}
+data <- matrix(c(1545, 1540, 1595, 1445, 1595, 1520, 1440, 1555, 1550, 
+1440, 1630, 1455, 1440, 1490, 1605, 1595, 1515, 1450, 1520, 1560, 
+1510, 1465, 1635, 1480, 1580, 1495, 1560, 1545, 1625, 1445), nrow = 6)
+dyesModel$setData(list(y = data))
+dyesModel$y
+```
+
+## Use the model
+
+Now we can use the model like an R object.
+
+### Set or get values
+```{r}
+dyesModel$theta <- 1500
+dyesModel$mu <- rnorm(6, 1500, 50)
+dyesModel$sigma.within <- 20
+dyesModel$sigma.between <- 20
+dyesModel$mu
+dyesModel$y[1,]
+```
+
+### Calculate log probability densities for part or all of the model
+```{r}
+## arbitrary example
+calculate(dyesModel, c('theta', 'mu[1:6]', 'y[,2]'))
+```
+
+### Simulate part or all of the model
+```{r}
+## arbitrary example
+simulate(dyesModel, c('mu[1:3]'))
+dyesModel$mu
+```
+
+### Query the model's relationships
+```{r}
+## arbitrary example
+dyesModel$getDependencies(c('theta', 'mu[3]'))
+```
+
+### Plot the model graph (thanks to igraph's plot feature)
+```{r}
+library(igraph)
+plot(dyesModel$getGraph())
+```
+
+## Compile the model
+
+Finally we can compile the model and use the compiled version the same way we used the uncompiled version above:
+```{r}
+compiled_dyesModel <- compileNimble(dyesModel)
+compiled_dyesModel$theta <- 1450
+calculate(compiled_dyesModel) ## all nodes by default
+```
+Naturally, the compiled version is much faster.
