@@ -1,0 +1,134 @@
+# Adding a user-defined distribution to the BUGS language
+
+In previous implementations of the BUGS language (WinBUGS, OpenBUGS, and JAGS), there is no way to extend the language with new distributions or functions (other than diving into the low-level source code).  NIMBLE tries to make it easy to do so and then to share your code with others.
+
+## Example: zero-inflated Poisson distribution
+
+In a variety of situations, scientists consider the possibility that some measurements will yield zeros for reasons separate from other considerations.  For example, ecologists counting plants or animals of a particular species at many sites may get a zero when the species is absent but get a Poisson-distributed count when it is present.  The explanatory variables they wish to consider as influencing the probability of a so-called structural zero (the species is absent) may be different from those influencing the abundance when it is present.  This is done by having one parameter representing the probability of a structural zero and another parameter representing the Poisson mean.  Each parameter may itself be predicted by other variables, and a zero in the data could result from either a structural zero or a Poisson sample that just happens to be zero. Similar ideas are used for zero-inflated binomial and zero-inflated negative binomial models.  Hurdle models represent a subtley different approach, in which the probability of a zero is mixed with the zero-truncated probability of non-zeros.
+
+Since such distributions were not built into earlier dialects of BUGS, users have made use of a couple of indirect techniques to accomplish them.  One approach is to add a Beroulli (0/1) latent variable to the model for each observed zero.  The latent variable indicates whether the corresponding data value is a structural or non-stuctural zero, and the MCMC must sample it.  The other approach is to use a trick for providing an arbitrary log-likelihood to BUGS (for reasons unrelated to zero-inflation, this is sometimes called the "zero trick" -- are you confused yet?).  The former approach is more general but adds computational cost since the MCMC must sample the latent variables.  The latter trick avoids the computational cost but is less general because every time one wants to consider a different distribution one must be sure to get the log likelihood correct, which could become cumbersome and difficult for others to follow.
+
+There are plenty of other situations where one may wish to add a distribution to their model that was not envisioned in earlier dialects of BUGS.  
+
+## Adding a new distribution to BUGS in NIMBLE
+
+We won't labor through the indirect techniques mentioned for implementing zero inflation.  And we won't do this example in an interesting real model because all the other model components would get in the way.  Instead we'll just show a toy example.  Say we have $N$ observations, $y[i], i = 1 \ldots N$, each from a zero-inflated Poisson.  The parameters are the probability $p$ of a structural zero and the mean $\lambda$ of counts that are not structural zeros (but may be non-structural zeros).
+
+We'll call the density function for our new zero-inflated Poisson distribution "dZIP".
+
+Of course we need to load the package first:
+```{r}
+library(nimble)
+```
+
+### Write the model to user the dZIP distribution we plan to write
+
+The BUGS code for a toy model with our user-defined distribution is:
+
+```{r}
+ZIPcode <- nimbleCode({
+  p ~ dunif(0,1)
+  lambda ~ dunif(0,10)
+  for(i in 1:N)
+    y[i] ~ dZIP(lambda, zeroProb = p) ## Note NIMBLE allows R-like named-parameter syntax
+})
+```
+
+Here there is nothing more than the parameters p and lambda and the data y.
+
+### Write our dZIP distribution
+
+Before we can use this code to build a model, we need to define dZIP.  We do that with a nimbleFunction, which is a lot like an R function:
+
+```{r}
+dZIP <- nimbleFunction(
+ run = function(x = integer(), lambda = double(), zeroProb = double(), log = logical(0, default = 0)) {
+   returnType(double())
+   ## First handle non-zero data
+   if(x != 0) {
+       ## return the log probability if log = TRUE
+       if(log) return(dpois(x, lambda, log = TRUE) + log(1-zeroProb))
+       ## or the probability if log = FALSE
+      else return((1-zeroProb) * dpois(x, lambda, log = FALSE))
+   }
+   ## From here down we know x is 0
+   totalProbZero <- zeroProb + (1-zeroProb) * dpois(0, lambda, log = FALSE)
+   if(log) return(log(totalProbZero))
+   return(totalProbZero)
+ })
+```
+
+This example doesn't include a full introduction to nimbleFunctions, but here are some brief points:
+
+* A nimbleFunction allows only a small subset of R along with function that can use models.
+* It is compilable, which means NIMBLE will generate and compile C++ from it.  It can also be executed in R prior to compilation for testing purposes.
+* The "double()", "integer()" and "logical()" notation means those arguments are scalar doubles, integers, and logicals (TRUE or FALSE), respectively.
+* The "returnType(double())" means this function will return a scalar double.
+* Everything else is here is like R.
+* In a user-defined distribution, we must define a log argument indicating whether to return the probability or the log probability, as is standard in R's distribution functions.
+
+
+Now to allow a user-defined distribution, NIMBLE requires that we also provide an "r" function for random number generation.  That would be:
+```{r}
+rZIP <- nimbleFunction(
+ run = function(n = integer(), lambda = double(), zeroProb = double()) {
+   returnType(integer())
+   isStructuralZero <- rbinom(1, prob = zeroProb, size = 1)
+   if(isStructuralZero) return(0)
+   return(rpois(1, lambda))
+})
+```
+
+A brief note on this:
+
+* The first argument, n, is the number of random draws you want, but at this moment in NIMBLE's development the "n" argument isn't really used.  We require and assume n = 1.  It is there for compatibility with the standard argument list of "r" functions in R and for future implementation.
+
+### Register dZIP with NIMBLE
+
+Now we are ready to tell NIMBLE about our new distribution:
+
+```{r}
+registerDistributions(list(
+    dZIP = list(
+        BUGSdist = "dZIP(lambda, zeroProb)",
+        discrete = TRUE,
+        range = c(0, Inf),
+        types = c('value = integer()', 'lambda = double()', 'zeroProb = double()')
+     )))
+```
+
+### Build the model and simulate some data
+
+Now we are ready to build and compile the model.  We'll also use the model to generate a data set and then run MCMC on it.
+
+```{r}
+
+ZIPmodel <- nimbleModel( ZIPcode, constants = list(N = 100), check = FALSE)
+ZIPmodel$p <- .4             ## Choose values of p and lambda
+ZIPmodel$lambda <- 1.8
+ZIPmodel$simulate('y')       ## Simulate values of y[1]...y[100]
+simulatedData <- ZIPmodel$y
+simulatedData
+ZIPmodel$setData(list(y = simulatedData))  ## Set those values as data in the model
+cZIPmodel <- compileNimble(ZIPmodel)       ## Compile the model
+
+```
+
+### run MCMC
+
+```{r}
+ZIPmcmc <- buildMCMC(ZIPmodel)
+cZIPmcmc <- compileNimble(ZIPmcmc, project = ZIPmodel)
+cZIPmcmc$run(10000)
+samples <- as.matrix(cZIPmcmc$mvSamples)
+```
+
+Let's look at a summary and trace plots to see if everything looks reasonable.
+
+```{r}
+summary(samples)
+plot(samples[,'lambda'], pch = '.', main = 'lambda trace plot')
+plot(samples[,'p'], pch = '.', main = 'p trace plot')
+```
+
+It worked!
