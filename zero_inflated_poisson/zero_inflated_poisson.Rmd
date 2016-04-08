@@ -21,7 +21,7 @@ Of course we need to load the package first:
 library(nimble)
 ```
 
-### Write the model to user the dZIP distribution we plan to write
+### Write the model to use the dZIP distribution we plan to write
 
 The BUGS code for a toy model with our user-defined distribution is:
 
@@ -34,7 +34,7 @@ ZIPcode <- nimbleCode({
 })
 ```
 
-Here there is nothing more than the parameters p and lambda and the data y.
+Here there is nothing more than the parameters p and lambda, the data y, and the constant N.
 
 ### Write our dZIP distribution
 
@@ -65,7 +65,7 @@ This example doesn't include a full introduction to nimbleFunctions, but here ar
 * The "double()", "integer()" and "logical()" notation means those arguments are scalar doubles, integers, and logicals (TRUE or FALSE), respectively.
 * The "returnType(double())" means this function will return a scalar double.
 * Everything else is here is like R.
-* In a user-defined distribution, we must define a log argument indicating whether to return the probability or the log probability, as is standard in R's distribution functions.
+* In a user-defined distribution, we must define a log argument indicating whether to return the probability or the log probability, as is standard in R's distribution functions.  Also the first arugument, representing a value of the random variable, must be named "x", which again is like R's distribution functions.
 
 
 Now to allow a user-defined distribution, NIMBLE requires that we also provide an "r" function for random number generation.  That would be:
