@@ -1,0 +1,240 @@
+### Writing reversible jump samplers in NIMBLE
+
+This is a draft NIMBLE example, with some details to be discussed and/or confirmed.
+
+I'll use a simple example model, a regression with two candidate explanatory variables.  I'll assume the first, x1, should definitely be included.  But the analyst is not sure about the second, x2, and wants to use reversible jump to include it or exclude it from the model.  I won't deal with the issue of choosing the prior probability that it should be in the model.
+
+Here is the data simulatation:
+```{r}
+set.seed(192837)
+N <- 20
+x1 <- runif(N, -1, 1)
+x2 <- runif(N, -1, 1)
+Y <- rnorm(N, 1.5 + 0.5 * x1, sd = 1)
+```
+
+Load nimble:
+```{r}
+library(nimble)
+```
+
+I'll do two versions of reversible jump.  In the first, there will be an indicator variable written into the model code.  In the second there won't be.  One implication of the second version is that the prior probability of being included in the model is part of the sampler, not part of the model.
+
+Here is the first version of the simple model:
+```{r}
+simpleCode1 <- nimbleCode({
+    beta0 ~ dnorm(0, sd = 100)
+    beta1 ~ dnorm(0, sd = 100)
+    beta2 ~ dnorm(0, sd = 100)
+    sigma ~ dunif(0, 100)
+    z2 ~ dbern(0.8)  ## indicator variable for including beta2
+    beta2z2 <- beta2 * z2
+    for(i in 1:N) {
+        Ypred[i] <- beta0 + beta1 * x1[i] + beta2z2 * x2[i]
+        Y[i] ~ dnorm(Ypred[i], sd = sigma)
+    }
+})
+
+simpleModel1 <- nimbleModel(simpleCode1,
+                            data = list(Y = Y, x1 = x1, x2 = x2),
+                            constants = list(N = N),
+                            inits = list(beta0 = 0, beta1 = 0, beta2 = 0, sigma = sd(Y), z2 = 1))
+```
+
+Now here are two custom samplers.  The first one will sample beta2 **only** if the indicator variable z2 is 1 (meaning that beta2 is included in the model).  It does this by containing a regular random walk sampler but only calling it when the indicator is 1 (we could perhaps set it up to contain *any* sampler to be used when z2 is 1, but for now it's a random walk sampler).  The second sampler makes reversible jump proposals to move beta2 in and out of the model.  When it is out of the model, both beta2 and z2 are set to zero.  Since beta2 will be zero every time z2 is zero, we don't really need beta2z2, but it ensures correct behavior in other cases, like if someone runs default samplers on the model and expects the indicator variable to do its job correctly.  For use in reversible jump, z2's role is really to trigger the prior probability (set to 0.8 in this example) of being in the model.
+
+```{r}
+
+RW_sampler_nonzero_indicator <- nimbleFunction(
+    contains = sampler_BASE,
+    setup = function(model, mvSaved, target, control) {
+        regular_RW_sampler <- sampler_RW(model, mvSaved, target = target, control = control$control)
+        indicatorNode <- control$indicator
+    },
+    run = function() {
+        if(model[[indicatorNode]] == 1) regular_RW_sampler$run()
+    },
+    methods = list(
+        reset = function() {regular_RW_sampler$reset()}
+    ))
+
+RJindicatorSampler <- nimbleFunction(
+    contains = sampler_BASE,
+    setup = function( model, mvSaved, target, control ) {
+        ## target should be the name of the indicator node, 'z2' above
+        ## control should have an element called coef for the name of the corresponding coefficient ('beta2' above.  This could potentially be determined from the model structure, but for now I won't try that.)
+        coefNode <- control$coef
+        scale <- control$scale
+        calcNodes <- model$getDependencies(c(coefNode, target))
+    },
+    run = function( ) {
+        currentIndicator <- model[[target]]
+        currentLogProb <- model$getLogProb(calcNodes)
+        if(currentIndicator == 1) {
+            ## propose removing it
+            currentCoef <- model[[coefNode]]
+            logProbReverseProposal <- dnorm(0, currentCoef, sd = scale, log = TRUE)
+            model[[target]] <<- 0
+            model[[coefNode]] <<- 0
+            proposalLogProb <- model$calculate(calcNodes)
+            log_accept_prob <- proposalLogProb - currentLogProb - logProbReverseProposal
+        } else {
+            ## propose adding it
+            proposalCoef <- rnorm(1, 0, sd = scale)
+            model[[target]] <<- 1
+            model[[coefNode]] <<- proposalCoef
+            logProbForwardProposal <- dnorm(0, proposalCoef, sd = scale, log = TRUE)
+            proposalLogProb <- model$calculate(calcNodes)
+            log_accept_prob <- proposalLogProb - currentLogProb + logProbForwardProposal
+        }
+        accept <- decide(log_accept_prob)
+        if(accept) {
+            copy(from = model, to = mvSaved, row = 1, nodes = calcNodes, logProb = TRUE)
+        } else {
+            copy(from = mvSaved, to = model, row = 1, nodes = calcNodes, logProb = TRUE)
+        }
+    },
+    methods = list(reset = function() {
+    })
+    )
+
+```
+
+Now we'll set up and run the samplers:
+```{r}
+mcmcConf1 <- configureMCMC(simpleModel1)
+mcmcConf1$removeSamplers('z2')
+mcmcConf1$addSampler(target = 'z2', type = RJindicatorSampler, control = list(scale = 1, coef = 'beta2'))
+mcmcConf1$removeSamplers('beta2')
+## A future idea is to allow defaults for control parameters to avoid this long list passed through the regular RW sampler
+mcmcConf1$addSampler(target = 'beta2', type = 'RW_sampler_nonzero_indicator', control = list(indicator = 'z2', control = list(adaptive = TRUE, adaptInterval = 100, scale = 1, log = FALSE, reflective = FALSE)))
+
+mcmc1 <- buildMCMC(mcmcConf1)
+compiled1 <- compileNimble(simpleModel1, mcmc1)
+compiled1$mcmc1$run(10000)
+
+samples1 <- as.matrix(compiled1$mcmc1$mvSamples)
+plot(samples1[,'beta2'])
+plot(samples1[,'z2'])
+```
+
+I think that looks reasonable.
+
+As a quick check of reasonableness, I want to compare the beta2 samples to what we'd get if it was always included in the model.  I'll do that by setting up default samplers and then removing the sampler for z2 (and z2 should be 1).
+
+```{r}
+mcmcConf1b <- configureMCMC(simpleModel1)
+mcmcConf1b$removeSamplers('z2')
+mcmc1b <- buildMCMC(mcmcConf1b)
+compiled1b <- compileNimble(simpleModel1, mcmc1b)
+compiled1b$mcmc1b$run(10000)
+
+samples1b <- as.matrix(compiled1b$mcmc1b$mvSamples)
+plot(samples1b[,'beta2'])
+qqplot(samples1[ samples1[,'z2'] == 1, 'beta2'], samples1b[,'beta2'])
+abline(0,1)
+```
+
+Is that ok?
+
+Now I'll set up the second version of the model and samplers.  These will not write indicator variables in the model but will instead include the prior for inclusion in the sampler.  One added bit of generality is that being "out of the model" will be defined as taking some fixedValue, to be provided, which will often but not necessarily be zero.
+
+```{r}
+simpleCode2 <- nimbleCode({
+    beta0 ~ dnorm(0, sd = 100)
+    beta1 ~ dnorm(0, sd = 100)
+    beta2 ~ dnorm(0, sd = 100)
+    sigma ~ dunif(0, 100)
+    for(i in 1:N) {
+        Ypred[i] <- beta0 + beta1 * x1[i] + beta2 * x2[i]
+        Y[i] ~ dnorm(Ypred[i], sd = sigma)
+    }
+})
+
+simpleModel2 <- nimbleModel(simpleCode2, data = list(Y = Y, x1 = x1, x2 = x2), constants = list(N = N), inits = list(beta0 = 0, beta1 = 0, beta2 = 0, sigma = sd(Y)))
+```
+
+Here are the samplers:
+```{r}
+
+RW_sampler_nonzero <- nimbleFunction(
+    ## actually "nonzero" isn't an accurate name.  It takes a fixedValue control parameter that will typically be zero
+    contains = sampler_BASE,
+    setup = function(model, mvSaved, target, control) {
+        regular_RW_sampler <- sampler_RW(model, mvSaved, target = target, control = control$control)
+        fixedValue <- control$fixedValue
+    },
+    run = function() {
+        if(model[[target]] != fixedValue) regular_RW_sampler$run()
+    },
+    methods = list(
+        reset = function() {regular_RW_sampler$reset()}
+    ))
+
+RJsampler <- nimbleFunction(
+    contains = sampler_BASE,
+    setup = function( model, mvSaved, target, control ) {
+        ## target should be a coefficient to be set to a fixed value (usually zero) or not
+        ## control should have an element called fixedValue (usually 0), a scale for jumps to and from the fixedValue, and a prior prob of taking its fixedValue
+        fixedValue <- control$fixedValue
+        scale <- control$scale
+        logRatioProbFixedOverProbNotFixed <- log(control$prior) - log(1-control$prior)
+        calcNodes <- model$getDependencies(target)
+    },
+    run = function( ) {
+        currentValue <- model[[target]]
+        currentLogProb <- model$getLogProb(calcNodes)
+        if(currentValue != fixedValue) {
+            ## propose removing it (setting it to fixedValue)
+            logProbReverseProposal <- dnorm(fixedValue, currentValue, sd = scale, log = TRUE)
+            model[[target]] <<- fixedValue
+            proposalLogProb <- model$calculate(calcNodes) 
+            log_accept_prob <- proposalLogProb - currentLogProb - logRatioProbFixedOverProbNotFixed - logProbReverseProposal
+        } else {
+            ## propose adding it
+            proposalValue <- rnorm(1, fixedValue, sd = scale)
+            model[[target]] <<- proposalValue
+            logProbForwardProposal <- dnorm(fixedValue, proposalValue, sd = scale, log = TRUE)
+            proposalLogProb <- model$calculate(calcNodes)
+            log_accept_prob <- proposalLogProb - currentLogProb + logRatioProbFixedOverProbNotFixed + logProbForwardProposal
+        }
+        accept <- decide(log_accept_prob)
+        if(accept) {
+            copy(from = model, to = mvSaved, row = 1, nodes = calcNodes, logProb = TRUE)
+        } else {
+            copy(from = mvSaved, to = model, row = 1, nodes = calcNodes, logProb = TRUE)
+        }
+    },
+    methods = list(reset = function() {
+    })
+    )
+
+```
+
+Now set up and use the samplers
+
+```{r}
+mcmcConf2 <- configureMCMC(simpleModel2)
+mcmcConf2$removeSamplers('beta2')
+
+## BTW (DT), this does not notice if scale is provided or not
+mcmcConf2$addSampler(target = 'beta2', type = 'RJsampler', control = list(fixedValue = 0, prior = 0.8, scale = 1))
+mcmcConf2$addSampler(target = 'beta2', type = 'RW_sampler_nonzero', control = list(fixedValue = 0, control = list(adaptive = TRUE, adaptInterval = 100, scale = 1, log = FALSE, reflective = FALSE)))
+
+mcmc2 <- buildMCMC(mcmcConf2)
+compiled2 <- compileNimble(simpleModel2, mcmc2)
+
+compiled2$mcmc2$run(10000)
+samples2 <- as.matrix(compiled2$mcmc2$mvSamples)
+plot(samples2[,'beta2'])
+```
+
+Now I want to compare those results to results from the first method, above.  They should match.
+```{r}
+mean(samples1[,'beta2']==0)
+mean(samples2[,'beta2']==0)
+qqplot(samples1[ samples1[,'beta2'] != 0,'beta2'], samples2[samples2[,'beta2'] != 0,'beta2'])
+abline(0,1)
+```
+
+They match well.
