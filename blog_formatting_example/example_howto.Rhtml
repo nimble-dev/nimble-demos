@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Using NIMBLE in a neat way</title>
+</head>
+<body>
+<!--begin.rcode, echo=FALSE
+  library(knitr)
+  opts_chunk$set(fig.width=3, fig.height=3)
+  end.rcode-->
+
+<p> This is an example to show NIMBLE doing something neat. </p>
+
+<!--begin.rcode set-up-model, message=FALSE
+library(nimble)
+
+code <- nimbleCode({
+  a ~ dnorm(0,1)
+  b ~ dnorm(a, 1)
+})
+  end.rcode-->
+
+Now that we have written code for a model, let's build the model.
+
+<!--begin.rcode build-model
+model <- nimbleModel(code)
+end.rcode-->
+
+And let's see if this can make a graph nicely
+<!--begin.rcode graph-trial>
+##plot(1:20, 1:20, pch = 1:20)
+end.rcode-->
+
+And here is an equation [latex]X = Y + Z[/latex].
+
+</body>
+</html>
