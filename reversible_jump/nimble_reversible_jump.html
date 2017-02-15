@@ -70,23 +70,27 @@
 
 
 <section>
-<h1> Introduction </h1>
-<p> Reversible jump Markov chain Monte Carlo (RJMCMC) is a powerful method for drawing posterior samples over multiple models by jumping between models as part of the sampling.  For a simple example that I'll use below, think about a regression model where we don't know which explanatory variables to include, so we want to do variable selection.  There may be a huge number of possible combinations of variables, so it would be nice to explore the combinations as part of one MCMC run rather than running many different MCMCs on some chosen combinations of variables.  To do it in one MCMC, one can imagine the actual model being sampled to include all possible variables and coefficients. Then "removing" a variable from the model is equivalent to setting its coefficient to zero, and "adding" it back into the model requires a valid move to a non-zero coefficient.  Reversible jump MCMC methods provide a valid way to do that. </p>
+<h1> Writing reversible jump MCMC samplers in NIMBLE </h1>
 
-<p>Reversible jump is different enough from other MCMC situations that packages like WinBUGS, OpenBUGS and JAGS don't do it.  A common alternative that does not involve the technicality of changing model dimension is to use indicator variables.  An indicator variable is either zero or one and is multiplied by another parameter.  Thus when the indicator is 0, the parameter that is multipled by 0 is effectively removed from the model.  Darren Wilkison has a nice old <a href="https://darrenjw.wordpress.com/2012/11/20/getting-started-with-bayesian-variable-selection-using-jags-and-rjags/">blog post on using indicator variables for Bayesian variable selection</a> in BUGS code.  The problem with using indicator variables is that they can create a lot of extra MCMC work and the samplers operating on them may not be well designed for their situation.</p>
+<h2> Introduction </h2>
+<p> Reversible jump Markov chain Monte Carlo (RJMCMC) is a powerful method for drawing posterior samples over multiple models by jumping between models as part of the sampling.  For a simple example that I'll use below, think about a regression model where we don't know which explanatory variables to include, so we want to do variable selection.  There may be a huge number of possible combinations of variables, so it would be nice to explore the combinations as part of one MCMC run rather than running many different MCMCs on some chosen combinations of variables.  To do it in one MCMC, one sets up a model that includes all possible variables and coefficients. Then "removing" a variable from the model is equivalent to setting its coefficient to zero, and "adding" it back into the model requires a valid move to a non-zero coefficient.  Reversible jump MCMC methods provide a way to do that. </p>
 
-<p>NIMBLE lets one program model-generic algorithms to use models written in the BUGS language.  The MCMC system works by first making a configuration in R, which can be modified by a user or a program, and then building and compiling the MCMC.  The nimbleFunction programming system makes it easy to write new kinds of samplers.  The aim of this blog post is to illustrate how one can write reversible jump MCMC in NIMBLE really easily.  Maybe we'll build this into NIMBLE in the future. </p>
+<p>Reversible jump is different enough from other MCMC situations that packages like WinBUGS, OpenBUGS, JAGS, and Stan don't do it.  An alternative way to set up the problem, which does not involve the technicality of changing model dimension, is to use indicator variables.  An indicator variable is either zero or one and is multiplied by another parameter.  Thus when the indicator is 0, the parameter that is multipled by 0 is effectively removed from the model.  Darren Wilkinson has a nice old <a href="https://darrenjw.wordpress.com/2012/11/20/getting-started-with-bayesian-variable-selection-using-jags-and-rjags/">blog post on using indicator variables for Bayesian variable selection</a> in BUGS code.  The problem with using indicator variables is that they can create a lot of extra MCMC work and the samplers operating on them may not be well designed for their situation.</p>
+
+<p>NIMBLE lets one program model-generic algorithms to use with models written in the BUGS language.  The MCMC system works by first making a configuration in R, which can be modified by a user or a program, and then building and compiling the MCMC.  The nimbleFunction programming system makes it easy to write new kinds of samplers.</p>
+
+<p>The aim of this blog post is to illustrate how one can write reversible jump MCMC in NIMBLE.  A variant of this may be incorporated into a later version of NIMBLE. </p>
 </section>
 
 <section>
-<h1> Example model </h1>
+<h2> Example model </h2>
 
 
-<p>For illustration, I'll use an extremely simply model: linear regression with two candidate explanatory variables.  I'll assume the first, x1, should definitely be included.  But the analyst is not sure about the second, x2, and wants to use reversible jump to include it or exclude it from the model.  I won't deal with the issue of choosing the prior probability that it should be in the model. Instead I'll just pick a simple choice and stay focused on the reversible jump aspect of the example.  The methods below could be applied en masse to large models.</p> 
+<p>For illustration, I'll use an extremely simple model: linear regression with two candidate explanatory variables.  I'll assume the first, x1, should definitely be included.  But the analyst is not sure about the second, x2, and wants to use reversible jump to include it or exclude it from the model.  I won't deal with the issue of choosing the prior probability that it should be in the model. Instead I'll just pick a simple choice and stay focused on the reversible jump aspect of the example.  The methods below could be applied en masse to large models.</p> 
 
 
 
-<p> Here is data simulate I'll use:</p>
+<p> Here I'll simulate data to use:</p>
 
 <div class="chunk" id="simulate-data"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">N</span> <span class="hl kwb">&lt;-</span> <span class="hl num">20</span>
 <span class="hl std">x1</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">runif</span><span class="hl std">(N,</span> <span class="hl opt">-</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">)</span>
@@ -105,7 +109,7 @@
 </section>
 
 <section>
-<h1> RJMCMC implementation 1, with indicator variable included </h1>
+<h2> RJMCMC implementation 1, with indicator variable included </h2>
 
 <p> Here is BUGS code for the first method, with an indicator variable written into the model, and the creation of a NIMBLE model object from it.  Note that although RJMCMC technically jumps between models of different dimensions, we still start by creating the largest model so that changes of dimension can occur by setting some parameters to zero (or, in the second method, possibly another fixed value). </p>
 
@@ -131,12 +135,12 @@
 
 <p> Now here are two custom samplers.  The first one will sample beta2 <i>only</i> if the indicator variable z2 is 1 (meaning that beta2 is included in the model).  It does this by containing a regular random walk sampler but only calling it when the indicator is 1 (we could perhaps set it up to contain <i>any</i> sampler to be used when z2 is 1, but for now it's a random walk sampler).  The second sampler makes reversible jump proposals to move beta2 in and out of the model.  When it is out of the model, both beta2 and z2 are set to zero.  Since beta2 will be zero every time z2 is zero, we don't really need beta2z2, but it ensures correct behavior in other cases, like if someone runs default samplers on the model and expects the indicator variable to do its job correctly.  For use in reversible jump, z2's role is really to trigger the prior probability (set to 0.8 in this example) of being in the model. </p>
 
-<p> <i>Don't worry about the warning message emitted by NIMBLE.</i>  When a nimbleFunction is defined it tries to make sure the user knows anything else that needs to be defined.</p>
+<p> <i>Don't worry about the warning message emitted by NIMBLE.</i>  They are there because when a nimbleFunction is defined it tries to make sure the user knows anything else that needs to be defined.</p>
 
 <div class="chunk" id="first-samplers"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">RW_sampler_nonzero_indicator</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">nimbleFunction</span><span class="hl std">(</span>
     <span class="hl kwc">contains</span> <span class="hl std">= sampler_BASE,</span>
     <span class="hl kwc">setup</span> <span class="hl std">=</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">model</span><span class="hl std">,</span> <span class="hl kwc">mvSaved</span><span class="hl std">,</span> <span class="hl kwc">target</span><span class="hl std">,</span> <span class="hl kwc">control</span><span class="hl std">) {</span>
-        <span class="hl std">regular_RW_sampler</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sampler_RW</span><span class="hl std">(model, mvSaved,</span> <span class="hl kwc">target</span> <span class="hl std">= target,</span> <span class="hl kwc">control</span> <span class="hl std">= control</span><span class="hl opt">$</span><span class="hl std">control)</span>
+        <span class="hl std">regular_RW_sampler</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sampler_RW</span><span class="hl std">(model, mvSaved,</span> <span class="hl kwc">target</span> <span class="hl std">= target,</span> <span class="hl kwc">control</span> <span class="hl std">= control</span><span class="hl opt">$</span><span class="hl std">RWcontrol)</span>
         <span class="hl std">indicatorNode</span> <span class="hl kwb">&lt;-</span> <span class="hl std">control</span><span class="hl opt">$</span><span class="hl std">indicator</span>
     <span class="hl std">},</span>
     <span class="hl kwc">run</span> <span class="hl std">=</span> <span class="hl kwa">function</span><span class="hl std">() {</span>
@@ -202,7 +206,7 @@
 <span class="hl std">mcmcConf1</span><span class="hl opt">$</span><span class="hl kwd">addSampler</span><span class="hl std">(</span><span class="hl kwc">target</span> <span class="hl std">=</span> <span class="hl str">'beta2'</span><span class="hl std">,</span>
                      <span class="hl kwc">type</span> <span class="hl std">=</span> <span class="hl str">'RW_sampler_nonzero_indicator'</span><span class="hl std">,</span>
                      <span class="hl kwc">control</span> <span class="hl std">=</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">indicator</span> <span class="hl std">=</span> <span class="hl str">'z2'</span><span class="hl std">,</span>
-                                    <span class="hl kwc">control</span> <span class="hl std">=</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">adaptive</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">,</span>
+                                    <span class="hl kwc">RWcontrol</span> <span class="hl std">=</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">adaptive</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">,</span>
                                                    <span class="hl kwc">adaptInterval</span> <span class="hl std">=</span> <span class="hl num">100</span><span class="hl std">,</span>
                                                    <span class="hl kwc">scale</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span>
                                                    <span class="hl kwc">log</span> <span class="hl std">=</span> <span class="hl num">FALSE</span><span class="hl std">,</span>
@@ -218,14 +222,20 @@
 <div class="output"><pre class="knitr r">## NULL
 </pre></div>
 <div class="source"><pre class="knitr r"><span class="hl std">samples1</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">as.matrix</span><span class="hl std">(compiled1</span><span class="hl opt">$</span><span class="hl std">mcmc1</span><span class="hl opt">$</span><span class="hl std">mvSamples)</span>
-<span class="hl kwd">plot</span><span class="hl std">(samples1[,</span><span class="hl str">'beta2'</span><span class="hl std">])</span>
 </pre></div>
-</div><div class="rimage default"><img src="figure/run-first-samplers-1.png" title="plot of chunk run-first-samplers" alt="plot of chunk run-first-samplers" class="plot" /></div><div class="rcode">
-<div class="source"><pre class="knitr r"><span class="hl kwd">plot</span><span class="hl std">(samples1[,</span><span class="hl str">'z2'</span><span class="hl std">])</span>
-</pre></div>
-</div><div class="rimage default"><img src="figure/run-first-samplers-2.png" title="plot of chunk run-first-samplers" alt="plot of chunk run-first-samplers" class="plot" /></div></div>
+</div></div>
 
-<p>That chain looks reasonable.</p>
+<p>Here is a trace plot of the beta2 (slope) samples.  The thick line at zero corresponds to having beta2 removed from the model. </p>
+<div class="chunk" id="plot1"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">plot</span><span class="hl std">(samples1[,</span><span class="hl str">'beta2'</span><span class="hl std">])</span>
+</pre></div>
+</div><div class="rimage default"><img src="figure/plot1-1.png" title="plot of chunk plot1" alt="plot of chunk plot1" class="plot" /></div></div>
+
+<p>And here is a trace plot of the z2 (indicator variable) samples.</p>
+<div class="chunk" id="plot2"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">plot</span><span class="hl std">(samples1[,</span><span class="hl str">'z2'</span><span class="hl std">])</span>
+</pre></div>
+</div><div class="rimage default"><img src="figure/plot2-1.png" title="plot of chunk plot2" alt="plot of chunk plot2" class="plot" /></div></div>
+
+<p>The chains look reasonable.</p>
 
 <p>As a quick check of reasonableness, let's compare the beta2 samples to what we'd get if it was always included in the model.  I'll do that by setting up default samplers and then removing the sampler for z2 (and z2 should be 1).</p>
 
@@ -254,8 +264,10 @@ that it's in the model (using reversible jump) should match the distribution of 
 always in the model.</p>
 
 <section>
-<h1> RJ implementation 2, without indicator variables </h1>
-<p>Now I'll set up the second version of the model and samplers.  These will not write indicator variables in the model but will instead include the prior for inclusion in the sampler.  One added bit of generality is that being "out of the model" will be defined as taking some fixedValue, to be provided, which will typically but not necessarily be zero.</p>
+<h2> RJ implementation 2, without indicator variables </h2>
+<p>Now I'll set up the second version of the model and samplers.  I won't include the indicator variable in the model but will instead include the prior probability for inclusion in the sampler.  One added bit of generality is that being "out of the model" will be defined as taking some fixedValue, to be provided, which will typically but not necessarily be zero.  These functions are very similar to the ones above.</p>
+
+
 
 <p> Here is the code to define and build a model without the indicator variable:</p>
 
@@ -283,10 +295,11 @@ always in the model.</p>
     <span class="hl com">## &quot;nonzero&quot; is a misnomer because it can check whether it sits at any fixedValue, not just 0</span>
     <span class="hl kwc">contains</span> <span class="hl std">= sampler_BASE,</span>
     <span class="hl kwc">setup</span> <span class="hl std">=</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">model</span><span class="hl std">,</span> <span class="hl kwc">mvSaved</span><span class="hl std">,</span> <span class="hl kwc">target</span><span class="hl std">,</span> <span class="hl kwc">control</span><span class="hl std">) {</span>
-        <span class="hl std">regular_RW_sampler</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sampler_RW</span><span class="hl std">(model, mvSaved,</span> <span class="hl kwc">target</span> <span class="hl std">= target,</span> <span class="hl kwc">control</span> <span class="hl std">= control</span><span class="hl opt">$</span><span class="hl std">control)</span>
+        <span class="hl std">regular_RW_sampler</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sampler_RW</span><span class="hl std">(model, mvSaved,</span> <span class="hl kwc">target</span> <span class="hl std">= target,</span> <span class="hl kwc">control</span> <span class="hl std">= control</span><span class="hl opt">$</span><span class="hl std">RWcontrol)</span>
         <span class="hl std">fixedValue</span> <span class="hl kwb">&lt;-</span> <span class="hl std">control</span><span class="hl opt">$</span><span class="hl std">fixedValue</span>
     <span class="hl std">},</span>
-    <span class="hl kwc">run</span> <span class="hl std">=</span> <span class="hl kwa">function</span><span class="hl std">() {</span>
+    <span class="hl kwc">run</span> <span class="hl std">=</span> <span class="hl kwa">function</span><span class="hl std">() {</span> <span class="hl com">## Now there is no indicator variable, so check if the target node is exactly</span>
+                       <span class="hl com">## equal to the fixedValue representing &quot;not in the model&quot;.</span>
         <span class="hl kwa">if</span><span class="hl std">(model[[target]]</span> <span class="hl opt">!=</span> <span class="hl std">fixedValue) regular_RW_sampler</span><span class="hl opt">$</span><span class="hl kwd">run</span><span class="hl std">()</span>
     <span class="hl std">},</span>
     <span class="hl kwc">methods</span> <span class="hl std">=</span> <span class="hl kwd">list</span><span class="hl std">(</span>
@@ -306,13 +319,15 @@ always in the model.</p>
         <span class="hl com">##    and a prior prob of taking its fixedValue</span>
         <span class="hl std">fixedValue</span> <span class="hl kwb">&lt;-</span> <span class="hl std">control</span><span class="hl opt">$</span><span class="hl std">fixedValue</span>
         <span class="hl std">scale</span> <span class="hl kwb">&lt;-</span> <span class="hl std">control</span><span class="hl opt">$</span><span class="hl std">scale</span>
+        <span class="hl com">## The control list contains the prior probability of inclusion, and we can pre-calculate</span>
+        <span class="hl com">## this log ratio because it's what we'll need later.</span>
         <span class="hl std">logRatioProbFixedOverProbNotFixed</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">log</span><span class="hl std">(control</span><span class="hl opt">$</span><span class="hl std">prior)</span> <span class="hl opt">-</span> <span class="hl kwd">log</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">-</span><span class="hl std">control</span><span class="hl opt">$</span><span class="hl std">prior)</span>
         <span class="hl std">calcNodes</span> <span class="hl kwb">&lt;-</span> <span class="hl std">model</span><span class="hl opt">$</span><span class="hl kwd">getDependencies</span><span class="hl std">(target)</span>
     <span class="hl std">},</span>
     <span class="hl kwc">run</span> <span class="hl std">=</span> <span class="hl kwa">function</span><span class="hl std">( ) {</span> <span class="hl com">## The reversible-jump moves happen here</span>
         <span class="hl std">currentValue</span> <span class="hl kwb">&lt;-</span> <span class="hl std">model[[target]]</span>
         <span class="hl std">currentLogProb</span> <span class="hl kwb">&lt;-</span> <span class="hl std">model</span><span class="hl opt">$</span><span class="hl kwd">getLogProb</span><span class="hl std">(calcNodes)</span>
-        <span class="hl kwa">if</span><span class="hl std">(currentValue</span> <span class="hl opt">!=</span> <span class="hl std">fixedValue) {</span>
+        <span class="hl kwa">if</span><span class="hl std">(currentValue</span> <span class="hl opt">!=</span> <span class="hl std">fixedValue) {</span> <span class="hl com">## There is no indicator variable, so check if current value matches fixedValue</span>
             <span class="hl com">## propose removing it (setting it to fixedValue)</span>
             <span class="hl std">logProbReverseProposal</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">dnorm</span><span class="hl std">(fixedValue, currentValue,</span> <span class="hl kwc">sd</span> <span class="hl std">= scale,</span> <span class="hl kwc">log</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
             <span class="hl std">model[[target]]</span> <span class="hl kwb">&lt;&lt;-</span> <span class="hl std">fixedValue</span>
@@ -350,7 +365,7 @@ always in the model.</p>
 <span class="hl std">mcmcConf2</span><span class="hl opt">$</span><span class="hl kwd">addSampler</span><span class="hl std">(</span><span class="hl kwc">target</span> <span class="hl std">=</span> <span class="hl str">'beta2'</span><span class="hl std">,</span>
                      <span class="hl kwc">type</span> <span class="hl std">=</span> <span class="hl str">'RW_sampler_nonzero'</span><span class="hl std">,</span>
                      <span class="hl kwc">control</span> <span class="hl std">=</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">fixedValue</span> <span class="hl std">=</span> <span class="hl num">0</span><span class="hl std">,</span>
-                                     <span class="hl kwc">control</span> <span class="hl std">=</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">adaptive</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">,</span>
+                                     <span class="hl kwc">RWcontrol</span> <span class="hl std">=</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">adaptive</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">,</span>
                                      <span class="hl kwc">adaptInterval</span> <span class="hl std">=</span> <span class="hl num">100</span><span class="hl std">,</span>
                                      <span class="hl kwc">scale</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span>
                                      <span class="hl kwc">log</span> <span class="hl std">=</span> <span class="hl num">FALSE</span><span class="hl std">,</span>
@@ -367,9 +382,13 @@ always in the model.</p>
 <div class="output"><pre class="knitr r">## NULL
 </pre></div>
 <div class="source"><pre class="knitr r"><span class="hl std">samples2</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">as.matrix</span><span class="hl std">(compiled2</span><span class="hl opt">$</span><span class="hl std">mcmc2</span><span class="hl opt">$</span><span class="hl std">mvSamples)</span>
-<span class="hl kwd">plot</span><span class="hl std">(samples2[,</span><span class="hl str">'beta2'</span><span class="hl std">])</span>
 </pre></div>
-</div><div class="rimage default"><img src="figure/run-second-samplers-1.png" title="plot of chunk run-second-samplers" alt="plot of chunk run-second-samplers" class="plot" /></div></div>
+</div></div>
+
+<p> And again let's look at the samples.  As above, the horizontal line at 0 represents having beta2 removed from the model. </p>
+<div class="chunk" id="plot3"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">plot</span><span class="hl std">(samples2[,</span><span class="hl str">'beta2'</span><span class="hl std">])</span>
+</pre></div>
+</div><div class="rimage default"><img src="figure/plot3-1.png" title="plot of chunk plot3" alt="plot of chunk plot3" class="plot" /></div></div>
 
 
 Now let's compare those results to results from the first method, above.  They should match.

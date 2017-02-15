@@ -11,25 +11,29 @@
   end.rcode-->
 
 <section>
-<h1> Introduction </h1>
-<p> Reversible jump Markov chain Monte Carlo (RJMCMC) is a powerful method for drawing posterior samples over multiple models by jumping between models as part of the sampling.  For a simple example that I'll use below, think about a regression model where we don't know which explanatory variables to include, so we want to do variable selection.  There may be a huge number of possible combinations of variables, so it would be nice to explore the combinations as part of one MCMC run rather than running many different MCMCs on some chosen combinations of variables.  To do it in one MCMC, one can imagine the actual model being sampled to include all possible variables and coefficients. Then "removing" a variable from the model is equivalent to setting its coefficient to zero, and "adding" it back into the model requires a valid move to a non-zero coefficient.  Reversible jump MCMC methods provide a valid way to do that. </p>
+<h1> Writing reversible jump MCMC samplers in NIMBLE </h1>
 
-<p>Reversible jump is different enough from other MCMC situations that packages like WinBUGS, OpenBUGS and JAGS don't do it.  A common alternative that does not involve the technicality of changing model dimension is to use indicator variables.  An indicator variable is either zero or one and is multiplied by another parameter.  Thus when the indicator is 0, the parameter that is multipled by 0 is effectively removed from the model.  Darren Wilkison has a nice old <a href="https://darrenjw.wordpress.com/2012/11/20/getting-started-with-bayesian-variable-selection-using-jags-and-rjags/">blog post on using indicator variables for Bayesian variable selection</a> in BUGS code.  The problem with using indicator variables is that they can create a lot of extra MCMC work and the samplers operating on them may not be well designed for their situation.</p>
+<h2> Introduction </h2>
+<p> Reversible jump Markov chain Monte Carlo (RJMCMC) is a powerful method for drawing posterior samples over multiple models by jumping between models as part of the sampling.  For a simple example that I'll use below, think about a regression model where we don't know which explanatory variables to include, so we want to do variable selection.  There may be a huge number of possible combinations of variables, so it would be nice to explore the combinations as part of one MCMC run rather than running many different MCMCs on some chosen combinations of variables.  To do it in one MCMC, one sets up a model that includes all possible variables and coefficients. Then "removing" a variable from the model is equivalent to setting its coefficient to zero, and "adding" it back into the model requires a valid move to a non-zero coefficient.  Reversible jump MCMC methods provide a way to do that. </p>
 
-<p>NIMBLE lets one program model-generic algorithms to use models written in the BUGS language.  The MCMC system works by first making a configuration in R, which can be modified by a user or a program, and then building and compiling the MCMC.  The nimbleFunction programming system makes it easy to write new kinds of samplers.  The aim of this blog post is to illustrate how one can write reversible jump MCMC in NIMBLE really easily.  Maybe we'll build this into NIMBLE in the future. </p>
+<p>Reversible jump is different enough from other MCMC situations that packages like WinBUGS, OpenBUGS, JAGS, and Stan don't do it.  An alternative way to set up the problem, which does not involve the technicality of changing model dimension, is to use indicator variables.  An indicator variable is either zero or one and is multiplied by another parameter.  Thus when the indicator is 0, the parameter that is multipled by 0 is effectively removed from the model.  Darren Wilkinson has a nice old <a href="https://darrenjw.wordpress.com/2012/11/20/getting-started-with-bayesian-variable-selection-using-jags-and-rjags/">blog post on using indicator variables for Bayesian variable selection</a> in BUGS code.  The problem with using indicator variables is that they can create a lot of extra MCMC work and the samplers operating on them may not be well designed for their situation.</p>
+
+<p>NIMBLE lets one program model-generic algorithms to use with models written in the BUGS language.  The MCMC system works by first making a configuration in R, which can be modified by a user or a program, and then building and compiling the MCMC.  The nimbleFunction programming system makes it easy to write new kinds of samplers.</p>
+
+<p>The aim of this blog post is to illustrate how one can write reversible jump MCMC in NIMBLE.  A variant of this may be incorporated into a later version of NIMBLE. </p>
 </section>
 
 <section>
-<h1> Example model </h1>
+<h2> Example model </h2>
 
 
-<p>For illustration, I'll use an extremely simply model: linear regression with two candidate explanatory variables.  I'll assume the first, x1, should definitely be included.  But the analyst is not sure about the second, x2, and wants to use reversible jump to include it or exclude it from the model.  I won't deal with the issue of choosing the prior probability that it should be in the model. Instead I'll just pick a simple choice and stay focused on the reversible jump aspect of the example.  The methods below could be applied en masse to large models.</p> 
+<p>For illustration, I'll use an extremely simple model: linear regression with two candidate explanatory variables.  I'll assume the first, x1, should definitely be included.  But the analyst is not sure about the second, x2, and wants to use reversible jump to include it or exclude it from the model.  I won't deal with the issue of choosing the prior probability that it should be in the model. Instead I'll just pick a simple choice and stay focused on the reversible jump aspect of the example.  The methods below could be applied en masse to large models.</p> 
 
 <!--begin.rcode set-seed, echo=FALSE, message=FALSE
 set.seed(192837)
 end.rcode-->
 
-<p> Here is data simulate I'll use:</p>
+<p> Here I'll simulate data to use:</p>
 
 <!--begin.rcode simulate-data, message=FALSE
 N <- 20
@@ -48,7 +52,7 @@ end.rcode-->
 </section>
 
 <section>
-<h1> RJMCMC implementation 1, with indicator variable included </h1>
+<h2> RJMCMC implementation 1, with indicator variable included </h2>
 
 <p> Here is BUGS code for the first method, with an indicator variable written into the model, and the creation of a NIMBLE model object from it.  Note that although RJMCMC technically jumps between models of different dimensions, we still start by creating the largest model so that changes of dimension can occur by setting some parameters to zero (or, in the second method, possibly another fixed value). </p>
 
@@ -75,14 +79,14 @@ end.rcode-->
 
 <p> Now here are two custom samplers.  The first one will sample beta2 <i>only</i> if the indicator variable z2 is 1 (meaning that beta2 is included in the model).  It does this by containing a regular random walk sampler but only calling it when the indicator is 1 (we could perhaps set it up to contain <i>any</i> sampler to be used when z2 is 1, but for now it's a random walk sampler).  The second sampler makes reversible jump proposals to move beta2 in and out of the model.  When it is out of the model, both beta2 and z2 are set to zero.  Since beta2 will be zero every time z2 is zero, we don't really need beta2z2, but it ensures correct behavior in other cases, like if someone runs default samplers on the model and expects the indicator variable to do its job correctly.  For use in reversible jump, z2's role is really to trigger the prior probability (set to 0.8 in this example) of being in the model. </p>
 
-<p> <i>Don't worry about the warning message emitted by NIMBLE.</i>  When a nimbleFunction is defined it tries to make sure the user knows anything else that needs to be defined.</p>
+<p> <i>Don't worry about the warning message emitted by NIMBLE.</i>  They are there because when a nimbleFunction is defined it tries to make sure the user knows anything else that needs to be defined.</p>
 
 <!--begin.rcode first-samplers, message=FALSE
 
 RW_sampler_nonzero_indicator <- nimbleFunction(
     contains = sampler_BASE,
     setup = function(model, mvSaved, target, control) {
-        regular_RW_sampler <- sampler_RW(model, mvSaved, target = target, control = control$control)
+        regular_RW_sampler <- sampler_RW(model, mvSaved, target = target, control = control$RWcontrol)
         indicatorNode <- control$indicator
     },
     run = function() {
@@ -144,7 +148,7 @@ mcmcConf1$removeSamplers('beta2')
 mcmcConf1$addSampler(target = 'beta2',
                      type = 'RW_sampler_nonzero_indicator',
 		     control = list(indicator = 'z2',
-		                    control = list(adaptive = TRUE,
+		                    RWcontrol = list(adaptive = TRUE,
 				                   adaptInterval = 100,
 						   scale = 1,
 						   log = FALSE,
@@ -155,11 +159,19 @@ compiled1 <- compileNimble(simpleModel1, mcmc1)
 compiled1$mcmc1$run(10000)
 
 samples1 <- as.matrix(compiled1$mcmc1$mvSamples)
+end.rcode-->
+
+<p>Here is a trace plot of the beta2 (slope) samples.  The thick line at zero corresponds to having beta2 removed from the model. </p>
+<!--begin.rcode plot1, message=FALSE
 plot(samples1[,'beta2'])
+end.rcode-->
+
+<p>And here is a trace plot of the z2 (indicator variable) samples.</p>
+<!--begin.rcode plot2, message=FALSE
 plot(samples1[,'z2'])
 end.rcode-->
 
-<p>That chain looks reasonable.</p>
+<p>The chains look reasonable.</p>
 
 <p>As a quick check of reasonableness, let's compare the beta2 samples to what we'd get if it was always included in the model.  I'll do that by setting up default samplers and then removing the sampler for z2 (and z2 should be 1).</p>
 
@@ -181,8 +193,10 @@ that it's in the model (using reversible jump) should match the distribution of 
 always in the model.</p>
 
 <section>
-<h1> RJ implementation 2, without indicator variables </h1>
-<p>Now I'll set up the second version of the model and samplers.  These will not write indicator variables in the model but will instead include the prior for inclusion in the sampler.  One added bit of generality is that being "out of the model" will be defined as taking some fixedValue, to be provided, which will typically but not necessarily be zero.</p>
+<h2> RJ implementation 2, without indicator variables </h2>
+<p>Now I'll set up the second version of the model and samplers.  I won't include the indicator variable in the model but will instead include the prior probability for inclusion in the sampler.  One added bit of generality is that being "out of the model" will be defined as taking some fixedValue, to be provided, which will typically but not necessarily be zero.  These functions are very similar to the ones above.</p>
+
+
 
 <p> Here is the code to define and build a model without the indicator variable:</p>
 
@@ -211,10 +225,11 @@ RW_sampler_nonzero <- nimbleFunction(
     ## "nonzero" is a misnomer because it can check whether it sits at any fixedValue, not just 0
     contains = sampler_BASE,
     setup = function(model, mvSaved, target, control) {
-        regular_RW_sampler <- sampler_RW(model, mvSaved, target = target, control = control$control)
+        regular_RW_sampler <- sampler_RW(model, mvSaved, target = target, control = control$RWcontrol)
         fixedValue <- control$fixedValue
     },
-    run = function() {
+    run = function() { ## Now there is no indicator variable, so check if the target node is exactly
+                       ## equal to the fixedValue representing "not in the model".
         if(model[[target]] != fixedValue) regular_RW_sampler$run()
     },
     methods = list(
@@ -230,13 +245,15 @@ RJsampler <- nimbleFunction(
 	##    and a prior prob of taking its fixedValue
         fixedValue <- control$fixedValue
         scale <- control$scale
+        ## The control list contains the prior probability of inclusion, and we can pre-calculate
+        ## this log ratio because it's what we'll need later.
         logRatioProbFixedOverProbNotFixed <- log(control$prior) - log(1-control$prior)
         calcNodes <- model$getDependencies(target)
     },
     run = function( ) { ## The reversible-jump moves happen here
         currentValue <- model[[target]]
         currentLogProb <- model$getLogProb(calcNodes)
-        if(currentValue != fixedValue) {
+        if(currentValue != fixedValue) { ## There is no indicator variable, so check if current value matches fixedValue
             ## propose removing it (setting it to fixedValue)
             logProbReverseProposal <- dnorm(fixedValue, currentValue, sd = scale, log = TRUE)
             model[[target]] <<- fixedValue
@@ -274,7 +291,7 @@ mcmcConf2$addSampler(target = 'beta2',
 mcmcConf2$addSampler(target = 'beta2',
                      type = 'RW_sampler_nonzero',
 		     control = list(fixedValue = 0,
-		                     control = list(adaptive = TRUE,
+		                     RWcontrol = list(adaptive = TRUE,
 				     adaptInterval = 100,
 				     scale = 1,
 				     log = FALSE,
@@ -285,6 +302,10 @@ compiled2 <- compileNimble(simpleModel2, mcmc2)
 
 compiled2$mcmc2$run(10000)
 samples2 <- as.matrix(compiled2$mcmc2$mvSamples)
+end.rcode-->
+
+<p> And again let's look at the samples.  As above, the horizontal line at 0 represents having beta2 removed from the model. </p>
+<!--begin.rcode plot3, message=FALSE
 plot(samples2[,'beta2'])
 end.rcode-->
 
