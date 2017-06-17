@@ -1,7 +1,5 @@
 ### Writing reversible jump samplers in NIMBLE
 
-This is a draft NIMBLE example, with some details to be discussed and/or confirmed.
-
 I'll use a simple example model, a regression with two candidate explanatory variables.  I'll assume the first, x1, should definitely be included.  But the analyst is not sure about the second, x2, and wants to use reversible jump to include it or exclude it from the model.  I won't deal with the issue of choosing the prior probability that it should be in the model.
 
 Here is the data simulatation:
@@ -66,24 +64,30 @@ RJindicatorSampler <- nimbleFunction(
         coefNode <- control$coef
         scale <- control$scale
         calcNodes <- model$getDependencies(c(coefNode, target))
+        ## coefNode not in reduced model so its prior not calculated
+        calcNodesReduced <- model$getDependencies(target)
     },
     run = function( ) {
         currentIndicator <- model[[target]]
-        currentLogProb <- model$getLogProb(calcNodes)
         if(currentIndicator == 1) {
             ## propose removing it
+            currentLogProb <- model$getLogProb(calcNodes)
             currentCoef <- model[[coefNode]]
-            logProbReverseProposal <- dnorm(0, currentCoef, sd = scale, log = TRUE)
+            ## reverse jumping density
+            logProbReverseProposal <- dnorm(currentCoef, 0, sd = scale, log = TRUE)
             model[[target]] <<- 0
             model[[coefNode]] <<- 0
-            proposalLogProb <- model$calculate(calcNodes)
-            log_accept_prob <- proposalLogProb - currentLogProb + logProbReverseProposal
+            model$calculate(calcNodes)
+            ## avoid including prior for coef not in model
+            log_accept_prob <- model$getLogProb(calcNodesReduced) - currentLogProb + logProbReverseProposal
         } else {
             ## propose adding it
+            currentLogProb <- model$getLogProb(calcNodesReduced)
             proposalCoef <- rnorm(1, 0, sd = scale)
             model[[target]] <<- 1
             model[[coefNode]] <<- proposalCoef
-            logProbForwardProposal <- dnorm(0, proposalCoef, sd = scale, log = TRUE)
+            ## jumping density
+            logProbForwardProposal <- dnorm(proposalCoef, 0, sd = scale, log = TRUE)
             proposalLogProb <- model$calculate(calcNodes)
             log_accept_prob <- proposalLogProb - currentLogProb - logProbForwardProposal
         }
@@ -182,21 +186,23 @@ RJsampler <- nimbleFunction(
         scale <- control$scale
         logRatioProbFixedOverProbNotFixed <- log(control$prior) - log(1-control$prior)
         calcNodes <- model$getDependencies(target)
+        calcNodesReduced <- model$getDependencies(target, self = FALSE)
     },
     run = function( ) {
         currentValue <- model[[target]]
-        currentLogProb <- model$getLogProb(calcNodes)
         if(currentValue != fixedValue) {
             ## propose removing it (setting it to fixedValue)
-            logProbReverseProposal <- dnorm(fixedValue, currentValue, sd = scale, log = TRUE)
+            currentLogProb <- model$getLogProb(calcNodes)
+            logProbReverseProposal <- dnorm(currentValue, fixedValue, sd = scale, log = TRUE)
             model[[target]] <<- fixedValue
-            proposalLogProb <- model$calculate(calcNodes) 
-            log_accept_prob <- proposalLogProb - currentLogProb - logRatioProbFixedOverProbNotFixed + logProbReverseProposal
+            model$calculate(calcNodes) 
+            log_accept_prob <- model$getLogProb(calcNodesReduced) - currentLogProb - logRatioProbFixedOverProbNotFixed + logProbReverseProposal
         } else {
             ## propose adding it
+            currentLogProb <- model$getLogProb(calcNodesReduced)
             proposalValue <- rnorm(1, fixedValue, sd = scale)
             model[[target]] <<- proposalValue
-            logProbForwardProposal <- dnorm(fixedValue, proposalValue, sd = scale, log = TRUE)
+            logProbForwardProposal <- dnorm(proposalValue, fixedValue, sd = scale, log = TRUE)
             proposalLogProb <- model$calculate(calcNodes)
             log_accept_prob <- proposalLogProb - currentLogProb + logRatioProbFixedOverProbNotFixed - logProbForwardProposal
         }
@@ -219,7 +225,6 @@ Now set up and use the samplers
 mcmcConf2 <- configureMCMC(simpleModel2)
 mcmcConf2$removeSamplers('beta2')
 
-## BTW (DT), this does not notice if scale is provided or not
 mcmcConf2$addSampler(target = 'beta2', type = 'RJsampler', control = list(fixedValue = 0, prior = 0.8, scale = 1))
 mcmcConf2$addSampler(target = 'beta2', type = 'RW_sampler_nonzero', control = list(fixedValue = 0, control = list(adaptive = TRUE, adaptInterval = 100, scale = 1, log = FALSE, reflective = FALSE)))
 
