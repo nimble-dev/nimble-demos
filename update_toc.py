@@ -16,7 +16,7 @@ with open('README.md') as f:
 
 lines += ['', TOC_LINE]
 
-for path in glob.glob('*/*.html'):
+for path in sorted(glob.glob('*/*.html')):
     dirname, basename = os.path.split(path)
     dirname = dirname.replace('_', ' ').capitalize()
     basename = basename[:-5].replace('_', ' ').capitalize()
