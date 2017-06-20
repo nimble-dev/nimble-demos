@@ -3,21 +3,24 @@
 import glob
 import os
 
-lines = [
-    '<h1>Nimble Demos</h1>',
-    '',
-    'Demos for the <a href="http://r-nimble.org">NIMBLE</a> project.',
-    '',
-    '<h2>Table of Contents</h2>'
-    ,
-    '',
-]
+ROOT = 'http://nimble-dev.github.io/nimble-demos'
+TOC_LINE = '## Table of contents'
+
+lines = []
+with open('README.md') as f:
+    for line in f:
+        line = line.strip()
+        if line == TOC_LINE:
+            break
+        lines.append(line)
+
+lines += ['', TOC_LINE]
 
 for path in glob.glob('*/*.html'):
     dirname, basename = os.path.split(path)
     dirname = dirname.replace('_', ' ').capitalize()
     basename = basename[:-5].replace('_', ' ').capitalize()
-    lines += ['', '<a href="{}">{}: {}</a>'.format(path, dirname, basename)]
+    lines += ['', '[{}: {}]({}/{})'.format(dirname, basename, ROOT, path)]
 
-with open('index.html', 'w') as f:
+with open('README.md', 'w') as f:
     f.write('\n'.join(lines))
