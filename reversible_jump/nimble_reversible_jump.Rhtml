@@ -20,7 +20,7 @@
 
 <p>NIMBLE lets one program model-generic algorithms to use with models written in the BUGS language.  The MCMC system works by first making a configuration in R, which can be modified by a user or a program, and then building and compiling the MCMC.  The nimbleFunction programming system makes it easy to write new kinds of samplers.</p>
 
-<p>The aim of this blog post is to illustrate how one can write reversible jump MCMC in NIMBLE.  A variant of this may be incorporated into a later version of NIMBLE. </p>
+<p>The aim of this example is to illustrate how one can write reversible jump MCMC in NIMBLE.  A variant of this may be incorporated into a later version of NIMBLE. </p>
 </section>
 
 <section>
@@ -73,20 +73,21 @@ simpleCode1 <- nimbleCode({
 simpleModel1 <- nimbleModel(simpleCode1,
                             data = list(Y = Y, x1 = x1, x2 = x2),
                             constants = list(N = N),
-                            inits = list(beta0 = 0, beta1 = 0, beta2 = 0, sigma = sd(Y), z2 = 1))
+                            inits = list(beta0 = 0, beta1 = 0, beta2 = 0, 
+                            sigma = sd(Y), z2 = 1))
 
 end.rcode-->
 
 <p> Now here are two custom samplers.  The first one will sample beta2 <i>only</i> if the indicator variable z2 is 1 (meaning that beta2 is included in the model).  It does this by containing a regular random walk sampler but only calling it when the indicator is 1 (we could perhaps set it up to contain <i>any</i> sampler to be used when z2 is 1, but for now it's a random walk sampler).  The second sampler makes reversible jump proposals to move beta2 in and out of the model.  When it is out of the model, both beta2 and z2 are set to zero.  Since beta2 will be zero every time z2 is zero, we don't really need beta2z2, but it ensures correct behavior in other cases, like if someone runs default samplers on the model and expects the indicator variable to do its job correctly.  For use in reversible jump, z2's role is really to trigger the prior probability (set to 0.8 in this example) of being in the model. </p>
 
-<p> <i>Don't worry about the warning message emitted by NIMBLE.</i>  They are there because when a nimbleFunction is defined it tries to make sure the user knows anything else that needs to be defined.</p>
 
 <!--begin.rcode first-samplers, message=FALSE
 
 RW_sampler_nonzero_indicator <- nimbleFunction(
     contains = sampler_BASE,
     setup = function(model, mvSaved, target, control) {
-        regular_RW_sampler <- sampler_RW(model, mvSaved, target = target, control = control$RWcontrol)
+        regular_RW_sampler <- sampler_RW(model, mvSaved, target = target, 
+                                         control = control$RWcontrol)
         indicatorNode <- control$indicator
     },
     run = function() {
@@ -100,28 +101,34 @@ RJindicatorSampler <- nimbleFunction(
     contains = sampler_BASE,
     setup = function( model, mvSaved, target, control ) {
         ## target should be the name of the indicator node, 'z2' above
-        ## control should have an element called coef for the name of the corresponding coefficient, 'beta2' above.  
+        ## control should have an element called coef for the name of the corresponding 
+        ## coefficient, 'beta2' above.  
         coefNode <- control$coef
         scale <- control$scale
         calcNodes <- model$getDependencies(c(coefNode, target))
+        ## coefNode not in reduced model so its prior not calculated
+        calcNodesReduced <- model$getDependencies(target)
     },
     run = function( ) { ## The reversible-jump updates happen here.
         currentIndicator <- model[[target]]
-        currentLogProb <- model$getLogProb(calcNodes)
         if(currentIndicator == 1) {
             ## propose removing it
+            currentLogProb <- model$getLogProb(calcNodes)
             currentCoef <- model[[coefNode]]
-            logProbReverseProposal <- dnorm(0, currentCoef, sd = scale, log = TRUE)
+            logProbReverseProposal <- dnorm(currentCoef, 0, sd = scale, log = TRUE)
             model[[target]] <<- 0
             model[[coefNode]] <<- 0
-            proposalLogProb <- model$calculate(calcNodes)
-            log_accept_prob <- proposalLogProb - currentLogProb + logProbReverseProposal
+            model$calculate(calcNodes)
+            ## avoid including prior for coef not in model
+            log_accept_prob <- model$getLogProb(calcNodesReduced) - currentLogProb + 
+                                 logProbReverseProposal
         } else {
             ## propose adding it
+            currentLogProb <- model$getLogProb(calcNodesReduced)
             proposalCoef <- rnorm(1, 0, sd = scale)
             model[[target]] <<- 1
             model[[coefNode]] <<- proposalCoef
-            logProbForwardProposal <- dnorm(0, proposalCoef, sd = scale, log = TRUE)
+            logProbForwardProposal <- dnorm(proposalCoef, 0, sd = scale, log = TRUE)
             proposalLogProb <- model$calculate(calcNodes)
             log_accept_prob <- proposalLogProb - currentLogProb - logProbForwardProposal
         }
@@ -218,7 +225,6 @@ simpleModel2 <- nimbleModel(simpleCode2,
 			    inits = list(beta0 = 0, beta1 = 0, beta2 = 0, sigma = sd(Y)))
 end.rcode-->
 
-<p> And here are the samplers (again, ignore the warning): </p>
 
 <!--begin.rcode second-samplers, message=FALSE
 RW_sampler_nonzero <- nimbleFunction(
@@ -249,21 +255,23 @@ RJsampler <- nimbleFunction(
         ## this log ratio because it's what we'll need later.
         logRatioProbFixedOverProbNotFixed <- log(control$prior) - log(1-control$prior)
         calcNodes <- model$getDependencies(target)
+        calcNodesReduced <- model$getDependencies(target, self = FALSE)
     },
     run = function( ) { ## The reversible-jump moves happen here
         currentValue <- model[[target]]
-        currentLogProb <- model$getLogProb(calcNodes)
         if(currentValue != fixedValue) { ## There is no indicator variable, so check if current value matches fixedValue
             ## propose removing it (setting it to fixedValue)
-            logProbReverseProposal <- dnorm(fixedValue, currentValue, sd = scale, log = TRUE)
+            currentLogProb <- model$getLogProb(calcNodes)
+            logProbReverseProposal <- dnorm(currentValue, fixedValue, sd = scale, log = TRUE)
             model[[target]] <<- fixedValue
-            proposalLogProb <- model$calculate(calcNodes) 
-            log_accept_prob <- proposalLogProb - currentLogProb - logRatioProbFixedOverProbNotFixed + logProbReverseProposal
+            model$calculate(calcNodes) 
+            log_accept_prob <- model$getLogProb(calcNodesReduced) - currentLogProb - logRatioProbFixedOverProbNotFixed + logProbReverseProposal
         } else {
             ## propose adding it
+            currentLogProb <- model$getLogProb(calcNodesReduced)
             proposalValue <- rnorm(1, fixedValue, sd = scale)
             model[[target]] <<- proposalValue
-            logProbForwardProposal <- dnorm(fixedValue, proposalValue, sd = scale, log = TRUE)
+            logProbForwardProposal <- dnorm(proposalValue, fixedValue, sd = scale, log = TRUE)
             proposalLogProb <- model$calculate(calcNodes)
             log_accept_prob <- proposalLogProb - currentLogProb + logRatioProbFixedOverProbNotFixed - logProbForwardProposal
         }
@@ -325,6 +333,11 @@ They match well.
 <h3> How to apply this for larger models. </h3>
 
 <p> The samplers above could be assigned to arbitrary nodes in a model.  The only additional code would arise from adding more samplers to an MCMC configuration.  It would also be possible to refine the reversible-jump step to adapt the scale of its jumps in order to achieve better mixing.  For example, one could try <a href="http://onlinelibrary.wiley.com/doi/10.1111/j.1467-9469.2008.00606.x/abstract"> this method by Ehlers and Brooks</a>.  We're interested in hearing from you if you plan to try using RJMCMC on your own models.</p>
+
+<section>
+<h3> A statistical note of caution. </h3>
+
+Note that the results of variable selection using this approach can be quite sensitive to to the prior when using non-informative priors. For example changing the prior standard deviation on beta2 from 100 to 10 changes the posterior probability of beta2 being zero from 0.97 to 0.75. This is because RJMCMC is implicitly using the marginal posterior of the model given the data (i.e., integrating over the parameters), and that integration is known to be sensitive to how much mass the prior puts on extreme values of the coefficient under consideration for removal. This sensitivity is equivalent to that seen for Bayes factors (leaving aside the effect of the prior model probabilities). 
 
 </section>
 
