@@ -228,14 +228,16 @@ end.rcode-->
 
 <!--begin.rcode second-samplers, message=FALSE
 RW_sampler_nonzero <- nimbleFunction(
-    ## "nonzero" is a misnomer because it can check whether it sits at any fixedValue, not just 0
+    ## "nonzero" is a misnomer because it can check whether it sits at any fixedValue, 
+    ## not just 0
     contains = sampler_BASE,
     setup = function(model, mvSaved, target, control) {
-        regular_RW_sampler <- sampler_RW(model, mvSaved, target = target, control = control$RWcontrol)
+        regular_RW_sampler <- sampler_RW(model, mvSaved, target = target, 
+                                         control = control$RWcontrol)
         fixedValue <- control$fixedValue
     },
-    run = function() { ## Now there is no indicator variable, so check if the target node is exactly
-                       ## equal to the fixedValue representing "not in the model".
+    run = function() { ## Now there is no indicator variable, so check if the target node 
+                       ## is exactly equal to the fixedValue representing "not in the model".
         if(model[[target]] != fixedValue) regular_RW_sampler$run()
     },
     methods = list(
@@ -251,21 +253,23 @@ RJsampler <- nimbleFunction(
 	##    and a prior prob of taking its fixedValue
         fixedValue <- control$fixedValue
         scale <- control$scale
-        ## The control list contains the prior probability of inclusion, and we can pre-calculate
-        ## this log ratio because it's what we'll need later.
+        ## The control list contains the prior probability of inclusion, and 
+        ## we can pre-calculate this log ratio because it's what we'll need later.
         logRatioProbFixedOverProbNotFixed <- log(control$prior) - log(1-control$prior)
         calcNodes <- model$getDependencies(target)
         calcNodesReduced <- model$getDependencies(target, self = FALSE)
     },
     run = function( ) { ## The reversible-jump moves happen here
         currentValue <- model[[target]]
-        if(currentValue != fixedValue) { ## There is no indicator variable, so check if current value matches fixedValue
+        if(currentValue != fixedValue) { ## There is no indicator variable, 
+            ## so check if current value matches fixedValue
             ## propose removing it (setting it to fixedValue)
             currentLogProb <- model$getLogProb(calcNodes)
             logProbReverseProposal <- dnorm(currentValue, fixedValue, sd = scale, log = TRUE)
             model[[target]] <<- fixedValue
             model$calculate(calcNodes) 
-            log_accept_prob <- model$getLogProb(calcNodesReduced) - currentLogProb - logRatioProbFixedOverProbNotFixed + logProbReverseProposal
+            log_accept_prob <- model$getLogProb(calcNodesReduced) - currentLogProb - 
+                           logRatioProbFixedOverProbNotFixed + logProbReverseProposal
         } else {
             ## propose adding it
             currentLogProb <- model$getLogProb(calcNodesReduced)
@@ -273,7 +277,8 @@ RJsampler <- nimbleFunction(
             model[[target]] <<- proposalValue
             logProbForwardProposal <- dnorm(proposalValue, fixedValue, sd = scale, log = TRUE)
             proposalLogProb <- model$calculate(calcNodes)
-            log_accept_prob <- proposalLogProb - currentLogProb + logRatioProbFixedOverProbNotFixed - logProbForwardProposal
+            log_accept_prob <- proposalLogProb - currentLogProb + 
+                               logRatioProbFixedOverProbNotFixed - logProbForwardProposal
         }
         accept <- decide(log_accept_prob)
         if(accept) {
