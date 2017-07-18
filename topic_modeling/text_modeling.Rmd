@@ -1,0 +1,101 @@
+---
+title: "Text modeling using standard packages"
+output: html_notebook
+---
+
+Adapted from:
+- [eight2late](https://eight2late.wordpress.com/2015/09/29/a-gentle-introduction-to-topic-modeling-using-r/)
+
+```{r}
+srcDir <- '~/nimble-dev/nimble-demos/document_analysis'
+mailDir <- file.path(srcDir, 'data', 'maildir')
+resultsDir <- file.path(srcDir, 'results')
+setwd(srcDir)
+```
+
+```{r}
+library(tm)
+library(topicmodels)
+library(tibble)
+```
+```{r}
+all_filenames <- list.files(mailDir, pattern = '*', recursive = TRUE)
+filenames <- all_filenames
+length(filenames)
+```
+There are half a million emails. Which ones are important?
+
+Let's work with a random subset of files for now.
+```{r}
+subsample <- 10000
+set.seed(0)
+filenames <- all_filenames[sample(1:length(all_filenames), subsample, replace = FALSE)]
+```
+The paths are actually nice features, with username and mail folder.
+```{r}
+files <- lapply(filenames, function(f) readLines(file.path(mailDir, f), warn = FALSE))
+user_folders <- lapply(filenames, dirname)
+users <- lapply(user_folders, dirname)
+```
+The emails look like this:
+```{r}
+writeLines(as.character(files[[5]]))
+```
+
+## Preprocessing the text
+
+```{r}
+docs <- Corpus(VectorSource(files))
+```
+
+```{r}
+docs <- tm_map(docs, content_transformer(tolower))
+docs <- tm_map(docs, removePunctuation)
+docs <- tm_map(docs, removeNumbers)
+docs <- tm_map(docs, removeWords, stopwords('english'))
+docs <- tm_map(docs, stripWhitespace)
+writeLines(as.character(docs[[5]]))
+```
+
+```{r}
+docs <- tm_map(docs, stemDocument)
+writeLines(as.character(docs[[5]]))
+```
+```{r}
+dtm <- DocumentTermMatrix(docs)
+rownames(dtm) <- filenames
+freq <- colSums(as.matrix(dtm))
+write.csv(freq[order(freq, decreasing = TRUE)], file.path(resultsDir, 'word_freq.csv'))
+cat('Found', length(freq), 'unique words in', length(docs), 'emails')
+```
+
+## Running LDA on the text
+
+Number of topics
+```{r}
+k <- 10
+```
+Run LDA using Gibbs sampling
+```{r}
+lda_out <- LDA(dtm, k, method = 'Gibbs', control = list(
+    nstart = 5,
+    seed = list(2003, 5, 63, 100001, 765),
+    best = TRUE,
+    burnin = 4000,
+    iter = 2000,
+    thin = 500))
+```
+
+```{r}
+lda_topics <- as.matrix(topics(lda_out))
+write.csv(lda_topics, file = file.path(resultsDir, paste0('lda_', k, '_docs_to_topics.csv')))
+```
+Top few workds in each topic
+```{r}
+lda_terms <- t(as.matrix(terms(lda_out, 10)))
+write.csv(lda_terms, file = file.path(resultsDir, paste0('lda_', k, '_topic_top_words.csv')))
+```
+```{r}
+topic_probs <- as.data.frame(lda_out@gamma)
+write.csv(topic_probs, file = file.path(resultsDir, paste0('lda_', k, '_topic_probs.csv')))
+```

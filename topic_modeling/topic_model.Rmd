@@ -1,0 +1,55 @@
+---
+title: "topic_model"
+author: "Fritz Obermeyer"
+date: "July 10, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(nimble)
+```
+
+# Enron
+
+The Enron email dataset has 517401 documents totalling 2.6GB.
+We'll start off with a subset.
+
+```{r}
+W <- 100  # Number of words.
+K <- 10   # Number of topics.
+D <- 100  # Number of documents.
+
+code <- nimbleCode({
+    word_probs ~ ddirch(alpha[1:W])
+    for (k in 1:K) {
+        topic_word_probs[k, 1:W] ~ ddirich(all_words[1:W])
+    }
+    for (d in 1:D) {
+        doc_topic_probs[d, 1:K] ~ ddirch(beta[1:K])
+        doc_word_probs[d, 1:W] <- doc_topic_probs[d, 1:K] %*% topic_word_probs
+        doc_words[d, 1:W] ~ dmultinom(size = doc_length[d], probs = doc_word_probs[d, 1:W])
+    }
+})
+```
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
