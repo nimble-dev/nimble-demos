@@ -4,18 +4,55 @@ output: html_notebook
 ---
 
 ```{r, show = FALSE}
-for (package in c('nimble', 'RCurl', 'rstan')) {
+includeStan <- FALSE
+
+for (package in c('nimble',
+                  'RCurl',
+                  'abind',
+                  if(includeStan) 'rstan' else character())) {
     if (!require(package, character.only = TRUE)) {
         install.packages(package)
         library(package, character.only = TRUE)
     }
 }
+
+## set runFullSamples FALSE for debugging, TRUE for a full run
+runFullSamples <- FALSE
+if(runFullSamples) {
+    ## nimble with default samplers
+    niter.nimble.default <- 1000000
+    burnin.nimble.default <- 100000
+    ## nimble with model version 2, centered explanatory variable,
+    ## and default samplers
+    niter.nimble.centered.default <- 300000
+    burnin.nimble.centered.default <- 30000
+    ##nimble with model version3, centered explanatory variable,
+    ## and customized samplers
+    niter.nimble.centered.custom <- 300000
+    burnin.nimble.centered.custom <- 30000
+} else {
+    ## nimble with default samplers
+    niter.nimble.default <- 5000
+    burnin.nimble.default <- 500        
+    ## nimble with model version 2, centered explanatory variable,
+    ## and default samplers
+    niter.nimble.centered.default <- 5000
+    burnin.nimble.centered.default <- 500
+    ## nimble with model version3, centered explanatory variable,
+    ## and customized samplers
+    niter.nimble.centered.custom <- 5000
+    burnin.nimble.centered.custom <- 500
+}
+
 ```
+
+## `r if(!runFullSamples) 'This script is being generated in debug mode.  The samples are not large enough to trust.' else character()` ##
 
 # Download two data files from Stan GitHub site
 
 ```{r}
-setwd(file.path(Sys.getenv('HOME'), 'nimble-dev', 'nimble-demos', 'election88'))
+## alternative: enter different location for setwd()
+##setwd(file.path(Sys.getenv('HOME'), 'nimble-dev', 'nimble-demos', 'election88'))
 datFiles <- c('polls.subset.dat', 'candidate_effects.dat')
 library(RCurl)
 for (filename in datFiles) {
@@ -30,8 +67,6 @@ writeBin(content, 'presvote.dta')
 Source:
 [Stan ARM Ch.17.4](https://raw.githubusercontent.com/stan-dev/example-models/master/ARM/Ch.17/17.4_multilevel_logistic_regression.R)
 ```{r}
-library(rstan)
-
 polls.subset <- read.table ("polls.subset.dat")
 attach (polls.subset)
 
@@ -70,62 +105,397 @@ dataList.1 <- list(N=length(y[ok]), n_age=n.age, n_edu=n.edu, n_region=n.region,
                    female=female[ok], black=black[ok],age=age[ok], edu=edu[ok],
                    region=region, state=state[ok],y=y[ok],v_prev=v.prev)
 ```
+
+Source:
+[ARM Book Codes, 17.4_Multilevel logistic regression.R, extracted from zip file](http://www.stat.columbia.edu/~gelman/arm/examples/Book_Codes.zip)..
+```{r}
+initsFunction <- function () {
+ list(b.0=rnorm(1), b.female=rnorm(1), b.black=rnorm(1), b.female.black=rnorm(1),
+  b.age=rnorm(n.age), b.edu=rnorm(n.edu), b.age.edu=array(rnorm(n.age*n.edu), 
+  c(n.age,n.edu)), b.state=rnorm(n.state), b.v.prev=rnorm(1), 
+  b.region=rnorm(n.region), sigma.age=runif(1), sigma.edu=runif(1), 
+  sigma.age.edu=runif(1), sigma.state=runif(1), sigma.region=runif(1))
+}
+```
+
+## Set up the model in BUGS code for NIMBLE
 Source: [Stan book ch 17.4](http://www.stat.cmu.edu/~brian/763/GH-data/Book_Codes/ch.17/17.4_Bugs_codes.bug).
 ```{r}
 library(nimble)
-nimbleOptions(allowDynamicIndexing = TRUE)
 
-election88_BUGS <- readBUGSmodel(nimbleCode({
-    for (i in 1:n){
-    y[i] ~ dbin (p.bound[i], 1)
-    p.bound[i] <- max(0, min(1, p[i]))
-    logit(p[i]) <- Xbeta[i]
-    Xbeta[i] <- b.0 + b.female*female[i] + b.black*black[i] +
-      b.female.black*female[i]*black[i] +
-      b.age[age[i]] + b.edu[edu[i]] + b.age.edu[age[i],edu[i]] +
-      b.state[state[i]]
-  }
-  b.0 ~ dnorm (0, .0001)
-  b.female ~ dnorm (0, .0001)
-  b.black ~ dnorm (0, .0001)
-  b.female.black ~ dnorm (0, .0001)
-  
-  for (j in 1:n.age){b.age[j] ~ dnorm(0, tau.age)}
-  for (j in 1:n.edu){b.edu[j] ~ dnorm(0, tau.edu)}
-  for (j in 1:n.age){for (k in 1:n.edu){
-    b.age.edu[j,k] ~ dnorm(0, tau.age.edu)}}
-  for (j in 1:n.state){
-    b.state[j] ~ dnorm(b.state.hat[j], tau.state)
-    b.state.hat[j] <- b.region[region[j]] + b.v.prev*v.prev[j]}
-  b.v.prev ~ dnorm(0, .0001)
-  for (j in 1:n.region){b.region[j] ~ dnorm (0, tau.region)}
+## set up a list suitable for compareMCMCs modelInfo argument
+election88_BUGS <- list(code =
+    nimbleCode({
+        for (i in 1:n){
+            y[i] ~ dbin (p.bound[i], 1)
+            p.bound[i] <- max(0, min(1, p[i]))
+            logit(p[i]) <- Xbeta[i]
+            Xbeta[i] <- b.0 +
+                b.female*female[i] +
+                b.black*black[i] +
+                b.female.black*female[i]*black[i] +
+                b.age[age[i]] +
+                b.edu[edu[i]] +
+                b.age.edu[age[i],edu[i]] +
+                b.state[state[i]]
+        }
+        b.0 ~ dnorm (0, .0001)
+        b.female ~ dnorm (0, .0001)
+        b.black ~ dnorm (0, .0001)
+        b.female.black ~ dnorm (0, .0001)
+        
+        for (j in 1:n.age) {
+            b.age[j] ~ dnorm(0, tau.age)
+        }
+        for (j in 1:n.edu) {
+            b.edu[j] ~ dnorm(0, tau.edu)
+        }
+        for (j in 1:n.age) {
+            for (k in 1:n.edu) {
+                b.age.edu[j,k] ~ dnorm(0, tau.age.edu)
+            }
+        }
+        for (j in 1:n.state){
+            b.state[j] ~ dnorm(b.state.hat[j], tau.state)
+            b.state.hat[j] <- b.region[region[j]] + b.v.prev*v.prev[j]}
+        b.v.prev ~ dnorm(0, .0001)
+        for (j in 1:n.region) {
+            b.region[j] ~ dnorm (0, tau.region)
+        }
+        
+        tau.age <- pow(sigma.age, -2)
+        tau.edu <- pow(sigma.edu, -2)
+        tau.age.edu <- pow(sigma.age.edu, -2)
+        tau.state <- pow(sigma.state, -2)
+        tau.region <- pow(sigma.region, -2)
+        
+        sigma.age ~ dunif (0, 100)
+        sigma.edu ~ dunif (0, 100)
+        sigma.age.edu ~ dunif (0, 100)
+        sigma.state ~ dunif (0, 100)
+        sigma.region ~ dunif (0, 100)
+    }))
 
-  tau.age <- pow(sigma.age, -2)
-  tau.edu <- pow(sigma.edu, -2)
-  tau.age.edu <- pow(sigma.age.edu, -2)
-  tau.state <- pow(sigma.state, -2)
-  tau.region <- pow(sigma.region, -2)
+BUGSdataList.1 <- dataList.1
+names(BUGSdataList.1) <- tolower( gsub("_",".",names(BUGSdataList.1)))
+election88_BUGS$data <- BUGSdataList.1
+attach(BUGSdataList.1)
+initsList.1 <- initsFunction()
+detach(BUGSdataList.1)
+election88_BUGS$inits <- initsList.1
 
-  sigma.age ~ dunif (0, 100)
-  sigma.edu ~ dunif (0, 100)
-  sigma.age.edu ~ dunif (0, 100)
-  sigma.state ~ dunif (0, 100)
-  sigma.region ~ dunif (0, 100)
-}))
-```
-TODO(perrydv) Why does this not compile?
+```	
+
+## Generate results for NIMBLE with default samplers ##
+
 ```{r}
+## compareMCMCs combines the steps of nimbleModel, configureMCMC,
+##   buildMCMC, and compileNIMBLE.
+## It also times the run and produces ESS and efficiency results.
+## It can take a list of MCMCs to be built and run.
 electionResults1nimble <- compareMCMCs(
     list(election88_full = election88_BUGS),
     MCMCs = c('nimble'),
-    niter = 1000000,
-    burnin = 100000,
+    niter = niter.nimble.default,
+    burnin = burnin.nimble.default,
     thin = 1,
     summary = FALSE)
 
+## ## for reference, the following would build and run the MCMC directly
+## ##     (outside of compareMCMCs):
+## election88_model <- nimbleModel(code = election88_BUGS$code,
+##                                 constants = election88_BUGS$data,
+##                                 inits = election88_BUGS$inits)
+## Celection88_model <- compileNimble(election88_model)
+## election88_mcmcConf <- configureMCMC(election88_model)
+## election88_mcmc <- buildMCMC(election88_mcmcConf) 
+## ## previous two steps can be replaced with
+## ## election88_mcmc <- buildMCMC(election88_model)
+## Celection88_mcmc <- compileNimble(election88_mcmc, project = election88_model)
+
+
 electionResults1nimble <- updateMCMCcomparisonWithHighOrderESS(
     electionResults1nimble,
-    logVars = c('sigma.age','sigma.edu','sigma.age.edu','sigma.state','sigma.region'),
+    logVars = c('sigma.age',
+                'sigma.edu',
+                'sigma.age.edu',
+                'sigma.state',
+                'sigma.region'),
     includeBurninTime = FALSE)
+
+electionResults1nimble[[1]]$summary
+
+electionResults1nimble[[1]]$efficiency
 ```
 
+TODO: Insert loading and running of Stan code here (if includeStan == TRUE)
+
+# Centering the continuous explanatory variable and cutting out some wasteful BUGS code
+
+## Version 2 of the BUGS model for NIMBLE
+
+```{r}
+election88_BUGS_ver2 <- list(code = nimbleCode({
+    for (i in 1:n) {
+        y[i] ~ dbin (p.bound[i], 1)
+        p.bound[i] <- max(0,
+                          min(1,
+                              ilogit(b.0 +
+                                     b.female*female[i] +
+                                     b.black*black[i] +
+                                     b.female.black*female[i]*black[i] +
+                                     b.age[age[i]] +
+                                     b.edu[edu[i]] +
+                                     b.age.edu[age[i],edu[i]] +
+                                     b.state[state[i]])))
+    }
+    b.0 ~ dnorm (0, .0001)
+    b.female ~ dnorm (0, .0001)
+    b.black ~ dnorm (0, .0001)
+    b.female.black ~ dnorm (0, .0001)
+    
+    for (j in 1:n.age) {
+        b.age[j] ~ dnorm(0, tau.age)
+    }
+    for (j in 1:n.edu) {
+        b.edu[j] ~ dnorm(0, tau.edu)
+    }
+    for (j in 1:n.age) {
+        for (k in 1:n.edu) {
+            b.age.edu[j,k] ~ dnorm(0, tau.age.edu)
+        }
+    }
+    for (j in 1:n.state) {
+        b.state[j] ~ dnorm(b.state.hat[j], tau.state)
+        b.state.hat[j] <- b.region[region[j]] + b.v.prev*v.prev[j]}
+    b.v.prev ~ dnorm(0, .0001)
+    for (j in 1:n.region) {
+        b.region[j] ~ dnorm (0, tau.region)
+    }
+    
+    tau.age <- pow(sigma.age, -2)
+    tau.edu <- pow(sigma.edu, -2)
+    tau.age.edu <- pow(sigma.age.edu, -2)
+    tau.state <- pow(sigma.state, -2)
+    tau.region <- pow(sigma.region, -2)
+    
+    sigma.age ~ dunif (0, 100)
+    sigma.edu ~ dunif (0, 100)
+    sigma.age.edu ~ dunif (0, 100)
+    sigma.state ~ dunif (0, 100)
+    sigma.region ~ dunif (0, 100)
+}))
+```
+
+## Center the `v.prev` explanatory variable ##
+
+```{r}
+## center v.prev
+BUGSdataList.1.centered <- BUGSdataList.1
+BUGSdataList.1.centered$v.prev <- dataList.1$v_prev - mean(dataList.1$v_prev)
+election88_BUGS_ver2$data <- BUGSdataList.1.centered
+election88_BUGS_ver2$inits <- initsList.1
+
+if(includeStan) {
+    stanDataList.1.centered <- StanDataList.1
+    stanDataList.1.centered$v_prev <- dataList.1$v_prev - mean(dataList.1$v_prev)
+    stanInfo.centered <- stanInfo
+    stanInfo.centered[[1]]$data <-stanDataList.1.centered
+}
+```
+
+## Run nimble default MCMC for version 2 of the model and centered data ##
+
+```{r}
+electionResults1nimble2C <- compareMCMCs(
+    list(election88_full = election88_BUGS_ver2),
+    MCMCs=c('nimble'),
+    niter= niter.nimble.centered.default,
+    burnin = burnin.nimble.centered.default,
+    thin=1,
+    summary=FALSE)
+
+electionResults1nimble2C <- updateMCMCcomparisonWithHighOrderESS(
+    electionResults1nimble2C,
+    logVars = c('sigma.age',
+                'sigma.edu',
+                'sigma.age.edu',
+                'sigma.state',
+                'sigma.region'),
+    includeBurninTime = FALSE)
+
+electionResults1nimble2C[[1]] <- rename_MCMC_comparison_method('nimble','nimble(v2)',electionResults1nimble2C[[1]])
+
+electionResults1nimble2C[[1]]$summary
+
+electionResults1nimble2C[[1]]$efficiency
+```
+
+## More rewriting of the model (vectorization of fixed effects) and customizing samplers ##
+
+```{r}
+election88_BUGS_ver3 <- list(code = nimbleCode({
+    Xfixed[1:n] <- b.0 +
+        b.female*female[1:n] +
+        b.black*black[1:n] +
+        b.female.black*female[1:n]*black[1:n]
+    
+    for (i in 1:n) {
+        y[i] ~ dbern(p.bound[i]) ## makes almost no difference compared to dbin
+        p.bound[i] <- ilogit(Xfixed[i] + Xrandom[i])
+        Xrandom[i] <- b.age[age[i]] +
+            b.edu[edu[i]] +
+            b.age.edu[age[i],edu[i]] +
+            b.state.hat[state[i]]
+    }
+    b.0 ~ dnorm (0, .0001)
+    b.female ~ dnorm (0, .0001)
+    b.black ~ dnorm (0, .0001)
+    b.female.black ~ dnorm (0, .0001)
+    
+    for (j in 1:n.age) {
+        b.age[j] ~ dnorm(0, sd = sigma.age)
+    }
+    for (j in 1:n.edu){
+        b.edu[j] ~ dnorm(0, sd = sigma.edu)
+    }
+    for (j in 1:n.age) {
+        for (k in 1:n.edu) {
+            b.age.edu[j,k] ~ dnorm(0, sd = sigma.age.edu)
+        }
+    }
+    for (j in 1:n.state) {
+        b.state[j] ~ dnorm(0, sd = sigma.state)
+        b.state.hat[j] <- b.state[j] +
+            b.region[region[j]] +
+            b.v.prev*v.prev[j]
+    }
+    b.v.prev ~ dnorm(0, .0001)
+    for (j in 1:n.region) {
+        b.region[j] ~ dnorm (0, sd = sigma.region)
+    }
+    
+    sigma.age ~ dunif (0, 100)
+    sigma.edu ~ dunif (0, 100)
+    sigma.age.edu ~ dunif (0, 100)
+    sigma.state ~ dunif (0, 100)
+    sigma.region ~ dunif (0, 100)
+}))
+```
+
+```{r}
+election88_BUGS_ver3$inits <- election88_BUGS_ver2$inits
+election88_BUGS_ver3$inits$b.state <- election88_BUGS_ver2$inits$b.state -
+    mean(election88_BUGS_ver2$inits$b.state)
+election88_BUGS_ver3$data <- election88_BUGS_ver2$data
+```
+
+### Sampler customization in the format used by `compareMCMCs`.
+
+For `compareMCMCs`, the sampler customization is provided as code to be
+executed assuming that the built model is called `Rmodel`.  See
+[shiftSamplers.R](shiftSamplers.R)
+
+```{r}
+source('shiftSamplers.R')
+
+MCMCdefs <- list('nimble(v3)' = quote({
+    e88MCMC <- configureMCMC(Rmodel, control = list(adaptInterval = 200))
+    e88MCMC$removeSamplers('sigma.age')
+    e88MCMC$removeSamplers('sigma.edu')
+    e88MCMC$removeSamplers('sigma.region')
+    e88MCMC$removeSamplers('sigma.state')
+    e88MCMC$removeSamplers('sigma.age.edu')
+    e88MCMC$addSampler(target = 'sigma.age', type = 'RW',
+                       control = list(log = TRUE))
+    e88MCMC$addSampler(target = 'sigma.edu', type = 'RW',
+                       control = list(log = TRUE))
+    e88MCMC$addSampler(target = 'sigma.region',type = 'RW',
+                       control = list(log = TRUE))
+    e88MCMC$addSampler(target = 'sigma.state', type = 'RW',
+                       control = list(log = TRUE))
+    e88MCMC$addSampler(target = 'sigma.age.edu', type = 'RW',
+                       control = list(log = TRUE))
+    e88MCMC$removeSamplers('b.female')
+    e88MCMC$removeSamplers('b.black')
+    e88MCMC$removeSamplers('b.female.black')    
+    e88MCMC$addSampler(target = 'b.0', type = 'RW_shift',
+                       control = list(shiftNodes = 'b.age',
+                                      skipDependencies = TRUE))
+    e88MCMC$addSampler(target = 'sigma.age.edu',
+                       type = 'RW_log_shift',
+                       control = list(shiftNodes = 'b.age.edu'))
+    e88MCMC$addSampler(target = 'b.0', type = 'RW_shift',
+                       control = list(shiftNodes = 'b.edu',
+                                      skipDependencies = TRUE))
+
+    e88MCMC$addSampler(target = c('b.0','b.female','b.black','b.female.black'),
+                       type = 'RW_block') 
+    e88MCMC$addSampler(target = 'sigma.edu', type = 'RW_log_shift',
+                       control = list(shiftNodes = 'b.edu'))
+ 
+    e88MCMC$addSampler(target = 'b.0', type = 'RW_shift',
+                       control = list(shiftNodes = 'b.female',
+                                      skipDependencies = FALSE))
+
+    e88MCMC$addSampler(target = 'sigma.state', type = 'RW_log_shift',
+                       control = list(shiftNodes = 'b.state')) 
+
+    e88MCMC$addSampler(target = 'b.0', type = 'RW_shift',
+                       control = list(shiftNodes = 'b.black',
+                                      skipDependencies = FALSE))
+
+    e88MCMC$addSampler(target = 'sigma.age', type = 'RW_log_shift',
+                       control = list(shiftNodes = 'b.age')) 
+
+    e88MCMC$addSampler(target = 'b.black', type = 'RW_shift',
+                       control = list(shiftNodes = 'b.female.black',
+                                      skipDependencies = FALSE))
+
+    e88MCMC$addSampler(target = 'sigma.region', type = 'RW_log_shift',
+                       control = list(shiftNodes = 'b.region'))
+
+    e88MCMC$addSampler(target = 'b.0', type = 'RW_shift',
+                       control = list(shiftNodes = 'b.region',
+                                      skipDependencies = FALSE))
+
+    e88MCMC$addSampler(target = c('b.0','b.female','b.black','b.female.black'),
+                       type = 'RW_block') 
+    e88MCMC
+}))
+
+electionResults1nimble3C <- compareMCMCs(
+    list(election88_full = election88_BUGS_ver3),
+    MCMCs=c('nimble(v3)'),
+    MCMCdefs = MCMCdefs,
+    niter= niter.nimble.centered.custom,
+    burnin = burnin.nimble.centered.custom,
+    thin=1,
+    summary=FALSE)
+
+
+electionResults1nimble3C <- updateMCMCcomparisonWithHighOrderESS(
+    electionResults1nimble3C,
+    logVars = c('sigma.age',
+                'sigma.edu',
+                'sigma.age.edu',
+                'sigma.state',
+                'sigma.region'),
+    includeBurninTime = FALSE)
+
+electionResults1nimble3C[[1]]$summary
+
+electionResults1nimble3C[[1]]$efficiency
+```
+
+## Combine results and generate figures
+
+```{r}
+nimbleResults <- combine_MCMC_comparison_results(electionResults1nimble[[1]],
+                                                 electionResults1nimble2C[[1]],
+                                                 electionResults1nimble3C[[1]],
+                                                 name = "election88_MCMC_comparisons")
+make_MCMC_comparison_pages(nimbleResults)
+```
+
+### Look at [comparison figures](election88_MCMC_comparisons.html) ###
