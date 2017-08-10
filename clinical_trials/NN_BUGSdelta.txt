@@ -1,0 +1,51 @@
+## This file was downloaded from:
+## http://www.biostat.umn.edu/~brad/data/NN_BUGSdelta.txt
+## August 10, 2017
+## 
+####################
+# WinBUGS code for "Basic Peter/Telba N/N Model"
+#  by BC, 10/20/08
+# This one adds the definition of delta = beta1 - beta0 (Task 3; pooling)
+#
+#  here, 0 = historical, 1 = current
+####################
+
+model{
+  for( i in 1:n) {
+    meen0[i] <- theta0 + beta0*x0[i]
+    Y0[i] ~ dnorm(meen0[i] , prec0)
+    meen1[i] <- theta1 + beta1*x1[i]
+    Y1[i] ~ dnorm(meen1[i] , prec1)
+    }
+
+  theta0 ~ dnorm(mutheta, etatheta)
+  theta1 ~ dnorm(mutheta, etatheta)
+  beta0 ~ dnorm(mubeta, etabeta)
+  beta1 ~ dnorm(mubeta, etabeta)
+  delta <- beta1 - beta0
+  withinc <- step(cee-delta)*step(cee+delta)
+
+  mutheta ~ dflat()
+  mubeta ~ dflat()
+  etatheta ~ dgamma(atheta, btheta)
+  etabeta ~ dgamma(abeta, bbeta)
+  tausqtheta <- 1/etatheta
+  tausqbeta <- 1/etabeta
+
+  prec0 <- 1; prec1 <- 1
+
+}  #  end of BUGS code
+
+
+#Data:
+list(x0 = c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+     x1 = c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+     Y0 = c( 0.38, -0.89, -0.19,  0.16,  1.24,  1.95, -0.07, -0.78,  0.24,  0.03, -0.57,
+                -0.58,  0.01, -0.57, -0.54, -0.73,  0.27, -0.05,  0.60, -0.70),
+     Y1 = c(10.13, 11.19, 10.15,  9.46,  9.47,  9.42, 10.39,  9.39,  9.86,  8.67, 10.89,
+                10.45, 10.97,  9.06, 10.38, 10.10, 10.00,  9.64,  9.98, 10.46), 
+     atheta = .1, btheta = .1, abeta = .1, bbeta = .1, n=20)
+
+
+# Inits:
+list(mutheta=0, mubeta=0, etatheta=1, etabeta=1)
