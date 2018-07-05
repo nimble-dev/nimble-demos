@@ -80,7 +80,7 @@ Nimble is a nice tool for a lot of reasons.
 
 Below, wrapped in the `nimbleCode()` function, is the code specifying the following Bayesian logistic model for the $i^{th}$ merger's completion status:
 
-$$ complete_i \sim Ber(p_i)  $$
+$$ complete_i \ | \ \beta_1,\dots, \beta_5 \sim Ber(p_i)  $$
 Where 
 $$ logit(p_i) = \beta_1 + \beta_2\cdot B_i + \beta_3\cdot C_i + \beta_4\cdot C_i + \beta_5\cdot E_i $$
 Above, $(B_i,\dots, E_i )$ are industry dummies, with industry A as the reference. To complete a Bayesian specification, I place independent mean-zero Gaussian priors on the coefficients: $\beta_j \sim N(0,sd=2)$, for $j\in\{1, \dots, 5 \}$.
