@@ -195,5 +195,5 @@ sessionInfo()
 ## References 
 1. Gelman, Andrew, et al. Bayesian data analysis. Chapman and Hall/CRC, 1995.
 2. McElreath, Richard, -. Statistical Rethinking: a Bayesian Course with Examples in R and Stan /Boca Raton: CRC Press Taylor & Francis Group, 2016. Print.
-3. Perry de Valpine, Daniel Turek, Christopher Paciorek, Clifford Anderson-Bergman, Duncan Temple Lang and Rastislav Bodik (2017). Programming with models: writing statistical algorithms for general model structures with NIMBLE. \textit{Journal of Computational and Graphical Statistics}, 26(2): 403-413.
+3. Perry de Valpine, Daniel Turek, Christopher Paciorek, Clifford Anderson-Bergman, Duncan Temple Lang and Rastislav Bodik (2017). Programming with models: writing statistical algorithms for general model structures with NIMBLE. *Journal of Computational and Graphical Statistics*, 26(2): 403-413.
 
