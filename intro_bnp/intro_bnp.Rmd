@@ -89,7 +89,7 @@ This suggests there is an overall difference in risk between the control and tre
 But what about the normality assumption? Are our conclusions robust to that assumption? Perhaps the random effects distribution are skewed. (And recall that the estimates above of the random effects are generated under the normality assumption, which pushes the estimated effects to look more normal...)
 
 
-## DP-based random effects modeling for meta analysis
+# DP-based random effects modeling for meta analysis
 
 Here we allow each $\gamma_i$ to be clustered with a set of the other random effects.
 Each $\gamma_i$ is generated from a normal distribution associated with a specific mixture component,
@@ -170,7 +170,7 @@ NIMBLE allows you to easily use any kernel of your choice. For example we can re
 
 NIMBLE provides machinery for single density estimation in a very flexible and easy-to-implement fashion by means of DPM models, which allow the relaxation of standard parametric assumptions. 
 
-## DPM of normal distributions
+# DPM of normal distributions
 
 Here we illustrate how to estimate the underlying density function that describes the waiting time between eruptions of the Old Faithfull volcano data set, available in R. A DPM of normal distributions model will be considered to estimate the density function of a transformation of the data to the real line. Under this approach, observations are clustered in normally distributed clusters, each cluster with its own mean and variance. The random variable describing to which normal cluster each data point belongs, follows a CRP distribution with concentration parameter $\alpha$. 
 
@@ -256,7 +256,7 @@ points(data$y, rep(0,n), pch=20)
 There is clear evidence that the data has two components for the waiting times, which are captured by the model. 
 
 
-## DPM of gamma distributions
+# DPM of gamma distributions
 
 In the next example we illustrate how flexible NIMBLE is to perform density estimation using other kernels. Since the Old Faithfull data set describes the time between geyser eruptions, we could use a gamma kernel for the distribution of the data, without having to resort to transformations. Here we consider a Gamma kernel with Gamma prior distributions for the shape and scale parameters.
 
