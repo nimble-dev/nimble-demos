@@ -175,6 +175,8 @@ NIMBLE provides machinery for single density estimation in a very flexible and e
 Here we illustrate how to estimate the underlying density function that describes the waiting time between eruptions of the Old Faithfull volcano data set, available in R. A DPM of normal distributions model will be considered to estimate the density function of a transformation of the data to the real line. Under this approach, observations are clustered in normally distributed clusters, each cluster with its own mean and variance. The random variable describing to which normal cluster each data point belongs, follows a CRP distribution with concentration parameter $\alpha$. 
 
 ```{r, normaldensity-bnp}
+library(TeachingDemos) ## for computing a empirical HPD pointwise credible band 
+
 data(faithful)
 
 dataTransformed <- (faithful$waiting - mean(faithful$waiting)) / sd(faithful$waiting)
@@ -202,7 +204,7 @@ In the above specification each observation belongs to any of possibly $n$ norma
 
 ## Running an MCMC for a DPM
 
-The following code initiates the parameters, defines the model, builds and runs the MCMC.
+The following code initializes the parameters, defines the model, builds and runs the MCMC.
 
 ```{r, MCMC-normaldensity}
 set.seed(1)
@@ -283,7 +285,7 @@ code <- nimbleCode({
 
 ## Running an MCMC for a DPM
 
-The following code initiates the parameters, defines the model, builds and runs the MCMC. Note that when buiding the MCMC a warning message about cluster parameters and possible clusters is sent, due to $50$ being smaller than $n$, and when running the MCMC no message is sent, meaning that never more clusters than cluster parameters were created.
+The following code initializes the parameters, defines the model, builds and runs the MCMC. Note that when buiding the MCMC a warning message about cluster parameters and possible clusters is sent, due to $50$ being smaller than $n$, and when running the MCMC no message is sent, meaning that never more clusters than cluster parameters were created.
 
 ```{r, MCMC-normaldensity}
 set.seed(1)
