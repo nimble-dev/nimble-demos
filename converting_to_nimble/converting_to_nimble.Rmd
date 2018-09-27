@@ -4,15 +4,21 @@ subtitle: "May 2018"
 author: "NIMBLE Development Team"
 output:
   html_document:
-    code_folding: show
+    self_contained: yes
 ---
+
+<!--
+Build with rmarkdown:::render('converting_to_nimble.Rmd').
+Then copy and paste into blog post.
+Alternatively, use package RWordPress from dunctantl on github and knitr::knit2wp.
+--> 
 
 ```{r setup, include=FALSE} 
 library(methods) ## needed only when building documents outside of R
 library(nimble)
 ```
 
-NIMBLE is a hierarchical modeling package that uses nearly the same modeling language as the popular MCMC packages WinBUGS, OpenBUGS and JAGS.  NIMBLE makes the modeling language extensible -- you can add distributions and functions -- and also allows customization of MCMC or other algorithms that use models.  Here is a quick summary of steps to convert existing code from WinBUGS, OpenBUGS or JAGS to NIMBLE. For more information, see examples on [r-nimble.org](http://r-nimble.org) or the [NIMBLE User Manual](https://r-nimble.org/manuals/NimbleUserManual.pdf).
+NIMBLE is a hierarchical modeling package that uses nearly the same modeling language as the popular MCMC packages WinBUGS, OpenBUGS and JAGS.  NIMBLE makes the modeling language extensible &mdash; you can add distributions and functions &mdash; and also allows customization of MCMC or other algorithms that use models.  Here is a quick summary of steps to convert existing code from WinBUGS, OpenBUGS or JAGS to NIMBLE. For more information, see examples on [r-nimble.org](http://r-nimble.org) or the [NIMBLE User Manual](https://r-nimble.org/manuals/NimbleUserManual.pdf).
 
 # Main steps for converting existing code
 
@@ -36,37 +42,10 @@ These steps assume you are familiar with running WinBUGS, OpenBUGS or JAGS throu
     - Use `nimbleMCMC()` as the just-do-it way to run an MCMC.  This will take all steps to
   set up and run an MCMC using   NIMBLE's default configuration.
    
-    - To use NIMBLE's full flexibiilty: build the model, configure
-   and build the MCMC, and compile both the model and MCMC.  Then run the MCMC  using `runMCMC` or by calling the `run` function of compiled MCMC.  See the NIMBLE User Manual to learn more about what you can do.
+    - To use NIMBLE's full flexibility: build the model, configure
+   and build the MCMC, and compile both the model and MCMC.  Then run the MCMC via `runMCMC` or by calling the `run` function of the compiled MCMC.  See the NIMBLE User Manual to learn more about what you can do.
 
-## Smaller steps you may need for converting existing code
-
-If the main steps above aren't sufficient, consider these additional steps.
-
-4. Convert any use of truncation syntax
-
-    - e.g. `x ~ dnorm(0, tau) T(a, b)` should be re-written as `x ~ T(dnorm(0, tau), a, b)`.
-
-    - If reading model code from a file using `readBUGSmodel`, the `x ~ dnorm(0, tau) T(a, b)`  syntax will work.
-
-5. Possibly split the `data` into `data` and
-  `constants` for NIMBLE.
-
-    - NIMBLE has a more general concept of data, so NIMBLE makes a distinction between data and constants.
-    - Constants are necessary to define the
-  model, such as `nsite` in `for(i in 1:nsite) {...}` and constant vectors of factor indices.
-    - Data are
-  observed values of some variables.
-    - Alternatively, one can provide a list of both
-  constants and data for the `constants` argument to
-  `nimbleModel`, and NIMBLE will try to determine which is which.  Usually this will work, but when in doubt, try separating them.
-
-6.  Possibly update initial values (`inits`).
-
-    - In some cases, NIMBLE likes to have more complete `inits` than the other packages.
-    - In a model with stochastic indices, those indices should have `inits` values.
-    - When using `nimbleMCMC` or `runMCMC`, `inits` can be a function, as in R packages for calling WinBUGS, OpenBUGS or JAGS.  Alternatively, it can be a list.
-    - When you build a model with `nimbleModel` for more control than `nimbleMCMC`, you can provide `inits` as a list.  This sets defaults than can be over-ridden with the `inits` argument to `runMCMC`.
+See below for a list of some more nitty-gritty additional steps you may need to consider for some models.
 
 # Example: An animal abundance model
 
@@ -118,7 +97,7 @@ N.critical <- sum(critical[]) # Number of populations with critical size
 ```
 
 ### Brief summary of the model
-This is known as an "N-mixture" model in ecology.  The details aren't really important for illustrating the mechanics of converting this model to NIMBLE, but here is a brief summary anyway.  The latent abundances `N[i]` at sites `i = 1...M` are assumed to follow a Poisson.  The  j-th count at the i-th site, `C[i, j]`, is assumed to follow a binomial.  The abundance at each site depends on a habitat-specific intercept and coefficient for vegetation height, with a log link.  The detection probability for each sampling occasion is assumed to depend on a date-specific intercept and coefficient for wind speed.  K&#233;ry and Royle concocted this as a simulated example to illustrate the hierarchical modeling approaches for estimating abundance from count data on repeated visits to multiple sites.
+This is known as an "N-mixture" model in ecology.  The details aren't really important for illustrating the mechanics of converting this model to NIMBLE, but here is a brief summary anyway.  The latent abundances `N[i]` at sites `i = 1...M` are assumed to follow a Poisson.  The  j-th count at the i-th site, `C[i, j]`, is assumed to follow a binomial with detection probability `p[i, j]`.  The abundance at each site depends on a habitat-specific intercept and coefficient for vegetation height, with a log link.  The detection probability for each sampling occasion depends on a date-specific intercept and coefficient for wind speed.  K&#233;ry and Royle concocted this as a simulated example to illustrate the hierarchical modeling approaches for estimating abundance from count data on repeated visits to multiple sites.
 
 ## NIMBLE version of the model code
 
@@ -276,10 +255,40 @@ Alternatively, if you call `nimbleMCMC` with the argument  `samplesAsCodaMCMC = 
 To show that MCMC really happened, here is a plot of `N.critical`:
 ```{r simple-plot}
 plot(jitter(samples[, "N.critical"]), xlab = "iteration", ylab = "N.critical",
-     main = "Number of populations with critical size")
+     main = "Number of populations with critical size",
+     type = "l")
 ```
 
 # Next steps
 
 NIMBLE allows users to customize MCMC and other algorithms in many ways.  See the NIMBLE User Manual and web site for more ideas.
 
+
+## Smaller steps you may need for converting existing code
+
+If the main steps above aren't sufficient, consider these additional steps when converting from JAGS, WinBUGS or OpenBUGS to NIMBLE.
+
+4. Convert any use of truncation syntax
+
+    - e.g. `x ~ dnorm(0, tau) T(a, b)` should be re-written as `x ~ T(dnorm(0, tau), a, b)`.
+
+    - If reading model code from a file using `readBUGSmodel`, the `x ~ dnorm(0, tau) T(a, b)`  syntax will work.
+
+5. Possibly split the `data` into `data` and
+  `constants` for NIMBLE.
+
+    - NIMBLE has a more general concept of data, so NIMBLE makes a distinction between data and constants.
+    - Constants are necessary to define the
+  model, such as `nsite` in `for(i in 1:nsite) {...}` and constant vectors of factor indices (e.g. `block` in `mu[block[i]]`).
+    - Data are
+  observed values of some variables.
+    - Alternatively, one can provide a list of both
+  constants and data for the `constants` argument to
+  `nimbleModel`, and NIMBLE will try to determine which is which.  Usually this will work, but when in doubt, try separating them.
+
+6.  Possibly update initial values (`inits`).
+
+    - In some cases, NIMBLE likes to have more complete `inits` than the other packages.
+    - In a model with stochastic indices, those indices should have `inits` values.
+    - When using `nimbleMCMC` or `runMCMC`, `inits` can be a function, as in R packages for calling WinBUGS, OpenBUGS or JAGS.  Alternatively, it can be a list.
+    - When you build a model with `nimbleModel` for more control than `nimbleMCMC`, you can provide `inits` as a list.  This sets defaults that can be over-ridden with the `inits` argument to `runMCMC`.

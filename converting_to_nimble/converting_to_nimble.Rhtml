@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Converting to NIMBLE from JAGS, OpenBUGS or WinBUGS</title>
+</head>
+<body>
+<!--begin.rcode, echo=FALSE, results = FALSE
+  library(knitr)
+  opts_chunk$set(fig.width=6, fig.height=4)
+  library(methods) ## needed only when building documents outside of R
+  library(nimble)
+  end.rcode-->
+
+<!--
+Build with knit('converting_to_nimble.Rhtml').
+Then copy and paste into blog post.
+--> 
+
+<h1> Converting to NIMBLE from JAGS, OpenBUGS or WinBUGS </h1>
+
+<p> NIMBLE is a hierarchical modeling package that uses nearly the same modeling language as the popular MCMC packages WinBUGS, OpenBUGS and JAGS.  NIMBLE makes the modeling language extensible &mdash; you can add distributions and functions &mdash; and also allows customization of MCMC or other algorithms that use models.  Here is a quick summary of steps to convert existing code from WinBUGS, OpenBUGS or JAGS to NIMBLE. For more information, see examples on <a href="http://r-nimble.org">r-nimble.org</a> or the  <a href="https://r-nimble.org/manuals/NimbleUserManual.pdf">NIMBLE User Manual</a>. </p>
+
+<h2> Main steps for converting existing code </h2>
+
+<p> These steps assume you are familiar with running WinBUGS, OpenBUGS or JAGS through an R package such as R2WinBUGS, R2jags, rjags, or jagsUI. </p>
+
+<ol>
+<li>Wrap your model code in <tt>nimbleCode({})</tt>, directly in R.</li>
+<ul>
+    <li>This replaces the step of writing or generating a separate file containing the model code.</li>
+
+    <li>Alternatively, you can read standard JAGS- and BUGS-formatted code and data files using
+  <tt>readBUGSmodel</tt>.</li>
+</ul>
+<li> Provide information about missing or empty indices </li>
+<ul>
+    <li> Example: If <tt>x</tt> is a matrix, you must write at least <tt>x[,]</tt> to show it has two dimensions.</li>
+    <li> If other declarations make the size of <tt>x</tt> clear, <tt>x[,]</tt> will work in some circumstances.</li>
+    <li> If not, either provide index ranges (e.g. <tt>x[1:n, 1:m]</tt>) or use the <tt>dimensions</tt> argument to <tt>nimbleModel</tt> to provide the sizes in each dimension.</li>
+</ul>
+<li>  Choose how you want to run MCMC. </li>
+<ul>
+    <li> Use <tt>nimbleMCMC()</tt> as the just-do-it way to run an MCMC.  This will take all steps to
+  set up and run an MCMC using   NIMBLE's default configuration.</li>
+   
+    <li> To use NIMBLE's full flexibility: build the model, configure and build the MCMC, and compile both the model and MCMC.  Then run the MCMC via <tt>runMCMC</tt> or by calling the <tt>run</tt> function of the compiled MCMC.  See the NIMBLE User Manual to learn more about what you can do.</li>
+</ul>
+</ol>
+
+<p> See below for a list of some more nitty-gritty additional steps you may need to consider for some models. </p>
+
+<h2> Example: An animal abundance model </h2>
+
+<p> This example is adapted from Chapter 6, Section 6.4 of <a href="https://www.elsevier.com/books/applied-hierarchical-modeling-in-ecology-analysis-of-distribution-abundance-and-species-richness-in-r-and-bugs/kery/978-0-12-801378-6">Applied Hierarchical Modeling in Ecology: Analysis of distribution, abundance and species richness in R and BUGS.  Volume I: Prelude and Static Models</a> by Marc K&#233;ry and J. Andrew Royle (2015, Academic Press).  The <a href="https://www.mbr-pwrc.usgs.gov/pubanalysis/keryroylebook/">book's web site</a> provides code for its examples. </p>
+
+<h3> Original code </h3>
+
+<p> The original model code looks like this: </p>
+
+<pre><tt>
+cat(file = "model2.txt","
+model {
+# Priors
+for(k in 1:3){                # Loop over 3 levels of hab or time factors
+   alpha0[k] ~ dunif(-10, 10) # Detection intercepts
+   alpha1[k] ~ dunif(-10, 10) # Detection slopes
+   beta0[k] ~ dunif(-10, 10)  # Abundance intercepts
+   beta1[k] ~ dunif(-10, 10)  # Abundance slopes
+}
+
+# Likelihood
+# Ecological model for true abundance
+for (i in 1:M){
+   N[i] ~ dpois(lambda[i])
+   log(lambda[i]) <- beta0[hab[i]] + beta1[hab[i]] * vegHt[i]
+   # Some intermediate derived quantities
+   critical[i] <- step(2-N[i])# yields 1 whenever N is 2 or less
+   z[i] <- step(N[i]-0.5)     # Indicator for occupied site
+   # Observation model for replicated counts
+   for (j in 1:J){
+      C[i,j] ~ dbin(p[i,j], N[i])
+      logit(p[i,j]) <- alpha0[j] + alpha1[j] * wind[i,j]
+   }
+}
+
+# Derived quantities
+Nocc <- sum(z[])         # Number of occupied sites among sample of M
+Ntotal <- sum(N[])       # Total population size at M sites combined
+Nhab[1] <- sum(N[1:33])  # Total abundance for sites in hab A
+Nhab[2] <- sum(N[34:66]) # Total abundance for sites in hab B
+Nhab[3] <- sum(N[67:100])# Total abundance for sites in hab C
+for(k in 1:100){         # Predictions of lambda and p ...
+   for(level in 1:3){    #    ... for each level of hab and time factors
+      lam.pred[k, level] <- exp(beta0[level] + beta1[level] * XvegHt[k])
+      logit(p.pred[k, level]) <- alpha0[level] + alpha1[level] * Xwind[k]
+   }
+}
+N.critical <- sum(critical[]) # Number of populations with critical size
+}")
+</tt></pre>
+
+<h3>Brief summary of the model</h3>
+
+<p> This is known as an "N-mixture" model in ecology.  The details aren't really important for illustrating the mechanics of converting this model to NIMBLE, but here is a brief summary anyway.  The latent abundances <tt>N[i]</tt> at sites <tt>i = 1...M</tt> are assumed to follow a Poisson.  The  j-th count at the i-th site, <tt>C[i, j]</tt>, is assumed to follow a binomial with detection probability <tt>p[i, j]</tt>.  The abundance at each site depends on a habitat-specific intercept and coefficient for vegetation height, with a log link.  The detection probability for each sampling occasion depends on a date-specific intercept and coefficient for wind speed.  K&#233;ry and Royle concocted this as a simulated example to illustrate the hierarchical modeling approaches for estimating abundance from count data on repeated visits to multiple sites. </p>
+
+<h2>NIMBLE version of the model code</h2>
+
+<p>Here is the model converted for use in NIMBLE.  In this case, the only changes to the code are to insert some missing index ranges (see comments).</p>
+
+<!--begin.rcode nimble-code
+library(nimble)
+Section6p4_code <- nimbleCode( {
+    # Priors
+    for(k in 1:3) {                # Loop over 3 levels of hab or time factors
+      alpha0[k] ~ dunif(-10, 10) # Detection intercepts
+      alpha1[k] ~ dunif(-10, 10) # Detection slopes
+      beta0[k] ~ dunif(-10, 10)  # Abundance intercepts
+      beta1[k] ~ dunif(-10, 10)  # Abundance slopes
+    }
+    
+    # Likelihood
+    # Ecological model for true abundance
+    for (i in 1:M){
+      N[i] ~ dpois(lambda[i])
+      log(lambda[i]) <- beta0[hab[i]] + beta1[hab[i]] * vegHt[i]
+      # Some intermediate derived quantities
+      critical[i] <- step(2-N[i])# yields 1 whenever N is 2 or less
+      z[i] <- step(N[i]-0.5)     # Indicator for occupied site
+      # Observation model for replicated counts
+      for (j in 1:J){
+        C[i,j] ~ dbin(p[i,j], N[i])
+        logit(p[i,j]) <- alpha0[j] + alpha1[j] * wind[i,j]
+        }
+    }
+    
+    # Derived quantities; unnececssary when running for inference purpose
+    # NIMBLE: We have filled in indices in the next two lines.
+    Nocc <- sum(z[1:100])         # Number of occupied sites among sample of M
+    Ntotal <- sum(N[1:100])       # Total population size at M sites combined
+    Nhab[1] <- sum(N[1:33])  # Total abundance for sites in hab A
+    Nhab[2] <- sum(N[34:66]) # Total abundance for sites in hab B
+    Nhab[3] <- sum(N[67:100])# Total abundance for sites in hab C
+    for(k in 1:100){         # Predictions of lambda and p ...
+      for(level in 1:3){    #    ... for each level of hab and time factors
+        lam.pred[k, level] <- exp(beta0[level] + beta1[level] * XvegHt[k])
+        logit(p.pred[k, level]) <- alpha0[level] + alpha1[level] * Xwind[k]
+        }
+      }
+    # NIMBLE: We have filled in indices in the next line. 
+    N.critical <- sum(critical[1:100]) # Number of populations with critical size
+  })
+  end.rcode-->
+
+<h2> Simulated data </h2>
+
+<p> To carry this example further, we need some simulated data.  K&#233;ry and Royle provide separate code to do this.  With NIMBLE we could use the model itself to simulate data rather than writing separate simulation code.  But for our goals here, we simply copy K&#233;ry and Royle's simulation code, and we compact it somewhat: </p>
+
+<!--begin.rcode simulate-data
+# Code from Kery and Royle (2015)
+# Choose sample sizes and prepare obs. data array y
+set.seed(1)                   # So we all get same data set
+M <- 100                      # Number of sites
+J <- 3                        # Number of repeated abundance measurements
+C <- matrix(NA, nrow = M, ncol = J) # to contain the observed data
+
+# Create a covariate called vegHt
+vegHt <- sort(runif(M, -1, 1)) # sort for graphical convenience
+
+# Choose parameter values for abundance model and compute lambda
+beta0 <- 0                    # Log-scale intercept
+beta1 <- 2                    # Log-scale slope for vegHt
+lambda <- exp(beta0 + beta1 * vegHt) # Expected abundance
+
+# Draw local abundance
+N <- rpois(M, lambda)
+
+# Create a covariate called wind
+wind <- array(runif(M * J, -1, 1), dim = c(M, J))
+
+# Choose parameter values for measurement error model and compute detectability
+alpha0 <- -2                        # Logit-scale intercept
+alpha1 <- -3                        # Logit-scale slope for wind
+p <- plogis(alpha0 + alpha1 * wind) # Detection probability
+
+# Take J = 3 abundance measurements at each site
+for(j in 1:J) {
+  C[,j] <- rbinom(M, N, p[,j])
+}
+
+# Create factors
+time <- matrix(rep(as.character(1:J), M), ncol = J, byrow = TRUE)
+hab <- c(rep("A", 33), rep("B", 33), rep("C", 34))  # assumes M = 100
+
+# Bundle data
+# NIMBLE: For full flexibility, we could separate this list
+#         into constants and data lists.  For simplicity we will keep
+#         it as one list to be provided as the "constants" argument.
+#         See comments about how we would split it if desired.
+win.data <- list(
+    ## NIMBLE: C is the actual data
+    C = C,
+    ## NIMBLE: Covariates can be data or constants
+    ##         If they are data, you could modify them after the model is built
+    wind = wind,
+    vegHt = vegHt,
+    XvegHt = seq(-1, 1,, 100), # Used only for derived quantities
+    Xwind = seq(-1, 1,,100),   # Used only for derived quantities
+    ## NIMBLE: The rest of these are constants, needed for model definition
+    ## We can provide them in the same list and NIMBLE will figure it out.
+    M = nrow(C),
+    J = ncol(C),
+    hab = as.numeric(factor(hab))
+)
+
+  end.rcode-->
+
+<h2> Initial values </h2>
+
+<p> Next we need to set up initial values and choose parameters to monitor in the MCMC output.  To do so we will again directly use  K&#233;ry and Royle's code.</p>
+
+<!--begin.rcode setup-inits-params
+Nst <- apply(C, 1, max)+1   # Important to give good inits for latent N
+inits <- function() list(N = Nst, 
+                         alpha0 = rnorm(3), 
+                         alpha1 = rnorm(3), 
+                         beta0 = rnorm(3), 
+                         beta1 = rnorm(3))
+
+# Parameters monitored
+# could also estimate N, bayesian counterpart to BUPs before: simply add "N" to the list
+params <- c("alpha0", "alpha1", "beta0", "beta1", "Nocc", "Ntotal", "Nhab", "N.critical", "lam.pred", "p.pred")
+  end.rcode-->
+
+<h2> Run MCMC with <tt>nimbleMCMC</tt> </h2>
+
+<p> Now we are ready to run an MCMC in nimble.  We will run only one chain, using the same settings as  K&#233;ry and Royle. </p>
+
+
+<!--begin.rcode nimble-mcmc
+samples <- nimbleMCMC(
+    code = Section6p4_code,
+    constants = win.data, ## provide the combined data & constants as constants
+    inits = inits,
+    monitors = params,
+    niter = 22000,
+    nburnin = 2000,
+    thin = 10)
+  end.rcode-->
+
+<h2> Work with the samples </h2>
+
+<p> Finally we want to look at our samples.  NIMBLE returns samples as a simple matrix with named columns.  There are numerous packages for processing MCMC output.  If you want to use the <tt>coda</tt> package, you can convert a matrix to a coda mcmc object like this: </p> 
+
+<!--begin.rcode code
+library(coda)
+coda.samples <- as.mcmc(samples)
+  end.rcode-->
+
+<p>Alternatively, if you call <tt>nimbleMCMC</tt> with the argument  <tt>samplesAsCodaMCMC = TRUE</tt>, the samples will be returned as a coda object.</p>
+
+<p>To show that MCMC really happened, here is a plot of <tt>N.critical</tt>:</p>
+<!--begin.rcode simple-plot
+plot(jitter(samples[, "N.critical"]), xlab = "iteration", ylab = "N.critical",
+     main = "Number of populations with critical size",
+     type = "l")
+
+  end.rcode-->
+
+<h1> Next steps </h1>
+<p> NIMBLE allows users to customize MCMC and other algorithms in many ways.  See the NIMBLE User Manual and web site for more ideas. </p>
+
+<h2> Smaller steps you may need for converting existing code</h2>
+
+<p>If the main steps above aren't sufficient, consider these additional steps when converting from JAGS, WinBUGS or OpenBUGS to NIMBLE.</p>
+
+<ol start = "4">
+<li> Convert any use of truncation syntax
+<ul>
+    <li> e.g. <tt>x ~ dnorm(0, tau) T(a, b)</tt> should be re-written as <tt>x ~ T(dnorm(0, tau), a, b)</tt>.</li>
+
+    <li> If reading model code from a file using <tt>readBUGSmodel</tt>, the <tt>x ~ dnorm(0, tau) T(a, b)</tt>  syntax will work.</li>
+</ul>
+</li>
+
+<li> Possibly split the <tt>data</tt> into <tt>data</tt> and <tt>constants</tt> for NIMBLE.
+<ul>
+    <li> NIMBLE has a more general concept of data, so NIMBLE makes a distinction between data and constants. </li>
+    <li> Constants are necessary to define the model, such as <tt>nsite</tt> in <tt>for(i in 1:nsite) {...}</tt> and constant vectors of factor indices (e.g. <tt>block</tt> in <tt>mu[block[i]]</tt>). </li>
+    <li> Data are observed values of some variables.</li>
+    <li> Alternatively, one can provide a list of both constants and data for the <tt>constants</tt> argument to <tt>nimbleModel</tt>, and NIMBLE will try to determine which is which.  Usually this will work, but when in doubt, try separating them. </li>
+</ul>
+</li>
+<li>  Possibly update initial values (<tt>inits</tt>).
+<ul>
+    <li> In some cases, NIMBLE likes to have more complete <tt>inits</tt> than the other packages.</li>
+    <li> In a model with stochastic indices, those indices should have <tt>inits</tt> values.</li>
+    <li> When using <tt>nimbleMCMC</tt> or <tt>runMCMC</tt>, <tt>inits</tt> can be a function, as in R packages for calling WinBUGS, OpenBUGS or JAGS.  Alternatively, it can be a list.</li>
+    <li> When you build a model with <tt>nimbleModel</tt> for more control than <tt>nimbleMCMC</tt>, you can provide <tt>inits</tt> as a list.  This sets defaults that can be over-ridden with the <tt>inits</tt> argument to <tt>runMCMC</tt>.</li>
+</ul>
+</li>
+</ol>
+
+</body>
+</html>
