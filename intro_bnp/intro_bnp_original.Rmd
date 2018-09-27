@@ -1,0 +1,345 @@
+---
+title: "Bayesian Nonparametric Models in NIMBLE"
+subtitle: "September 2018"
+author: "Claudia Wehrhahn, Chris Paciorek, and the NIMBLE Development Team"
+output:
+  html_document:
+    code_folding: show
+---
+
+```{r setup, include=FALSE} 
+library(methods) ## needed only when building documents outside of R
+library(nimble)
+```
+
+NIMBLE is a hierarchical modeling package that uses nearly the same modeling language as the popular MCMC packages WinBUGS, OpenBUGS and JAGS, while making the modeling language extensible -- you can add distributions and functions -- and also allows customization of MCMC or other algorithms that use models.
+
+Recently we added support Bayesian nonparametric (BNP) mixture modeling to NIMBLE. In particular, NIMBLE provides Dirichlet process mixture (DPM) models using either the Chinese Restaurant Process or stick-breaking representation. 
+
+We'll illustrate NIMBLE's BNP capabilities by taking a parametric random effects model and easily switching to a nonparametric representation of the random effects that avoids the assumption of normally-distributed random effects.
+
+Then we'll show how one can do nonparametric density estimation.
+
+# Nonparametric random effects
+
+We'll illustrate using a meta-analysis of the side effects of a formerly very popular drug for diabetes called Avandia. We'll analyze data that played a role in raising serious questions about the safety of Avandia. The question is whether Avandia use increases the risk of myocardial infarction (heart attack). There are 48 studies (the 49th study in the data file is different in some ways and excluded here), each with treatment and control arms.
+
+```{r, avandia-view}
+dat <- read.csv('avandia.csv')
+head(dat)
+```
+
+We'll start with a standard generalized linear mixed model (GLMM)-based meta analysis. 
+
+# Basic meta analysis of Avandia myocardial infarctions (MIs)
+
+```{r, avandia-setup}
+dat <- read.csv('avandia.csv')
+dat <- dat[-49, ]
+
+x <- dat$controlMI
+n <- dat$nControl
+y <- dat$avandiaMI
+m <- dat$nAvandia
+
+nStudies <- nrow(dat)
+data <- list(x = x, y = y)
+constants = list(n = n, m = m, nStudies = nStudies)
+
+codeParam <- nimbleCode({
+    for(i in 1:nStudies) {
+        y[i] ~ dbin(size = m[i], prob = q[i]) # avandia MIs
+        x[i] ~ dbin(size = n[i], prob = p[i]) # control MIs
+        q[i] <- expit(theta + gamma[i])       # Avandia log-odds
+        p[i] <- expit(gamma[i])               # control log-odds
+        gamma[i] ~ dnorm(mu, sd = tau)        # study effects
+    }
+    theta ~ dflat()        # effect of Avandia
+    # random effects hyperparameters
+    mu ~ dflat()
+    tau ~ dunif(0, 100)
+})
+```
+
+$\theta$ quantifies the difference in risk between the control and treatment arms, while the $\gamma_i$ quantify study-specific variation using normally-distributed random effects.
+
+## Running the MCMC
+
+Let's run a basic MCMC.
+
+```{r, mcmc, fig.cap='', fig.width=12, fig.height=5}
+inits = list(theta = 0, mu = 0, tau = 1, gamma = rnorm(nStudies))
+
+samples <- nimbleMCMC(code = codeParam, data = data, inits = inits,
+                      constants = constants, monitors = c("mu", "tau", "theta", "gamma"),
+                      thin = 10, niter = 21000, nburnin = 1000, nchains = 1, setSeed = TRUE)
+gammaCols <- grep('gamma', colnames(samples))
+
+par(mfrow = c(1, 4))
+ts.plot(samples[ , 'theta'], xlab = 'iteration', ylab = expression(theta))
+hist(samples[ , 'theta'], xlab = expression(theta), main = 'effect of Avandia')
+gammaMn <- colMeans(samples[ , gammaCols])
+hist(gammaMn, xlab = 'posterior means of random effects', main = 'random effects distribution')
+hist(samples[1000, gammaCols], xlab = 'single draw of random effects',
+                   main = 'random effects distribution')
+```
+
+This suggests there is an overall difference in risk between the control and treatment arms.
+
+But what about the normality assumption? Are our conclusions robust to that assumption? Perhaps the random effects distribution are skewed. (And recall that the estimates above of the random effects are generated under the normality assumption, which pushes the estimated effects to look more normal...)
+
+
+# DP-based random effects modeling for meta analysis
+
+Here we allow each $\gamma_i$ to be clustered with a set of the other random effects.
+Each $\gamma_i$ is generated from a normal distribution associated with a specific mixture component,
+where the mean and variance of the normal distribution are specific to the mixture component.
+This induces clustering, with the random effects grouped into clusters that share the same parameters.
+The DP specification allows the data to determine the number of components, from as few as one
+component (i.e., simplifying to the parametric model) to as many as $n$ components, i.e., one component
+for each observation, allowing extreme flexibility. 
+
+```{r, meta-bnp}
+codeBNP <- nimbleCode({
+    for(i in 1:nStudies) {
+        y[i] ~ dbin(size = m[i], prob = q[i]) # avandia MIs
+        x[i] ~ dbin(size = n[i], prob = p[i]) # control MIs
+        q[i] <- expit(theta + gamma[i])       # Avandia log-odds
+        p[i] <- expit(gamma[i])               # control log-odds
+        gamma[i] ~ dnorm(mu[i], var = tauTilde[i])  # random effects from mixture dist.
+        mu[i] <- muTilde[xi[i]]               # mean for random effect from cluster xi[i]
+        tau[i] <- tauTilde[xi[i]]             # var for random effect from cluster xi[i]
+    }
+    # mixture component parameters drawn from base measures
+    for(i in 1:nStudies) {
+        muTilde[i] ~ dnorm(mu0, sd = sd0)
+        tauTilde[i] ~ dinvgamma(a0, b0)
+    }
+    # CRP for clustering studies to mixture components
+    xi[1:nStudies] ~ dCRP(alpha, size = nStudies)
+    # hyperparameters
+    alpha ~ dgamma(1, 1)      
+    mu0 ~ dflat()
+    sd0 ~ dunif(0, 100)
+    a0 ~ dunif(0, 100)
+    b0 ~ dunif(0, 100)
+    theta ~ dflat()          # effect of Avandia
+})
+```
+
+The specification is a bit complicated, but just think of it as using a nonparametric extension to a mixture of normal distributions as the random effects distribution for $\gamma_i$, but where we don't fix the maximum number of components.
+
+## Running an MCMC for the DP-based meta analysis
+
+```{r, DP-MCMC, fig.cap='', fig.width=12, fig.height=5}
+inits <- list(gamma = rnorm(nStudies), xi = sample(1:2, nStudies, replace = TRUE),
+              alpha = 1, mu0 = 0, sd0 = 1, a0 = 1, b0 = 1, theta = 0,
+              muTilde = rnorm(nStudies), tauTilde = rep(1, nStudies))
+
+samplesBNP <- nimbleMCMC(code = codeBNP, data = data, inits = inits,
+               constants = constants,
+               monitors = c("theta", "gamma", "alpha", "xi", "mu0", "sd0", "a0", "b0"),
+               thin = 10, niter = 21000, nburnin = 1000, nchains = 1, setSeed = TRUE)
+
+gammaCols <- grep('gamma', colnames(samplesBNP))
+xiCols <- grep('xi', colnames(samplesBNP))
+
+par(mfrow = c(1,5))
+ts.plot(samplesBNP[ , 'theta'], xlab = 'iteration', ylab = expression(theta))
+hist(samplesBNP[ , 'theta'], xlab = expression(theta), main = 'effect of Avandia')
+gammaMn <- colMeans(samplesBNP[ , gammaCols])
+hist(gammaMn, xlab = 'posterior means of random effects',
+              main = 'random effects distribution')
+hist(samplesBNP[1000, gammaCols], xlab = 'single draw of random effects',
+                   main = 'random effects distribution')
+
+# How many mixture components are inferred?
+xiRes <- samplesBNP[ , xiCols]
+nGrps <- apply(xiRes, 1, function(x) length(unique(x)))
+ts.plot(nGrps, xlab = 'iteration', ylab = 'number of components')
+```
+
+Conclusions: the primary inference seems robust, and there's also not much evidence of multiple components.
+
+
+# Using other kernels
+
+NIMBLE allows you to easily use any kernel of your choice. For example we can replace the mixture of normals in the Avandia example with a mixture of t distributions. [[[do we want to actually show this in the example? use a different example so we can show a kernel such as a gamma or beta?]]]
+
+# Basic density estimation using DPM models
+
+NIMBLE provides machinery for single density estimation in a very flexible and easy-to-implement fashion by means of DPM models, which allow the relaxation of standard parametric assumptions. 
+
+# DPM of normal distributions
+
+Here we illustrate how to estimate the underlying density function that describes the waiting time between eruptions of the Old Faithfull volcano data set, available in R. A DPM of normal distributions model will be considered to estimate the density function of a transformation of the data to the real line. Under this approach, observations are clustered in normally distributed clusters, each cluster with its own mean and variance. The random variable describing to which normal cluster each data point belongs, follows a CRP distribution with concentration parameter $\alpha$. 
+
+```{r, normaldensity-bnp}
+library(TeachingDemos) ## for computing a empirical HPD pointwise credible band 
+
+data(faithful)
+
+dataTransformed <- (faithful$waiting - mean(faithful$waiting)) / sd(faithful$waiting)
+n <- length(dataTransformed)
+
+data <- list(y = dataTransformed)
+constants = list(n = length(dataTransformed))
+
+code <- nimbleCode({
+  for(i in 1:n) {
+    y[i] ~ dnorm(mu[i], var = s2[i]) 
+    mu[i] <- muTilde[xi[i]]
+    s2[i] <- s2Tilde[xi[i]]
+  }
+  xi[1:n] ~ dCRP(alpha, size = n)
+  for(i in 1:n) {
+    muTilde[i] ~ dnorm(0, var = s2Tilde[i]) 
+    s2Tilde[i] ~ dinvgamma(1, 1)
+  }
+  alpha ~ dgamma(1, 1)
+})
+```
+
+In the above specification each observation belongs to any of possibly $n$ normally distributed clusters and the 'xi' variable determines the assignment. The larger the value of $\alpha$, the more components has the mixture, reason why we assume it is random. 
+
+## Running an MCMC for a DPM
+
+The following code initializes the parameters, defines the model, builds and runs the MCMC.
+
+```{r, MCMC-normaldensity}
+set.seed(1)
+inits <- list(xi = sample(1:10, size=n, replace=TRUE), 
+              muTilde = rnorm(n, 0, sd = sqrt(10)), 
+              s2Tilde = rinvgamma(n, 1, 1), 
+              alpha = 1)                                                          # initialization of parameters
+rmodel <- nimbleModel(code, data=data, inits=inits, constants = constants)        # the NIMBLE model
+cmodel <- compileNimble(rmodel)                                                   # compiling the model in C
+mConf <- configureMCMC(rmodel, monitors = c("xi", "muTilde", "s2Tilde", "alpha")) # configuration of the MCMC. 
+mMCMC <- buildMCMC(mConf) 
+cMCMC <- compileNimble(mMCMC, project = rmodel)                                   # compiling the MCMC 
+cMCMC$run(110)                                                                    # running the MCMC
+
+samples <- as.matrix(cMCMC$mvSamples)                                             # posterior samples
+```
+
+In NIMBLE we can get posterior samples from the random measure $G$, using the getSamplesDPmeasure() function, and use them to compute the pointwise density estimate. In order to get the posterior samples from G we need to monitor all the random variables involved in its computations, i.e., the membership variable, 'xi', the cluster parameters, 'muTilde' and 's2Tilde', and the concentration parameter, 'alpha'.
+
+The following line generates posterior samples from the random measure $G$. The 'cMCMC' object can be a compiled or uncompiled object having the model and posterior samples from the parameters. When running the getSamplesDPmeasure() function, a message displays the truncation level of $G$, say $truncG$. The resulting object is a matriz having $(truncG * (p+1))$ colums, where $p$ is the number of cluster parameters, in this example $p=2$.
+
+```{r, G-normaldensity}
+samplesG <- getSamplesDPmeasure(cMCMC) 
+```
+
+The following code computes the posterior samples of the density function and makes plots of the posterior samples of $\alpha$, the pointwise estimation of the density function and a 95\% credible band.
+
+```{r, results-normaldensity}
+truncG <- 38 # truncation level of the posterior approximation of G
+
+itersave <- 100:110 
+grid <- seq(-2.5, 2.5, len=200) # grid for pointwise estimation of the density function
+
+postSampleDensity <- matrix(0, ncol=length(grid), nrow=length(itersave)) # here we save the posterior samples of the density function
+irow <- 1
+for(iter in itersave){
+  postSampleDensity[irow, ] <- sapply(grid, 
+        function(x)sum(samplesG[iter, 1:truncG] * dnorm(x, samplesG[iter, (2*truncG+1):(3*truncG)], sqrt(samplesG[iter, (truncG+1):(2*truncG)])))) 
+  irow <- irow + 1
+}
+
+# plots: 
+ts.plot(samples[itersave, 1], xlab="iteration", ylab=expression(alpha)) # posterior samples of concentration parameter
+hist(data$y, freq=FALSE, xlim=c(-2.5, 2.5), main="Transformed Old Faithful data")
+lines(grid, apply(postSampleDensity, 2, mean), lwd=2, col='black')
+lines(grid, apply(postSampleDensity, 2, emp.hpd)[1, ], lwd=2, lty=2, col='grey')
+lines(grid, apply(postSampleDensity, 2, emp.hpd)[2, ], lwd=2, lty=2, col='grey')
+points(data$y, rep(0,n), pch=20)
+```
+
+There is clear evidence that the data has two components for the waiting times, which are captured by the model. 
+
+
+# DPM of gamma distributions
+
+In the next example we illustrate how flexible NIMBLE is to perform density estimation using other kernels. Since the Old Faithfull data set describes the time between geyser eruptions, we could use a gamma kernel for the distribution of the data, without having to resort to transformations. Here we consider a Gamma kernel with Gamma prior distributions for the shape and scale parameters.
+
+In this case, we are going to define less cluster parameters than possible clusters, reducing time of computations. A drawback of doing this is that no more cluster parameters can be created, so if at some iteration more clusters than cluster parameters are created, the model will be reduced to a finite mixture model.
+
+```{r, gammadensity-bnp}
+data <- list(y = faithful$waiting)
+
+code <- nimbleCode({
+  for(i in 1:n) {
+    y[i] ~ dgamma(shape = beta[i], scale = lambda[i])
+    beta[i] <- betaTilde[xi[i]]
+    lambda[i] <- lambdaTilde[xi[i]]
+  }
+  xi[1:n] ~ dCRP(alpha, size = n)
+  for(i in 1:50) { # only 50 cluster parameters
+    betaTilde[i] ~ dgamma(shape = 71, scale = 2)
+    lambdaTilde[i] ~ dgamma(shape = 2, scale = 2)
+  }
+  alpha ~ dgamma(1, 1)
+})
+
+```
+
+## Running an MCMC for a DPM
+
+The following code initializes the parameters, defines the model, builds and runs the MCMC. Note that when buiding the MCMC a warning message about cluster parameters and possible clusters is sent, due to $50$ being smaller than $n$, and when running the MCMC no message is sent, meaning that never more clusters than cluster parameters were created.
+
+```{r, MCMC-normaldensity2}
+set.seed(1)
+inits <- list(xi = sample(1:10, size=n, replace=TRUE), 
+              betaTilde = rgamma(50, shape = 71, scale = 2), 
+              lambdaTilde = rgamma(50, shape = 2, scale = 2), 
+              alpha = 1) 
+rmodel <- nimbleModel(code, data=data, inits=inits, constants = constants)
+cmodel <- compileNimble(rmodel)
+mConf <- configureMCMC(rmodel, monitors = c("xi", "betaTilde", "lambdaTilde", "alpha"))
+mMCMC <- buildMCMC(mConf)
+cMCMC <- compileNimble(mMCMC, project = rmodel)
+cMCMC$run(110)
+
+samples <- as.matrix(cMCMC$mvSamples) # posterior samples
+```
+
+Now we obtain posterior samples of $G$.
+
+```{r, G-normaldensity2}
+samplesG <- getSamplesDPmeasure(cMCMC) 
+```
+
+The following code computes the posterior samples of the density function and makes plots of the posterior samples of $\alpha$, the pointwise estimation of the density function and a 95\% credible band.
+
+```{r, results-normaldensity2}
+truncG <- 24
+
+itersave <- 100:110 
+grid <- seq(40, 100, len=200)
+
+postSampleDensity <- matrix(0, ncol=length(grid), nrow=length(itersave))
+irow <- 1
+for(iter in itersave){
+  postSampleDensity[irow, ] <- sapply(grid, function(x)sum(samplesG[iter, 1:truncG] * dgamma(x, shape = samplesG[iter,      (truncG+1):(2*truncG)], scale = samplesG[iter, (2*truncG+1):(3*truncG)]))) 
+  irow <- irow + 1
+}
+
+
+# plots: 
+ts.plot(samples[itersave, 1], xlab="iteration", ylab=expression(alpha)) # posterior samples of concentration parameter
+hist(data$y, freq=FALSE, xlim=c(40,100), main="Old Faithful data")
+lines(grid, apply(postSampleDensity, 2, mean), lwd=2, col='black')
+lines(grid, apply(postSampleDensity, 2, emp.hpd)[1, ], lwd=2, lty=2, col='grey')
+lines(grid, apply(postSampleDensity, 2, emp.hpd)[2, ], lwd=2, lty=2, col='grey')
+points(data$y, rep(0,n), pch=20)
+
+```
+
+Again, the two components present in the data are recovered by the model and the interpretation becomes more intuituve: there are two groups of geysers, one having mean waiting time between eruptions close to 55 minutes and the other having mean waiting time between eruptions close to 80 minutes.
+
+
+# More information and future development
+
+Please see our [User Manual](https://r-nimble.org/html_manual/cha-welcome-nimble.html)
+
+We're in the midst of improvements to the existing BNP functionality as well as adding additional Bayesian nonparametric models, such as hierarchical Dirichlet processes and Pitman-Yor processes, so please add yourself to our [announcement](https://groups.google.com/forum/#!forum/nimble-announce) or [user support/discussion](https://groups.google.com/forum/#!forum/nimble-users) Google groups. 
