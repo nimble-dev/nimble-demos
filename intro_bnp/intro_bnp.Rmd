@@ -26,7 +26,7 @@ We will illustrate NIMBLE's BNP capabilities using two examples.  First, we will
 
 ## Basic density estimation using Dirichlet Process Mixture models
 
-NIMBLE provides the machinery for nonparametric density estimation by means of Dirichlet process mixture (DPM) models.  For an independent and identically distributed sample $y_1, \ldots, y_n$, the model takes the form
+NIMBLE provides the machinery for nonparametric density estimation by means of Dirichlet process mixture (DPM) models [@ferguson_73;@ferguson_74;@lo_84;@escobar_94;@escobar_west_95].  For an independent and identically distributed sample $y_1, \ldots, y_n$, the model takes the form
 $$
 y_i \mid \theta_i \sim p(y_i \mid \theta_i), \quad\quad \theta_i \mid G \sim G, \quad\quad G \sim \mbox{DP}(\alpha, H), \quad\quad i=1,\ldots, n .
 $$
@@ -50,7 +50,7 @@ y^{*}_i \mid \mu_i, \sigma^2_i \sim \mbox{N}(\mu_i, \sigma^2_i), \quad\quad (\mu
 $$
 where $H$ corresponds to a normal-inverse-gamma meassure.  This model can be interpreted as providing a Bayesian version of kernel density estimation for $y^{*}_i$ using Gaussian kernels and *adaptive bandwidths*.  In the original scale of the data, this translates into a adaptive log-Gaussian kernel density estimate.
 
-Introducing auxiliary variables $\xi_1, \ldots, \xi_n$ that indicate which component of the mixture generates each observations, and integrating over the random meassure $G$, we obtain the CRP representation of the model:
+Introducing auxiliary variables $\xi_1, \ldots, \xi_n$ that indicate which component of the mixture generates each observations, and integrating over the random meassure $G$, we obtain the CRP representation of the model @blackwell_mcqueen_73:
 $$
 y_i^{*} \mid \{ \tilde{\mu}_k \}, \{ \tilde{\sigma}_k^{2} \} \sim \mbox{N}\left( \tilde{\mu}_{\xi_i}, \tilde{\sigma}^2_{\xi_i} \right), \quad\quad \xi \mid \alpha \sim \mbox{CRP}(\alpha), \quad\quad (\tilde{\mu}_k, \tilde{\sigma}_k^2) \mid H \sim H, \quad\quad i=1,\ldots, n ,
 $$
@@ -84,7 +84,7 @@ Note also that the value of $\alpha$ controls the number of components we expect
 
 #### Running the MCMC algorithm
 
-The following code sets up the data and constants, initializes the parameters, defines the model object, and builds and runs the MCMC algorithm.  Because the specification is in terms of a Chinese restaurant process, the default sampler selected by NIMBLE is a collapsed Gibbs sampler.
+The following code sets up the data and constants, initializes the parameters, defines the model object, and builds and runs the MCMC algorithm.  Because the specification is in terms of a Chinese restaurant process, the default sampler selected by NIMBLE is a collapsed Gibbs sampler @neal_2000.
 ```{r, MCMC-normaldensity}
 set.seed(1)
 # Model Data
@@ -195,7 +195,7 @@ for(i in 1:nrow(samples)){
 }
 
 # plots: 
-hist(probY70,  xlab = "iteration", ylab = expression(P(tilde(y) > 70)), main = paste(expression(P(tilde(y) > 70) | data) , "=", round(mean(probY70),3) ) )
+hist(probY70,  xlab = "Probability", ylab = "P(tilde(y) > 70 | data)" , main = "" )
 ```
 
 ### Fitting a mixture of gamma distributions using the CRP representation
@@ -288,7 +288,7 @@ Again, we see that the density of the data is bimodal, and looks very similar to
 
 #### Model specification
 
-An alternative representation of the Dirichlet process mixture uses the stick breaking representation of the random distribution $G$.  NIMBLE allows us to specify an approximation that involves a truncation the Dirichlet process to finite number of atoms of $L$.  The resulting model therefore reduces to a finite mixture with $L$ components a very particular prior on the weights of the mixture components.
+An alternative representation of the Dirichlet process mixture uses the stick breaking representation of the random distribution $G$, @sethuraman_94.  NIMBLE allows us to specify an approximation that involves a truncation the Dirichlet process to finite number of atoms of $L$.  The resulting model therefore reduces to a finite mixture with $L$ components a very particular prior on the weights of the mixture components.
 
 Introducing auxiliary variables $z_1, \ldots, z_n$ that indicate which component generagted each observation, the corresponding model for the mixture of Gamma densities discussed in the previous section takes the form
 $$
@@ -323,7 +323,7 @@ Note that the truncation level $L$ of $G$ has been set to a value 'Trunc', which
 
 
 #### Running the MCMC algorithm
-The following code sets up the model data and constants, initializes the parameters, defines the model object, and builds and runs the MCMC algorithm for the mixture of Gamma distributions.
+The following code sets up the model data and constants, initializes the parameters, defines the model object, and builds and runs the MCMC algorithm for the mixture of Gamma distributions. When a stick-breaking representation is used, a blocked  Gibbs sampler is assigned, see  @ishwaran_2001 and @ishwaran_james_2002.
 
 ```{r, MCMC-gammadensity-bnp-SB}
 data <- list(y = faithful$waiting)
