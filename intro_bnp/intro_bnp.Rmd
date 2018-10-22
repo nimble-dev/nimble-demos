@@ -187,7 +187,7 @@ The following code computes posterior samples of $P(\tilde{y} > 70)$ using the p
 ```{r, G-normaldensity-probYtildeLarger70}
 truncG <- 30 # truncation level for G, obtained from running the getSamplesDPmeasure(cMCMC) line
 
-probY70 <- rep(0, nrow(samples)  # posterior samples of P(y.tilde > 70)
+probY70 <- rep(0, nrow(samples))  # posterior samples of P(y.tilde > 70)
 for(i in seq_len(nrow(samples)) {
   probY70[i] <- sum(samplesG[i, grep('weight', colnames(samplesG))] * pnorm(-0.06281407, 
                               samplesG[i, grep('muTilde', colnames(samplesG))], 

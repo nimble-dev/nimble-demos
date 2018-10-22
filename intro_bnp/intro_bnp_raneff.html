@@ -173,13 +173,13 @@ where the random effects [latex]\gamma_i[/latex] follow a common normal distribu
 </pre></div>
 <div class="source"><pre class="knitr r"><span class="hl std">gammaCols</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'gamma'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samples))</span>
 
-<span class="hl kwd">par</span><span class="hl std">(</span><span class="hl kwc">mfrow</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">4</span><span class="hl std">),</span> <span class="hl kwc">cex</span> <span class="hl std">=</span> <span class="hl num">1.2</span><span class="hl std">)</span>
+<span class="hl kwd">par</span><span class="hl std">(</span><span class="hl kwc">mfrow</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">4</span><span class="hl std">),</span> <span class="hl kwc">cex</span> <span class="hl std">=</span> <span class="hl num">1.1</span><span class="hl std">,</span> <span class="hl kwc">mgp</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">1.8</span><span class="hl std">,</span><span class="hl num">.7</span><span class="hl std">,</span><span class="hl num">0</span><span class="hl std">))</span>
 <span class="hl kwd">ts.plot</span><span class="hl std">(samples[ ,</span> <span class="hl str">'theta'</span><span class="hl std">],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'iteration'</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(theta))</span>
 <span class="hl kwd">hist</span><span class="hl std">(samples[ ,</span> <span class="hl str">'theta'</span><span class="hl std">],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(theta),</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">'effect of Avandia'</span><span class="hl std">)</span>
 <span class="hl std">gammaMn</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">colMeans</span><span class="hl std">(samples[ , gammaCols])</span>
-<span class="hl kwd">hist</span><span class="hl std">(gammaMn,</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'posterior means of random effects'</span><span class="hl std">,</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">'random effects distribution'</span><span class="hl std">)</span>
-<span class="hl kwd">hist</span><span class="hl std">(samples[</span><span class="hl num">1000</span><span class="hl std">, gammaCols],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'single draw of random effects'</span><span class="hl std">,</span>
-                   <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">'random effects distribution'</span><span class="hl std">)</span>
+<span class="hl kwd">hist</span><span class="hl std">(gammaMn,</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'posterior means'</span><span class="hl std">,</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">'random effects distribution'</span><span class="hl std">)</span>
+<span class="hl kwd">hist</span><span class="hl std">(samples[</span><span class="hl num">1000</span><span class="hl std">, gammaCols],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'single draw'</span><span class="hl std">,</span>
+                   <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">'random effects draw'</span><span class="hl std">)</span>
 </pre></div>
 </div><div class="rimage default"><img src="figure/mcmc-1.png" class="plot" /></div></div>
 
@@ -260,19 +260,18 @@ where [latex]H[/latex] is again a normal-inverse-gamma distribution.</p>
 <div class="source"><pre class="knitr r"><span class="hl std">gammaCols</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'gamma'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samplesBNP))</span>
 <span class="hl std">xiCols</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'xi'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samplesBNP))</span>
 
-<span class="hl kwd">par</span><span class="hl std">(</span><span class="hl kwc">mfrow</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">,</span><span class="hl num">5</span><span class="hl std">),</span> <span class="hl kwc">cex</span> <span class="hl std">=</span> <span class="hl num">1.2</span><span class="hl std">)</span>
+<span class="hl kwd">par</span><span class="hl std">(</span><span class="hl kwc">mfrow</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">2</span><span class="hl std">,</span><span class="hl num">3</span><span class="hl std">),</span> <span class="hl kwc">cex</span> <span class="hl std">=</span> <span class="hl num">1.1</span><span class="hl std">,</span> <span class="hl kwc">mgp</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">1.8</span><span class="hl std">,</span><span class="hl num">.7</span><span class="hl std">,</span><span class="hl num">0</span><span class="hl std">))</span>
 <span class="hl kwd">ts.plot</span><span class="hl std">(samplesBNP[ ,</span> <span class="hl str">'theta'</span><span class="hl std">],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'iteration'</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(theta))</span>
 <span class="hl kwd">hist</span><span class="hl std">(samplesBNP[ ,</span> <span class="hl str">'theta'</span><span class="hl std">],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(theta),</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">'effect of Avandia'</span><span class="hl std">)</span>
-<span class="hl std">gammaMn</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">colMeans</span><span class="hl std">(samplesBNP[ , gammaCols])</span>
-<span class="hl kwd">hist</span><span class="hl std">(gammaMn,</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'posterior means of random effects'</span><span class="hl std">,</span>
-              <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">'random effects distribution'</span><span class="hl std">)</span>
-<span class="hl kwd">hist</span><span class="hl std">(samplesBNP[</span><span class="hl num">1000</span><span class="hl std">, gammaCols],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'single draw of random effects'</span><span class="hl std">,</span>
-                   <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">'random effects distribution'</span><span class="hl std">)</span>
-
 <span class="hl com"># How many mixture components are inferred?</span>
 <span class="hl std">xiRes</span> <span class="hl kwb">&lt;-</span> <span class="hl std">samplesBNP[ , xiCols]</span>
 <span class="hl std">nGrps</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">apply</span><span class="hl std">(xiRes,</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">x</span><span class="hl std">)</span> <span class="hl kwd">length</span><span class="hl std">(</span><span class="hl kwd">unique</span><span class="hl std">(x)))</span>
 <span class="hl kwd">ts.plot</span><span class="hl std">(nGrps,</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'iteration'</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl str">'number of components'</span><span class="hl std">)</span>
+<span class="hl std">gammaMn</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">colMeans</span><span class="hl std">(samplesBNP[ , gammaCols])</span>
+<span class="hl kwd">hist</span><span class="hl std">(gammaMn,</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'posterior means'</span><span class="hl std">,</span>
+              <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">'random effects distribution'</span><span class="hl std">)</span>
+<span class="hl kwd">hist</span><span class="hl std">(samplesBNP[</span><span class="hl num">1000</span><span class="hl std">, gammaCols],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'single draw'</span><span class="hl std">,</span>
+                   <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">'random effects draw'</span><span class="hl std">)</span>
 </pre></div>
 </div><div class="rimage default"><img src="figure/DP-MCMC-1.png" class="plot" /></div></div>
 
@@ -284,6 +283,17 @@ where [latex]H[/latex] is again a normal-inverse-gamma distribution.</p>
 
 <p>We're in the midst of improvements to the existing BNP functionality as well as adding additional Bayesian nonparametric models, such as hierarchical Dirichlet processes and Pitman-Yor processes, so please add yourself to our <a href="https://groups.google.com/forum/#!forum/nimble-announce">announcement</a> or <a href="https://groups.google.com/forum/#!forum/nimble-users">user support/discussion</a> Google groups. </p>
 
+this was great <code class="knitr inline"><a id="cite-turek17"></a><a href="#bib-turek17">Turek, de
+    Valpine, Paciorek, Anderson-Bergman, and others (2017)</a></code>
+
+<h3> References </h3>
+
+
+<cite><a id="bib-turek17"></a><a href="#cite-turek17">Turek, D, P. de
+Valpine, C. J. Paciorek, et al.</a>
+(2017).
+Automated parameter blocking for efficient Markov chain Monte Carlo sampling.
+  In: <em>Bayesian Analysis</em> 12.2, pp. 465–490.</cite>
 
 </body>
 </html>

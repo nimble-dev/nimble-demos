@@ -121,7 +121,6 @@ end.rcode-->
 <p>We can extract the samples from the posterior distributions of the parameters and create trace plots, histograms, and any other summary of interest.  For example, for the concentration parameter [latex]\alpha[/latex] we have:</p>
 
 <!--begin.rcode MCMC-normaldensity-somegraphs
-# plots: 
 ts.plot(samples[ , "alpha"], xlab = "iteration", ylab = expression(alpha)) # Trace plot for the concentration parameter
 hist(samples[ , "alpha"], xlab = expression(alpha), main = "", ylab = "Frequency") # Posterior histogram
 quantile(samples[ , "alpha"], c(0.5, 0.025, 0.975))
@@ -161,7 +160,6 @@ for(i in 1:nrow(samples)){
 
 postPredictiveHat <- apply(postPredictiveSamples, 2, mean)
 
-# plots:
 hist(data$y, freq = FALSE, xlim = c(-2.5, 2.5), ylim = c(0,0.75), main = "", xlab = "Waiting times in log scale") 
 lines(grid, apply(postPredictiveSamples, 2, mean), lwd = 2, col = 'black') # pointwise estimate of the density
 lines(grid, apply(postPredictiveSamples, 2, quantile, 0.025), lty = 2, col = 'black') 
@@ -176,7 +174,7 @@ predictiveHatLogScale <- apply(postPredictiveSamples, 2, mean) / sd(logFaithful)
 predictiveHatLogScaleCIinf <- apply(postPredictiveSamples, 2, quantile, 0.025) / sd(logFaithful)
 predictiveHatLogScaleCIsup <- apply(postPredictiveSamples, 2, quantile, 0.975) / sd(logFaithful)
 
-hist(faithful$waiting, freq = FALSE, xlim = c(40, 100), main = "", xlab = "Waiting times")
+hist(faithful$waiting, freq = FALSE, xlim = c(40, 100), ylim = c(0, .045), main = "", xlab = "Waiting times")
 lines(exp(gridLogScale), predictiveHatLogScale/exp(gridLogScale), lwd = 2, col = 'black')
 lines(exp(gridLogScale), predictiveHatLogScaleCIinf/exp(gridLogScale), lty = 2, col = 'black')
 lines(exp(gridLogScale), predictiveHatLogScaleCIsup/exp(gridLogScale), lty = 2, col = 'black')
@@ -198,10 +196,10 @@ end.rcode-->
 <p>The following code computes posterior samples of [latex]P(\tilde{y} > 70)[/latex] using the posterior samples from the random measure [latex]G[/latex]. Note that these samples are computed based on the transformed model and a value larger than 70 corresponds to a value larger than -0.06281407 on the above defined grid, which is the 98th component.</p>
 
 <!--begin.rcode G-normaldensity-probYtildeLarger70
-truncG <- 30 # truncation level for G, obtained from running the getSamplesDPmeasure(cMCMC) line
+truncG <- 30 # truncation level for G, obtained from running getSamplesDPmeasure(cMCMC)
 
-probY70 <- rep(0, nrow(samples)  # posterior samples of P(y.tilde > 70)
-for(i in seq_len(nrow(samples)) {
+probY70 <- rep(0, nrow(samples))  # posterior samples of P(y.tilde > 70)
+for(i in seq_len(nrow(samples))) {
   probY70[i] <- sum(samplesG[i, grep('weight', colnames(samplesG))] * pnorm(-0.06281407, 
                               samplesG[i, grep('muTilde', colnames(samplesG))], 
                               sqrt(samplesG[i, grep('s2Tilde', colnames(samplesG))]), 
@@ -284,7 +282,10 @@ grid <- seq(40, 100, len = 200)
 
 postSampleDensity <- matrix(0, ncol = length(grid), nrow = nrow(samples))
 for(iter in seq_len(nrow(samples))) {
-  postSampleDensity[iter, ] <- sapply(grid, function(x) sum(samplesG[iter, grep('weight', colnames(samplesG))] * dgamma(x, shape = samplesG[iter, grep('betaTilde', colnames(samplesG))], scale = samplesG[iter, grep('lambdaTilde', colnames(samplesG))]))) 
+  postSampleDensity[iter, ] <- sapply(grid, function(x) 
+          sum(samplesG[iter, grep('weight', colnames(samplesG))] * 
+             dgamma(x, shape = samplesG[iter, grep('betaTilde', colnames(samplesG))], 
+             scale = samplesG[iter, grep('lambdaTilde', colnames(samplesG))]))) 
 }
 
 
@@ -388,6 +389,19 @@ end.rcode-->
 <p>Please see our <a href="https://r-nimble.org/documentation">User Manual</a> for more details.</p>
 
 <p>We're in the midst of improvements to the existing BNP functionality as well as adding additional Bayesian nonparametric models, such as hierarchical Dirichlet processes and Pitman-Yor processes, so please add yourself to our <a href="https://groups.google.com/forum/#!forum/nimble-announce">announcement</a> or <a href="https://groups.google.com/forum/#!forum/nimble-users">user support/discussion</a> Google groups. </p>
+
+
+
+<h3> References </h3>
+
+<code class="knitr inline"><a id="cite-turek17"></a><a href="#bib-turek17">Turek, de
+    Valpine, Paciorek, Anderson-Bergman, and others (2017)</a></code>
+
+<cite><a id="bib-turek17"></a><a href="#cite-turek17">Turek, D, P. de
+Valpine, C. J. Paciorek, et al.</a>
+(2017).
+“Automated parameter blocking for efficient Markov chain Monte Carlo sampling”.
+  In: <em>Bayesian Analysis</em> 12.2, pp. 465–490.</cite>
 
 
 </body>

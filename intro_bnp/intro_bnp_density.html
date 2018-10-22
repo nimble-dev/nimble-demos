@@ -66,16 +66,14 @@
   <title>Bayesian Nonparametric Models in NIMBLE, Part 1: Density Estimation</title>
 </head>
 <body>
-<div class="chunk" id="unnamed-chunk-1"><div class="rcode"><div class="error"><pre class="knitr r">## Error in library(teachingDemos): there is no package called 'teachingDemos'
-</pre></div>
-</div></div>
+
 
 <!--
 Build with knit('intro_bnp_density.Rhtml').
 Then copy and paste into blog post.
 --> 
 
-<h1> Bayesian nonparametrics in NIMBLE: density estimation </h1>
+<h1> Bayesian nonparametrics in NIMBLE: Density estimation </h1>
 
 <h2> Overview </h2>
 
@@ -152,77 +150,80 @@ p(\xi \mid \alpha) = \frac{\Gamma(\alpha)}{\Gamma(\alpha + n)} \alpha^{K(\xi)} \
 
 <p>The following code sets up the data and constants, initializes the parameters, defines the model object, and builds and runs the MCMC algorithm.  Because the specification is in terms of a Chinese restaurant process, the default sampler selected by NIMBLE is a collapsed Gibbs sampler (Neal, 2000).</p>
 
-<div class="chunk" id="MCMC-normaldensity"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">set.seed</span>(1)
+<div class="chunk" id="MCMC-normaldensity"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">set.seed</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">)</span>
 <span class="hl com"># Model Data</span>
-logFaithful &lt;- <span class="hl kwd">log</span>(faithful[/latex]waiting)
-dataTransformed &lt;- (logFaithful - <span class="hl kwd">mean</span>(logFaithful)) / <span class="hl kwd">sd</span>(logFaithful)
-n &lt;- <span class="hl kwd">length</span>(dataTransformed)
-data &lt;- <span class="hl kwd">list</span>(y = dataTransformed)
+<span class="hl std">logFaithful</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">log</span><span class="hl std">(faithful</span><span class="hl opt">$</span><span class="hl std">waiting)</span>
+<span class="hl std">dataTransformed</span> <span class="hl kwb">&lt;-</span> <span class="hl std">(logFaithful</span> <span class="hl opt">-</span> <span class="hl kwd">mean</span><span class="hl std">(logFaithful))</span> <span class="hl opt">/</span> <span class="hl kwd">sd</span><span class="hl std">(logFaithful)</span>
+<span class="hl std">n</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">length</span><span class="hl std">(dataTransformed)</span>
+<span class="hl std">data</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">y</span> <span class="hl std">= dataTransformed)</span>
 <span class="hl com"># Model Constants</span>
-consts &lt;- <span class="hl kwd">list</span>(n = <span class="hl kwd">length</span>(dataTransformed))
+<span class="hl std">consts</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">n</span> <span class="hl std">=</span> <span class="hl kwd">length</span><span class="hl std">(dataTransformed))</span>
 <span class="hl com"># Parameter initialization</span>
-inits &lt;- <span class="hl kwd">list</span>(xi = <span class="hl kwd">sample</span>(1:10, size=n, replace=<span class="hl kwa">TRUE</span>), 
-              muTilde = <span class="hl kwd">rnorm</span>(n, 0, sd = <span class="hl kwd">sqrt</span>(10)), 
-              s2Tilde = <span class="hl kwd">rinvgamma</span>(n, 1, 1), 
-              alpha = 1) 
+<span class="hl std">inits</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">xi</span> <span class="hl std">=</span> <span class="hl kwd">sample</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">:</span><span class="hl num">10</span><span class="hl std">,</span> <span class="hl kwc">size</span><span class="hl std">=n,</span> <span class="hl kwc">replace</span><span class="hl std">=</span><span class="hl num">TRUE</span><span class="hl std">),</span>
+              <span class="hl kwc">muTilde</span> <span class="hl std">=</span> <span class="hl kwd">rnorm</span><span class="hl std">(n,</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl kwc">sd</span> <span class="hl std">=</span> <span class="hl kwd">sqrt</span><span class="hl std">(</span><span class="hl num">10</span><span class="hl std">)),</span>
+              <span class="hl kwc">s2Tilde</span> <span class="hl std">=</span> <span class="hl kwd">rinvgamma</span><span class="hl std">(n,</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">),</span>
+              <span class="hl kwc">alpha</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">)</span>
 <span class="hl com"># Model creation and compilation</span>
-rModel &lt;- <span class="hl kwd">nimbleModel</span>(code, data=data, inits=inits, constants = consts)    
-cModel &lt;- <span class="hl kwd">compileNimble</span>(rModel)                                            
-<span class="hl com"># MCMC configuration, creation, and compilation</span>
-mConf &lt;- <span class="hl kwd">configureMCMC</span>(rModel, monitors = <span class="hl kwd">c</span>(<span class="hl str">&quot;xi&quot;</span>, <span class="hl str">&quot;muTilde&quot;</span>, <span class="hl str">&quot;s2Tilde&quot;</span>, <span class="hl str">&quot;alpha&quot;</span>)) 
-mMCMC &lt;- <span class="hl kwd">buildMCMC</span>(mConf)          
-cMCMC &lt;- <span class="hl kwd">compileNimble</span>(mMCMC, project = rModel)                                   
-samples &lt;- <span class="hl kwd">runMCMC</span>(cMCMC, niter = 2000, nburnin = 1000, setSeed = <span class="hl kwa">TRUE</span>) # running the MCMC computation
+<span class="hl std">rModel</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">nimbleModel</span><span class="hl std">(code,</span> <span class="hl kwc">data</span><span class="hl std">=data,</span> <span class="hl kwc">inits</span><span class="hl std">=inits,</span> <span class="hl kwc">constants</span> <span class="hl std">= consts)</span>
 </pre></div>
-<div class="error"><pre class="knitr r">## Error: &lt;text&gt;:3:29: unexpected '/'
-## 2: # Model Data
-## 3: logFaithful &lt;- log(faithful[/
-##                                ^
+<div class="message"><pre class="knitr r">## defining model...
+</pre></div>
+<div class="message"><pre class="knitr r">## building model...
+</pre></div>
+<div class="message"><pre class="knitr r">## setting data and initial values...
+</pre></div>
+<div class="message"><pre class="knitr r">## running calculate on model (any error reports that follow may simply reflect missing values in model variables) ... 
+## checking model sizes and dimensions...
+## model building finished.
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl std">cModel</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">compileNimble</span><span class="hl std">(rModel)</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compiler details.
+## compilation finished.
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl com"># MCMC configuration, creation, and compilation</span>
+<span class="hl std">mConf</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">configureMCMC</span><span class="hl std">(rModel,</span> <span class="hl kwc">monitors</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl str">&quot;xi&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;muTilde&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;s2Tilde&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;alpha&quot;</span><span class="hl std">))</span>
+<span class="hl std">mMCMC</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">buildMCMC</span><span class="hl std">(mConf)</span>
+<span class="hl std">cMCMC</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">compileNimble</span><span class="hl std">(mMCMC,</span> <span class="hl kwc">project</span> <span class="hl std">= rModel)</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compiler details.
+## compilation finished.
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl std">samples</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">runMCMC</span><span class="hl std">(cMCMC,</span> <span class="hl kwc">niter</span> <span class="hl std">=</span> <span class="hl num">2000</span><span class="hl std">,</span> <span class="hl kwc">nburnin</span> <span class="hl std">=</span> <span class="hl num">1000</span><span class="hl std">,</span> <span class="hl kwc">setSeed</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span> <span class="hl com"># running the MCMC computation</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## running chain 1...
+</pre></div>
+<div class="output"><pre class="knitr r">## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|
 </pre></div>
 </div></div>
 
 <p>We can extract the samples from the posterior distributions of the parameters and create trace plots, histograms, and any other summary of interest.  For example, for the concentration parameter [latex]\alpha[/latex] we have:</p>
 
-<div class="chunk" id="MCMC-normaldensity-somegraphs"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com"># plots: </span>
-<span class="hl kwd">ts.plot</span><span class="hl std">(samples[ ,</span> <span class="hl str">&quot;alpha&quot;</span><span class="hl std">],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">&quot;iteration&quot;</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(alpha))</span> <span class="hl com"># Trace plot for the concentration parameter</span>
+<div class="chunk" id="MCMC-normaldensity-somegraphs"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">ts.plot</span><span class="hl std">(samples[ ,</span> <span class="hl str">&quot;alpha&quot;</span><span class="hl std">],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">&quot;iteration&quot;</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(alpha))</span> <span class="hl com"># Trace plot for the concentration parameter</span>
 </pre></div>
-<div class="error"><pre class="knitr r">## Error in ts.plot(samples[, &quot;alpha&quot;], xlab = &quot;iteration&quot;, ylab = expression(alpha)): object 'samples' not found
-</pre></div>
+</div><div class="rimage default"><img src="figure/MCMC-normaldensity-somegraphs-1.png" title="plot of chunk MCMC-normaldensity-somegraphs" alt="plot of chunk MCMC-normaldensity-somegraphs" class="plot" /></div><div class="rcode">
 <div class="source"><pre class="knitr r"><span class="hl kwd">hist</span><span class="hl std">(samples[ ,</span> <span class="hl str">&quot;alpha&quot;</span><span class="hl std">],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(alpha),</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">&quot;&quot;</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl str">&quot;Frequency&quot;</span><span class="hl std">)</span> <span class="hl com"># Posterior histogram</span>
 </pre></div>
-<div class="error"><pre class="knitr r">## Error in hist(samples[, &quot;alpha&quot;], xlab = expression(alpha), main = &quot;&quot;, : object 'samples' not found
-</pre></div>
+</div><div class="rimage default"><img src="figure/MCMC-normaldensity-somegraphs-2.png" title="plot of chunk MCMC-normaldensity-somegraphs" alt="plot of chunk MCMC-normaldensity-somegraphs" class="plot" /></div><div class="rcode">
 <div class="source"><pre class="knitr r"><span class="hl kwd">quantile</span><span class="hl std">(samples[ ,</span> <span class="hl str">&quot;alpha&quot;</span><span class="hl std">],</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">0.5</span><span class="hl std">,</span> <span class="hl num">0.025</span><span class="hl std">,</span> <span class="hl num">0.975</span><span class="hl std">))</span>
 </pre></div>
-<div class="error"><pre class="knitr r">## Error in quantile(samples[, &quot;alpha&quot;], c(0.5, 0.025, 0.975)): object 'samples' not found
+<div class="output"><pre class="knitr r">##       50%      2.5%     97.5% 
+## 0.3486820 0.0558662 1.3524123
 </pre></div>
 </div></div>
 
 <p>Under this model, the posterior predictive distribution for a new observation [latex]\tilde{y}[/latex], [latex]p(\tilde{y} \mid y_1, \ldots, y_n)[/latex] is the optimal density estimator (under squared error loss).  Samples for this estimator can be easily computed from the samples generated by our MCMC:</p>
 
 <div class="chunk" id="MCMC-normaldensity-predictive"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">alphaSamples</span> <span class="hl kwb">&lt;-</span> <span class="hl std">samples[ ,</span> <span class="hl str">&quot;alpha&quot;</span><span class="hl std">]</span> <span class="hl com"># posterior samples of the concentration parameter</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in eval(expr, envir, enclos): object 'samples' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl std">muTildeSamples</span> <span class="hl kwb">&lt;-</span> <span class="hl std">samples[ ,</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'muTilde'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samples))]</span> <span class="hl com"># posterior samples of the cluster means</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in eval(expr, envir, enclos): object 'samples' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl std">s2TildeSamples</span> <span class="hl kwb">&lt;-</span> <span class="hl std">samples[ ,</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'s2Tilde'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samples))]</span> <span class="hl com"># posterior samples of the cluster variances</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in eval(expr, envir, enclos): object 'samples' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl std">xiSamples</span> <span class="hl kwb">&lt;-</span> <span class="hl std">samples [ ,</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'xi'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samples))]</span> <span class="hl com"># posterior samples of the cluster memberships</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in eval(expr, envir, enclos): object 'samples' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl std">grid</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">seq</span><span class="hl std">(</span><span class="hl opt">-</span><span class="hl num">2.5</span><span class="hl std">,</span> <span class="hl num">2.5</span><span class="hl std">,</span> <span class="hl kwc">len</span> <span class="hl std">=</span> <span class="hl num">200</span><span class="hl std">)</span>
+<span class="hl std">muTildeSamples</span> <span class="hl kwb">&lt;-</span> <span class="hl std">samples[ ,</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'muTilde'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samples))]</span> <span class="hl com"># posterior samples of the cluster means</span>
+<span class="hl std">s2TildeSamples</span> <span class="hl kwb">&lt;-</span> <span class="hl std">samples[ ,</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'s2Tilde'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samples))]</span> <span class="hl com"># posterior samples of the cluster variances</span>
+<span class="hl std">xiSamples</span> <span class="hl kwb">&lt;-</span> <span class="hl std">samples [ ,</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'xi'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samples))]</span> <span class="hl com"># posterior samples of the cluster memberships</span>
+
+<span class="hl std">grid</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">seq</span><span class="hl std">(</span><span class="hl opt">-</span><span class="hl num">2.5</span><span class="hl std">,</span> <span class="hl num">2.5</span><span class="hl std">,</span> <span class="hl kwc">len</span> <span class="hl std">=</span> <span class="hl num">200</span><span class="hl std">)</span>
 
 <span class="hl std">postPredictiveSamples</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">matrix</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl kwc">ncol</span> <span class="hl std">=</span> <span class="hl kwd">length</span><span class="hl std">(grid),</span> <span class="hl kwc">nrow</span> <span class="hl std">=</span> <span class="hl kwd">nrow</span><span class="hl std">(samples))</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in nrow(samples): object 'samples' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl kwa">for</span><span class="hl std">(i</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl kwd">nrow</span><span class="hl std">(samples)){</span>
+<span class="hl kwa">for</span><span class="hl std">(i</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl kwd">nrow</span><span class="hl std">(samples)){</span>
   <span class="hl std">k</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">unique</span><span class="hl std">(xiSamples[i, ])</span>
   <span class="hl std">kNew</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">max</span><span class="hl std">(k)</span> <span class="hl opt">+</span> <span class="hl num">1</span>
   <span class="hl std">mk</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">()</span>
@@ -242,66 +243,29 @@ samples &lt;- <span class="hl kwd">runMCMC</span>(cMCMC, niter = 2000, nburnin =
                                 <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">x</span><span class="hl std">) (</span><span class="hl kwd">sum</span><span class="hl std">(mk</span> <span class="hl opt">*</span> <span class="hl kwd">dnorm</span><span class="hl std">(x, muK,</span> <span class="hl kwd">sqrt</span><span class="hl std">(s2K)))</span> <span class="hl opt">+</span>
                                 <span class="hl std">alpha</span> <span class="hl opt">*</span> <span class="hl kwd">dnorm</span><span class="hl std">(x, muKnew,</span> <span class="hl kwd">sqrt</span><span class="hl std">(s2Knew)) )</span><span class="hl opt">/</span><span class="hl std">(alpha</span><span class="hl opt">+</span><span class="hl std">n))</span>
 <span class="hl std">}</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in nrow(samples): object 'samples' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl std">postPredictiveHat</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, mean)</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in apply(postPredictiveSamples, 2, mean): object 'postPredictiveSamples' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl com"># plots:</span>
+
+<span class="hl std">postPredictiveHat</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, mean)</span>
+
 <span class="hl kwd">hist</span><span class="hl std">(data</span><span class="hl opt">$</span><span class="hl std">y,</span> <span class="hl kwc">freq</span> <span class="hl std">=</span> <span class="hl num">FALSE</span><span class="hl std">,</span> <span class="hl kwc">xlim</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl opt">-</span><span class="hl num">2.5</span><span class="hl std">,</span> <span class="hl num">2.5</span><span class="hl std">),</span> <span class="hl kwc">ylim</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span><span class="hl num">0.75</span><span class="hl std">),</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">&quot;&quot;</span><span class="hl std">,</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">&quot;Waiting times in log scale&quot;</span><span class="hl std">)</span>
+<span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, mean),</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span> <span class="hl com"># pointwise estimate of the density</span>
+<span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, quantile,</span> <span class="hl num">0.025</span><span class="hl std">),</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
+<span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, quantile,</span> <span class="hl num">0.975</span><span class="hl std">),</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
 </pre></div>
-<div class="error"><pre class="knitr r">## Error in data$y: object of type 'closure' is not subsettable
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, mean),</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span> <span class="hl com"># pointwise estimate of the density</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in apply(postPredictiveSamples, 2, mean): object 'postPredictiveSamples' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, quantile,</span> <span class="hl num">0.025</span><span class="hl std">),</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in apply(postPredictiveSamples, 2, quantile, 0.025): object 'postPredictiveSamples' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, quantile,</span> <span class="hl num">0.975</span><span class="hl std">),</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in apply(postPredictiveSamples, 2, quantile, 0.975): object 'postPredictiveSamples' not found
-</pre></div>
-</div></div>
+</div><div class="rimage default"><img src="figure/MCMC-normaldensity-predictive-1.png" title="plot of chunk MCMC-normaldensity-predictive" alt="plot of chunk MCMC-normaldensity-predictive" class="plot" /></div></div>
 
 <p>Recall, however, that this is the density estimate for the logarithm of the waiting time.  To obtain the density on the original scale we need to apply the appropriate transformation to the kernel.</p>
 
 <div class="chunk" id="MCMC-normaldensity-predictive-originalScale"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">gridLogScale</span> <span class="hl kwb">&lt;-</span> <span class="hl std">grid</span><span class="hl opt">*</span><span class="hl kwd">sd</span><span class="hl std">(logFaithful)</span> <span class="hl opt">+</span> <span class="hl kwd">mean</span><span class="hl std">(logFaithful)</span> <span class="hl com"># grid on log scale</span>
+<span class="hl std">predictiveHatLogScale</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, mean)</span> <span class="hl opt">/</span> <span class="hl kwd">sd</span><span class="hl std">(logFaithful)</span>
+<span class="hl std">predictiveHatLogScaleCIinf</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, quantile,</span> <span class="hl num">0.025</span><span class="hl std">)</span> <span class="hl opt">/</span> <span class="hl kwd">sd</span><span class="hl std">(logFaithful)</span>
+<span class="hl std">predictiveHatLogScaleCIsup</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, quantile,</span> <span class="hl num">0.975</span><span class="hl std">)</span> <span class="hl opt">/</span> <span class="hl kwd">sd</span><span class="hl std">(logFaithful)</span>
+
+<span class="hl kwd">hist</span><span class="hl std">(faithful</span><span class="hl opt">$</span><span class="hl std">waiting,</span> <span class="hl kwc">freq</span> <span class="hl std">=</span> <span class="hl num">FALSE</span><span class="hl std">,</span> <span class="hl kwc">xlim</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">40</span><span class="hl std">,</span> <span class="hl num">100</span><span class="hl std">),</span> <span class="hl kwc">ylim</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">.045</span><span class="hl std">),</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">&quot;&quot;</span><span class="hl std">,</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">&quot;Waiting times&quot;</span><span class="hl std">)</span>
+<span class="hl kwd">lines</span><span class="hl std">(</span><span class="hl kwd">exp</span><span class="hl std">(gridLogScale), predictiveHatLogScale</span><span class="hl opt">/</span><span class="hl kwd">exp</span><span class="hl std">(gridLogScale),</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
+<span class="hl kwd">lines</span><span class="hl std">(</span><span class="hl kwd">exp</span><span class="hl std">(gridLogScale), predictiveHatLogScaleCIinf</span><span class="hl opt">/</span><span class="hl kwd">exp</span><span class="hl std">(gridLogScale),</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
+<span class="hl kwd">lines</span><span class="hl std">(</span><span class="hl kwd">exp</span><span class="hl std">(gridLogScale), predictiveHatLogScaleCIsup</span><span class="hl opt">/</span><span class="hl kwd">exp</span><span class="hl std">(gridLogScale),</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
 </pre></div>
-<div class="error"><pre class="knitr r">## Error in is.data.frame(x): object 'logFaithful' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl std">predictiveHatLogScale</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, mean)</span> <span class="hl opt">/</span> <span class="hl kwd">sd</span><span class="hl std">(logFaithful)</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in apply(postPredictiveSamples, 2, mean): object 'postPredictiveSamples' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl std">predictiveHatLogScaleCIinf</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, quantile,</span> <span class="hl num">0.025</span><span class="hl std">)</span> <span class="hl opt">/</span> <span class="hl kwd">sd</span><span class="hl std">(logFaithful)</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in apply(postPredictiveSamples, 2, quantile, 0.025): object 'postPredictiveSamples' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl std">predictiveHatLogScaleCIsup</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, quantile,</span> <span class="hl num">0.975</span><span class="hl std">)</span> <span class="hl opt">/</span> <span class="hl kwd">sd</span><span class="hl std">(logFaithful)</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in apply(postPredictiveSamples, 2, quantile, 0.975): object 'postPredictiveSamples' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl kwd">hist</span><span class="hl std">(faithful</span><span class="hl opt">$</span><span class="hl std">waiting,</span> <span class="hl kwc">freq</span> <span class="hl std">=</span> <span class="hl num">FALSE</span><span class="hl std">,</span> <span class="hl kwc">xlim</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">40</span><span class="hl std">,</span> <span class="hl num">100</span><span class="hl std">),</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">&quot;&quot;</span><span class="hl std">,</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">&quot;Waiting times&quot;</span><span class="hl std">)</span>
-</pre></div>
-</div><div class="rimage default"><img src="figure/MCMC-normaldensity-predictive-originalScale-1.png" title="plot of chunk MCMC-normaldensity-predictive-originalScale" alt="plot of chunk MCMC-normaldensity-predictive-originalScale" class="plot" /></div><div class="rcode">
-<div class="source"><pre class="knitr r"><span class="hl kwd">lines</span><span class="hl std">(</span><span class="hl kwd">exp</span><span class="hl std">(gridLogScale), predictiveHatLogScale</span><span class="hl opt">/</span><span class="hl kwd">exp</span><span class="hl std">(gridLogScale),</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in lines(exp(gridLogScale), predictiveHatLogScale/exp(gridLogScale), : object 'gridLogScale' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl kwd">lines</span><span class="hl std">(</span><span class="hl kwd">exp</span><span class="hl std">(gridLogScale), predictiveHatLogScaleCIinf</span><span class="hl opt">/</span><span class="hl kwd">exp</span><span class="hl std">(gridLogScale),</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in lines(exp(gridLogScale), predictiveHatLogScaleCIinf/exp(gridLogScale), : object 'gridLogScale' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl kwd">lines</span><span class="hl std">(</span><span class="hl kwd">exp</span><span class="hl std">(gridLogScale), predictiveHatLogScaleCIsup</span><span class="hl opt">/</span><span class="hl kwd">exp</span><span class="hl std">(gridLogScale),</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in lines(exp(gridLogScale), predictiveHatLogScaleCIsup/exp(gridLogScale), : object 'gridLogScale' not found
-</pre></div>
-</div></div>
+</div><div class="rimage default"><img src="figure/MCMC-normaldensity-predictive-originalScale-1.png" title="plot of chunk MCMC-normaldensity-predictive-originalScale" alt="plot of chunk MCMC-normaldensity-predictive-originalScale" class="plot" /></div></div>
 
 
 <p>In either case, there is clear evidence that the data has two components for the waiting times.</p>
@@ -314,30 +278,29 @@ samples &lt;- <span class="hl kwd">runMCMC</span>(cMCMC, niter = 2000, nburnin =
                                                                                                                                                                                                                                                                                                                     
 <div class="chunk" id="G-normaldensity"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">samplesG</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">getSamplesDPmeasure</span><span class="hl std">(cMCMC)</span>
 </pre></div>
-<div class="error"><pre class="knitr r">## Error in exists(&quot;model&quot;, MCMC): object 'cMCMC' not found
+<div class="message"><pre class="knitr r">## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compiler details.
+</pre></div>
+<div class="message"><pre class="knitr r">## compilation finished.
+</pre></div>
+<div class="output"><pre class="knitr r">## sampleDPmeasure: Approximating the random measure by a finite stick-breaking representation with and error smaller than 1e-10, leads to a truncation level of 30.
 </pre></div>
 </div></div>
 
 <p>The following code computes posterior samples of [latex]P(\tilde{y} > 70)[/latex] using the posterior samples from the random measure [latex]G[/latex]. Note that these samples are computed based on the transformed model and a value larger than 70 corresponds to a value larger than -0.06281407 on the above defined grid, which is the 98th component.</p>
 
-<div class="chunk" id="G-normaldensity-probYtildeLarger70"><div class="rcode"><div class="source"><pre class="knitr r">truncG &lt;- 30 # truncation level <span class="hl kwa">for</span> G, obtained from running the <span class="hl kwd">getSamplesDPmeasure</span>(cMCMC) line
+<div class="chunk" id="G-normaldensity-probYtildeLarger70"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">truncG</span> <span class="hl kwb">&lt;-</span> <span class="hl num">30</span> <span class="hl com"># truncation level for G, obtained from running getSamplesDPmeasure(cMCMC)</span>
 
-probY70 &lt;- <span class="hl kwd">rep</span>(0, <span class="hl kwd">nrow</span>(samples)  # posterior samples of <span class="hl kwd">P</span>(y.tilde &gt; 70)
-<span class="hl kwd"><span class="hl kwa">for</span></span>(i <span class="hl kwa">in</span> <span class="hl kwd">seq_len</span>(<span class="hl kwd">nrow</span>(samples)) {
-  probY70[i] &lt;- <span class="hl kwd">sum</span>(samplesG[i, <span class="hl kwd">grep</span>(<span class="hl str">'weight'</span>, <span class="hl kwd">colnames</span>(samplesG))] * <span class="hl kwd">pnorm</span>(-0.06281407, 
-                              samplesG[i, <span class="hl kwd">grep</span>(<span class="hl str">'muTilde'</span>, <span class="hl kwd">colnames</span>(samplesG))], 
-                              <span class="hl kwd">sqrt</span>(samplesG[i, <span class="hl kwd">grep</span>(<span class="hl str">'s2Tilde'</span>, <span class="hl kwd">colnames</span>(samplesG))]), 
-                              lower.tail = <span class="hl kwa">FALSE</span>)) 
-}
+<span class="hl std">probY70</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">rep</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl kwd">nrow</span><span class="hl std">(samples))</span>  <span class="hl com"># posterior samples of P(y.tilde &gt; 70)</span>
+<span class="hl kwa">for</span><span class="hl std">(i</span> <span class="hl kwa">in</span> <span class="hl kwd">seq_len</span><span class="hl std">(</span><span class="hl kwd">nrow</span><span class="hl std">(samples))) {</span>
+  <span class="hl std">probY70[i]</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sum</span><span class="hl std">(samplesG[i,</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'weight'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samplesG))]</span> <span class="hl opt">*</span> <span class="hl kwd">pnorm</span><span class="hl std">(</span><span class="hl opt">-</span><span class="hl num">0.06281407</span><span class="hl std">,</span>
+                              <span class="hl std">samplesG[i,</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'muTilde'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samplesG))],</span>
+                              <span class="hl kwd">sqrt</span><span class="hl std">(samplesG[i,</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'s2Tilde'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samplesG))]),</span>
+                              <span class="hl kwc">lower.tail</span> <span class="hl std">=</span> <span class="hl num">FALSE</span><span class="hl std">))</span>
+<span class="hl std">}</span>
 
-<span class="hl kwd">hist</span>(probY70,  xlab = <span class="hl str">&quot;Probability&quot;</span>, ylab = <span class="hl str">&quot;<span class="hl kwd">P</span>(yTilde &gt; 70 | data)&quot;</span> , main = <span class="hl str">&quot;&quot;</span> )
+<span class="hl kwd">hist</span><span class="hl std">(probY70,</span>  <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">&quot;Probability&quot;</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl str">&quot;P(yTilde &gt; 70 | data)&quot;</span> <span class="hl std">,</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">&quot;&quot;</span> <span class="hl std">)</span>
 </pre></div>
-<div class="error"><pre class="knitr r">## Error: &lt;text&gt;:4:1: unexpected 'for'
-## 3: probY70 &lt;- rep(0, nrow(samples)  # posterior samples of P(y.tilde &gt; 70)
-## 4: for
-##    ^
-</pre></div>
-</div></div>
+</div><div class="rimage default"><img src="figure/G-normaldensity-probYtildeLarger70-1.png" title="plot of chunk G-normaldensity-probYtildeLarger70" alt="plot of chunk G-normaldensity-probYtildeLarger70" class="plot" /></div></div>
 
 <h2> Fitting a mixture of gamma distributions using the CRP representation</h2>
 
@@ -380,45 +343,49 @@ y_i \mid \{ \tilde{\beta}_k \}, \{ \tilde{\lambda}_k \} \sim \mbox{Gam}\left( \t
               <span class="hl kwc">betaTilde</span> <span class="hl std">=</span> <span class="hl kwd">rgamma</span><span class="hl std">(</span><span class="hl num">50</span><span class="hl std">,</span> <span class="hl kwc">shape</span> <span class="hl std">=</span> <span class="hl num">71</span><span class="hl std">,</span> <span class="hl kwc">scale</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">),</span>
               <span class="hl kwc">lambdaTilde</span> <span class="hl std">=</span> <span class="hl kwd">rgamma</span><span class="hl std">(</span><span class="hl num">50</span><span class="hl std">,</span> <span class="hl kwc">shape</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">scale</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">),</span>
               <span class="hl kwc">alpha</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">)</span>
+<span class="hl std">rModel</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">nimbleModel</span><span class="hl std">(code,</span> <span class="hl kwc">data</span><span class="hl std">=data,</span> <span class="hl kwc">inits</span><span class="hl std">=inits,</span> <span class="hl kwc">constants</span> <span class="hl std">= consts)</span>
 </pre></div>
-<div class="error"><pre class="knitr r">## Error in sample.int(length(x), size, replace, prob): object 'n' not found
+<div class="message"><pre class="knitr r">## defining model...
 </pre></div>
-<div class="source"><pre class="knitr r"><span class="hl std">rModel</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">nimbleModel</span><span class="hl std">(code,</span> <span class="hl kwc">data</span><span class="hl std">=data,</span> <span class="hl kwc">inits</span><span class="hl std">=inits,</span> <span class="hl kwc">constants</span> <span class="hl std">= consts)</span>
+<div class="message"><pre class="knitr r">## building model...
 </pre></div>
-<div class="error"><pre class="knitr r">## Error in nimbleModel(code, data = data, inits = inits, constants = consts): object 'consts' not found
+<div class="message"><pre class="knitr r">## setting data and initial values...
+</pre></div>
+<div class="message"><pre class="knitr r">## running calculate on model (any error reports that follow may simply reflect missing values in model variables) ... 
+## checking model sizes and dimensions...
+## model building finished.
 </pre></div>
 <div class="source"><pre class="knitr r"><span class="hl std">cModel</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">compileNimble</span><span class="hl std">(rModel)</span>
 </pre></div>
-<div class="error"><pre class="knitr r">## Error in compileNimble(rModel): object 'rModel' not found
+<div class="message"><pre class="knitr r">## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compiler details.
+## compilation finished.
 </pre></div>
 <div class="source"><pre class="knitr r"><span class="hl std">mConf</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">configureMCMC</span><span class="hl std">(rModel,</span> <span class="hl kwc">monitors</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl str">&quot;xi&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;betaTilde&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;lambdaTilde&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;alpha&quot;</span><span class="hl std">))</span>
+<span class="hl std">mMCMC</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">buildMCMC</span><span class="hl std">(mConf)</span>
 </pre></div>
-<div class="error"><pre class="knitr r">## Error in is(model, &quot;RmodelBaseClass&quot;): object 'rModel' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl std">mMCMC</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">buildMCMC</span><span class="hl std">(mConf)</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in inherits(conf, &quot;modelBaseClass&quot;): object 'mConf' not found
+<div class="warning"><pre class="knitr r">## Warning in samplerFunction(model = model, mvSaved = mvSaved, target = target, : sampler_CRP: The number of cluster parameters is less than the number of potential clusters. The MCMC is not strictly valid if ever it proposes more components than cluster parameters exist; NIMBLE will warn you if this occurs.
 </pre></div>
 <div class="source"><pre class="knitr r"><span class="hl std">cMCMC</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">compileNimble</span><span class="hl std">(mMCMC,</span> <span class="hl kwc">project</span> <span class="hl std">= rModel)</span>
 </pre></div>
-<div class="error"><pre class="knitr r">## Error in compileNimble(mMCMC, project = rModel): object 'mMCMC' not found
+<div class="message"><pre class="knitr r">## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compiler details.
+## compilation finished.
 </pre></div>
 <div class="source"><pre class="knitr r"><span class="hl std">samples</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">runMCMC</span><span class="hl std">(cMCMC,</span> <span class="hl kwc">niter</span> <span class="hl std">=</span> <span class="hl num">2000</span><span class="hl std">,</span> <span class="hl kwc">nburnin</span> <span class="hl std">=</span> <span class="hl num">1000</span><span class="hl std">,</span> <span class="hl kwc">setSeed</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
 </pre></div>
-<div class="error"><pre class="knitr r">## Error in is.nfGenerator(f): object 'cMCMC' not found
+<div class="message"><pre class="knitr r">## running chain 1...
+</pre></div>
+<div class="output"><pre class="knitr r">## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|
 </pre></div>
 </div></div>
 
 <p>In this case we use the posterior samples of the parameters to construct a trace plot and estimate the posterior distribution of [latex]\alpha[/latex]:</p>
 <div class="chunk" id="results-CRPalpha2"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">ts.plot</span><span class="hl std">(samples[ ,</span> <span class="hl str">'alpha'</span><span class="hl std">],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">&quot;iteration&quot;</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(alpha))</span> <span class="hl com"># Trace plot of the posterior samples of the concentration parameter</span>
 </pre></div>
-<div class="error"><pre class="knitr r">## Error in ts.plot(samples[, &quot;alpha&quot;], xlab = &quot;iteration&quot;, ylab = expression(alpha)): object 'samples' not found
-</pre></div>
+</div><div class="rimage default"><img src="figure/results-CRPalpha2-1.png" title="plot of chunk results-CRPalpha2" alt="plot of chunk results-CRPalpha2" class="plot" /></div><div class="rcode">
 <div class="source"><pre class="knitr r"><span class="hl kwd">hist</span><span class="hl std">(samples[ ,</span> <span class="hl str">'alpha'</span><span class="hl std">],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(alpha),</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl str">&quot;Frequency&quot;</span><span class="hl std">,</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">&quot;&quot;</span><span class="hl std">)</span> <span class="hl com"># Histogram of the posterior samples for the concentration parameter </span>
 </pre></div>
-<div class="error"><pre class="knitr r">## Error in hist(samples[, &quot;alpha&quot;], xlab = expression(alpha), ylab = &quot;Frequency&quot;, : object 'samples' not found
-</pre></div>
-</div></div>
+</div><div class="rimage default"><img src="figure/results-CRPalpha2-2.png" title="plot of chunk results-CRPalpha2" alt="plot of chunk results-CRPalpha2" class="plot" /></div></div>
 
 
 <h3> Generating samples from the mixing distribution</h3>
@@ -427,7 +394,11 @@ y_i \mid \{ \tilde{\beta}_k \}, \{ \tilde{\lambda}_k \} \sim \mbox{Gam}\left( \t
 
 <div class="chunk" id="G-normaldensity2"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">samplesG</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">getSamplesDPmeasure</span><span class="hl std">(cMCMC)</span>
 </pre></div>
-<div class="error"><pre class="knitr r">## Error in exists(&quot;model&quot;, MCMC): object 'cMCMC' not found
+<div class="message"><pre class="knitr r">## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compiler details.
+</pre></div>
+<div class="message"><pre class="knitr r">## compilation finished.
+</pre></div>
+<div class="output"><pre class="knitr r">## sampleDPmeasure: Approximating the random measure by a finite stick-breaking representation with and error smaller than 1e-10, leads to a truncation level of 25.
 </pre></div>
 </div></div>
 
@@ -437,31 +408,20 @@ y_i \mid \{ \tilde{\beta}_k \}, \{ \tilde{\lambda}_k \} \sim \mbox{Gam}\left( \t
 <span class="hl std">grid</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">seq</span><span class="hl std">(</span><span class="hl num">40</span><span class="hl std">,</span> <span class="hl num">100</span><span class="hl std">,</span> <span class="hl kwc">len</span> <span class="hl std">=</span> <span class="hl num">200</span><span class="hl std">)</span>
 
 <span class="hl std">postSampleDensity</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">matrix</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl kwc">ncol</span> <span class="hl std">=</span> <span class="hl kwd">length</span><span class="hl std">(grid),</span> <span class="hl kwc">nrow</span> <span class="hl std">=</span> <span class="hl kwd">nrow</span><span class="hl std">(samples))</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in nrow(samples): object 'samples' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl kwa">for</span><span class="hl std">(iter</span> <span class="hl kwa">in</span> <span class="hl kwd">seq_len</span><span class="hl std">(</span><span class="hl kwd">nrow</span><span class="hl std">(samples))) {</span>
-  <span class="hl std">postSampleDensity[iter, ]</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sapply</span><span class="hl std">(grid,</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">x</span><span class="hl std">)</span> <span class="hl kwd">sum</span><span class="hl std">(samplesG[iter,</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'weight'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samplesG))]</span> <span class="hl opt">*</span> <span class="hl kwd">dgamma</span><span class="hl std">(x,</span> <span class="hl kwc">shape</span> <span class="hl std">= samplesG[iter,</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'betaTilde'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samplesG))],</span> <span class="hl kwc">scale</span> <span class="hl std">= samplesG[iter,</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'lambdaTilde'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samplesG))])))</span>
+<span class="hl kwa">for</span><span class="hl std">(iter</span> <span class="hl kwa">in</span> <span class="hl kwd">seq_len</span><span class="hl std">(</span><span class="hl kwd">nrow</span><span class="hl std">(samples))) {</span>
+  <span class="hl std">postSampleDensity[iter, ]</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sapply</span><span class="hl std">(grid,</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">x</span><span class="hl std">)</span>
+          <span class="hl kwd">sum</span><span class="hl std">(samplesG[iter,</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'weight'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samplesG))]</span> <span class="hl opt">*</span>
+             <span class="hl kwd">dgamma</span><span class="hl std">(x,</span> <span class="hl kwc">shape</span> <span class="hl std">= samplesG[iter,</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'betaTilde'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samplesG))],</span>
+             <span class="hl kwc">scale</span> <span class="hl std">= samplesG[iter,</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'lambdaTilde'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samplesG))])))</span>
 <span class="hl std">}</span>
+
+
+<span class="hl kwd">hist</span><span class="hl std">(data</span><span class="hl opt">$</span><span class="hl std">y,</span> <span class="hl kwc">freq</span> <span class="hl std">=</span> <span class="hl num">FALSE</span><span class="hl std">,</span> <span class="hl kwc">xlim</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">40</span><span class="hl std">,</span><span class="hl num">100</span><span class="hl std">),</span> <span class="hl kwc">ylim</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">.045</span><span class="hl std">),</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">&quot;&quot;</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl str">&quot;&quot;</span><span class="hl std">,</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">&quot;Old Faithful data&quot;</span><span class="hl std">)</span>
+<span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(postSampleDensity,</span> <span class="hl num">2</span><span class="hl std">, mean),</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
+<span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(postSampleDensity,</span> <span class="hl num">2</span><span class="hl std">, emp.hpd)[</span><span class="hl num">1</span><span class="hl std">, ],</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'grey'</span><span class="hl std">)</span>
+<span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(postSampleDensity,</span> <span class="hl num">2</span><span class="hl std">, emp.hpd)[</span><span class="hl num">2</span><span class="hl std">, ],</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'grey'</span><span class="hl std">)</span>
 </pre></div>
-<div class="error"><pre class="knitr r">## Error in nrow(samples): object 'samples' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl kwd">hist</span><span class="hl std">(data</span><span class="hl opt">$</span><span class="hl std">y,</span> <span class="hl kwc">freq</span> <span class="hl std">=</span> <span class="hl num">FALSE</span><span class="hl std">,</span> <span class="hl kwc">xlim</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">40</span><span class="hl std">,</span><span class="hl num">100</span><span class="hl std">),</span> <span class="hl kwc">ylim</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">.045</span><span class="hl std">),</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">&quot;&quot;</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl str">&quot;&quot;</span><span class="hl std">,</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">&quot;Old Faithful data&quot;</span><span class="hl std">)</span>
-</pre></div>
-</div><div class="rimage default"><img src="figure/results-normaldensity-1.png" title="plot of chunk results-normaldensity" alt="plot of chunk results-normaldensity" class="plot" /></div><div class="rcode">
-<div class="source"><pre class="knitr r"><span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(postSampleDensity,</span> <span class="hl num">2</span><span class="hl std">, mean),</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in apply(postSampleDensity, 2, mean): object 'postSampleDensity' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(postSampleDensity,</span> <span class="hl num">2</span><span class="hl std">, emp.hpd)[</span><span class="hl num">1</span><span class="hl std">, ],</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'grey'</span><span class="hl std">)</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in match.fun(FUN): object 'emp.hpd' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(postSampleDensity,</span> <span class="hl num">2</span><span class="hl std">, emp.hpd)[</span><span class="hl num">2</span><span class="hl std">, ],</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'grey'</span><span class="hl std">)</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in match.fun(FUN): object 'emp.hpd' not found
-</pre></div>
-</div></div>
+</div><div class="rimage default"><img src="figure/results-normaldensity-1.png" title="plot of chunk results-normaldensity" alt="plot of chunk results-normaldensity" class="plot" /></div></div>
 
 <p>Again, we see that the density of the data is bimodal, and looks very similar to the one we obtained before.</p>
 
@@ -569,17 +529,10 @@ with [latex]v_l \sim Beta(1, \alpha), l=1, \ldots, L-1[/latex].  The following c
 <span class="hl kwd">hist</span><span class="hl std">(faithful</span><span class="hl opt">$</span><span class="hl std">waiting,</span> <span class="hl kwc">freq</span> <span class="hl std">=</span> <span class="hl num">FALSE</span><span class="hl std">,</span>  <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">&quot;Old Faithful data&quot;</span><span class="hl std">)</span> <span class="hl com"># histogram of original data</span>
 <span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, mean),</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
 <span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, mean),</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
+<span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, emp.hpd)[</span><span class="hl num">1</span><span class="hl std">, ],</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'grey'</span><span class="hl std">)</span>
+<span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, emp.hpd)[</span><span class="hl num">2</span><span class="hl std">, ],</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'grey'</span><span class="hl std">)</span>
 </pre></div>
-</div><div class="rimage default"><img src="figure/MCMC-gammadensity-bnp-SB-G-1.png" title="plot of chunk MCMC-gammadensity-bnp-SB-G" alt="plot of chunk MCMC-gammadensity-bnp-SB-G" class="plot" /></div><div class="rcode">
-<div class="source"><pre class="knitr r"><span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, emp.hpd)[</span><span class="hl num">1</span><span class="hl std">, ],</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'grey'</span><span class="hl std">)</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in match.fun(FUN): object 'emp.hpd' not found
-</pre></div>
-<div class="source"><pre class="knitr r"><span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(postPredictiveSamples,</span> <span class="hl num">2</span><span class="hl std">, emp.hpd)[</span><span class="hl num">2</span><span class="hl std">, ],</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'grey'</span><span class="hl std">)</span>
-</pre></div>
-<div class="error"><pre class="knitr r">## Error in match.fun(FUN): object 'emp.hpd' not found
-</pre></div>
-</div></div>
+</div><div class="rimage default"><img src="figure/MCMC-gammadensity-bnp-SB-G-1.png" title="plot of chunk MCMC-gammadensity-bnp-SB-G" alt="plot of chunk MCMC-gammadensity-bnp-SB-G" class="plot" /></div></div>
 
 <p>As expected, this estimate looks identical to the one we obtained through the CRP representation of the process.</p>
 
