@@ -1,4 +1,3 @@
-## blog post: need to check back with Perry and Chris' notes to see if need Rhtml version...
 intro_bnp_density.html:  intro_bnp_density.Rhtml
 	Rscript -e "library(nimble); library(methods); library(knitr);  knit('intro_bnp_density.Rhtml')"
 intro_bnp_raneff.html:  intro_bnp_raneff.Rhtml

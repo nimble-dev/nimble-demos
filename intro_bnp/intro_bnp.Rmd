@@ -16,7 +16,7 @@ library(nimble)
 library(TeachingDemos) ## for computing a empirical HPD pointwise credible band
 ```
 
-NIMBLE is a hierarchical modeling package that uses nearly the same language for model specification as the popular MCMC packages WinBUGS, OpenBUGS and JAGS, while making the modeling language extensible -- you can add distributions and functions -- and also allowing customization of the algotithms used to estimate the parameters of the model.
+NIMBLE is a hierarchical modeling package that uses nearly the same language for model specification as the popular MCMC packages WinBUGS, OpenBUGS and JAGS, while making the modeling language extensible -- you can add distributions and functions -- and also allowing customization of the algorithms used to estimate the parameters of the model.
 
 Recently, we added support for Markov chain Monte Carlo inference of Bayesian nonparametric (BNP) mixture models to NIMBLE. In particular, starting with version 0.6-11, NIMBLE provides functionality for fitting models involving Dirichlet process priors using either the Chinese Restaurant Process (CRP), or a truncated stick-breaking (SB) representation of the Dirichlet process prior.
 
@@ -177,7 +177,7 @@ In either case, there is clear evidence that the data has two components for the
 
 While samples from the posterior distribution of linear functionals of the mixing distribution $G$ (such as the predictive distribution above) can be computed directly from the realizations of the collapsed sampler, inference for non-linear functionals of $G$ requires that we first generate samples from the mixing distribution.  In NIMBLE we can get posterior samples from the random measure $G$, using the *getSamplesDPmeasure()* function.  Note that, in order to get posterior samples from G, we need to monitor all the random variables involved in its computations, i.e., the membership variable, 'xi', the cluster parameters, 'muTilde' and 's2Tilde', and the concentration parameter, 'alpha'.
 
-The following code generates posterior samples from the random measure $G$. The 'cMCMC' object includes the model and posterior samples from the parameters. When running the getSamplesDPmeasure() function, a message displays the truncation level of $G$, say $truncG$. The resulting object is a matrix having $(truncG * (p+1))$ colums, where $p$ is the dimension of the vector of parameters with distribution $G$ (in this example $p=2$).
+The following code generates posterior samples from the random measure $G$. The 'cMCMC' object includes the model and posterior samples from the parameters. When running the getSamplesDPmeasure() function, a message displays the truncation level of $G$, say $truncG$. The resulting object is a matrix having $(truncG * (p+1))$ columns, where $p$ is the dimension of the vector of parameters with distribution $G$ (in this example $p=2$).
 ```{r, G-normaldensity}
 samplesG <- getSamplesDPmeasure(cMCMC) 
 ```

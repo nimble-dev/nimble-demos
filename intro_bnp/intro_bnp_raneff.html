@@ -77,7 +77,7 @@ Then copy and paste into blog post.
 
 <h2> Overview </h2>
 
-<p> NIMBLE is a hierarchical modeling package that uses nearly the same language for model specification as the popular MCMC packages WinBUGS, OpenBUGS and JAGS, while making the modeling language extensible -- you can add distributions and functions -- and also allowing customization of the algotithms used to estimate the parameters of the model.</p>
+<p> NIMBLE is a hierarchical modeling package that uses nearly the same language for model specification as the popular MCMC packages WinBUGS, OpenBUGS and JAGS, while making the modeling language extensible -- you can add distributions and functions -- and also allowing customization of the algorithms used to estimate the parameters of the model.</p>
 
 <p> Recently, we added support for Markov chain Monte Carlo inference of Bayesian nonparametric (BNP) mixture models to NIMBLE. In particular, starting with version 0.6-11, NIMBLE provides functionality for fitting models involving Dirichlet process priors using either the Chinese Restaurant Process (CRP), or a truncated stick-breaking (SB) representation of the Dirichlet process prior.</p>
 
@@ -106,11 +106,11 @@ Then copy and paste into blog post.
 
 <p>We begin with a standard generalized linear mixed model (GLMM)-based meta analysis. The vectors [latex]n[/latex] and [latex]x[/latex] contain the total number of patients in the control and the number of patients suffering from myocardial infarctions in the control group of each study, respectively.  Similarly, the vectors [latex]m[/latex] and [latex]y[/latex] contain similar information for patients receiving the drug Avandia.  The model takes the form</p>
 
-
 [latex]
 x_{i} \mid \theta, \gamma_i \sim \mbox{Bin} \left(n_i,   \frac{1}{1 + \exp\left\{ -\gamma_i  \right\}} \right) , \quad\quad y_{i} \mid \theta, \gamma_i \sim \mbox{Bin} \left(m_i,   \frac{1}{1 + \exp\left\{ -(\theta + \gamma_i)  \right\}} \right) 
 [/latex]
-where the random effects [latex]\gamma_i[/latex] follow a common normal distributions, [latex]\gamma_i \sim \mbox{N}(0, \tau^2)[/latex], and the [latex]\theta[/latex] and [latex]\tau^2[/latex] are given reasonably non-informative priors.  The parameter [latex]\theta[/latex] quantifies the difference in risk between the control and treatment arms, while the [latex]\gamma_i[/latex] quantify study-specific variation.</p>
+
+where the random effects [latex]\gamma_i[/latex] follow a common normal distributions, [latex]\gamma_i \sim \mbox{N}(0, \tau^2)[/latex], and the [latex]\theta[/latex] and [latex]\tau^2[/latex] are given non-informative priors.  The parameter [latex]\theta[/latex] quantifies the difference in risk between the control and treatment arms, while the [latex]\gamma_i[/latex] quantify study-specific variation.</p>
 
 <p>This model can be specified in NIMBLE using the following code:</p>
 
@@ -147,11 +147,14 @@ where the random effects [latex]\gamma_i[/latex] follow a common normal distribu
 
 <p>Let's run a basic MCMC.</p>
 
-<div class="chunk" id="mcmc"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">inits</span> <span class="hl kwb">=</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">theta</span> <span class="hl std">=</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl kwc">mu</span> <span class="hl std">=</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl kwc">tau</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwc">gamma</span> <span class="hl std">=</span> <span class="hl kwd">rnorm</span><span class="hl std">(nStudies))</span>
+<div class="chunk" id="mcmc"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">set.seed</span><span class="hl std">(</span><span class="hl num">9</span><span class="hl std">)</span>
+<span class="hl std">inits</span> <span class="hl kwb">=</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">theta</span> <span class="hl std">=</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl kwc">mu</span> <span class="hl std">=</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl kwc">tau</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwc">gamma</span> <span class="hl std">=</span> <span class="hl kwd">rnorm</span><span class="hl std">(nStudies))</span>
 
 <span class="hl std">samples</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">nimbleMCMC</span><span class="hl std">(</span><span class="hl kwc">code</span> <span class="hl std">= codeParam,</span> <span class="hl kwc">data</span> <span class="hl std">= data,</span> <span class="hl kwc">inits</span> <span class="hl std">= inits,</span>
-                      <span class="hl kwc">constants</span> <span class="hl std">= constants,</span> <span class="hl kwc">monitors</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl str">&quot;mu&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;tau&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;theta&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;gamma&quot;</span><span class="hl std">),</span>
-                      <span class="hl kwc">thin</span> <span class="hl std">=</span> <span class="hl num">10</span><span class="hl std">,</span> <span class="hl kwc">niter</span> <span class="hl std">=</span> <span class="hl num">21000</span><span class="hl std">,</span> <span class="hl kwc">nburnin</span> <span class="hl std">=</span> <span class="hl num">1000</span><span class="hl std">,</span> <span class="hl kwc">nchains</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwc">setSeed</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
+                      <span class="hl kwc">constants</span> <span class="hl std">= constants,</span>
+                      <span class="hl kwc">monitors</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl str">&quot;mu&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;tau&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;theta&quot;</span><span class="hl std">,</span> <span class="hl str">&quot;gamma&quot;</span><span class="hl std">),</span>
+                      <span class="hl kwc">thin</span> <span class="hl std">=</span> <span class="hl num">10</span><span class="hl std">,</span> <span class="hl kwc">niter</span> <span class="hl std">=</span> <span class="hl num">21000</span><span class="hl std">,</span> <span class="hl kwc">nburnin</span> <span class="hl std">=</span> <span class="hl num">1000</span><span class="hl std">,</span> <span class="hl kwc">nchains</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span>
+                      <span class="hl kwc">setSeed</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
 </pre></div>
 <div class="message"><pre class="knitr r">## defining model...
 </pre></div>
@@ -174,7 +177,8 @@ where the random effects [latex]\gamma_i[/latex] follow a common normal distribu
 <div class="source"><pre class="knitr r"><span class="hl std">gammaCols</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'gamma'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samples))</span>
 
 <span class="hl kwd">par</span><span class="hl std">(</span><span class="hl kwc">mfrow</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">4</span><span class="hl std">),</span> <span class="hl kwc">cex</span> <span class="hl std">=</span> <span class="hl num">1.1</span><span class="hl std">,</span> <span class="hl kwc">mgp</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">1.8</span><span class="hl std">,</span><span class="hl num">.7</span><span class="hl std">,</span><span class="hl num">0</span><span class="hl std">))</span>
-<span class="hl kwd">ts.plot</span><span class="hl std">(samples[ ,</span> <span class="hl str">'theta'</span><span class="hl std">],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'iteration'</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(theta))</span>
+<span class="hl kwd">ts.plot</span><span class="hl std">(samples[ ,</span> <span class="hl str">'theta'</span><span class="hl std">],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'iteration'</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(theta),</span>
+   <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(</span><span class="hl kwd">paste</span><span class="hl std">(</span><span class="hl str">'traceplot for '</span><span class="hl std">, theta)))</span>
 <span class="hl kwd">hist</span><span class="hl std">(samples[ ,</span> <span class="hl str">'theta'</span><span class="hl std">],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(theta),</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">'effect of Avandia'</span><span class="hl std">)</span>
 <span class="hl std">gammaMn</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">colMeans</span><span class="hl std">(samples[ , gammaCols])</span>
 <span class="hl kwd">hist</span><span class="hl std">(gammaMn,</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'posterior means'</span><span class="hl std">,</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">'random effects distribution'</span><span class="hl std">)</span>
@@ -191,9 +195,11 @@ where the random effects [latex]\gamma_i[/latex] follow a common normal distribu
 <h3> Model formulation</h3>
 
 <p>Now, we use a nonparametric distribution for [latex]\gamma_i[/latex]s.  More specifically, we assume that each [latex]\gamma_i[/latex] is generated from a location-scale mixture of normal distributions:
+  
 [latex]
 \gamma_i \mid \mu_i, \tau_i^2 \sim \mbox{N}(\mu_i, \tau_i^2),   \quad\quad  (\mu_i, \tau_i^2) \mid G \sim G,   \quad\quad     G \sim \mbox{DP}(\alpha, H),
-[/latex]
+  [/latex]
+  
 where [latex]H[/latex] is again a normal-inverse-gamma distribution.</p>
 
 <p>This specification induces clustering among the random effect.  As in the case of density estimation problems, the DP prior allows the data to determine the number of components, from as few as one component (i.e., simplifying to the parametric model), to as many as [latex]n[/latex] components, i.e., one component for each observation. This allows the distribution of the random effects to be multimodal if the data supports such behavior, greatly increasing its flexibility.  This model can be specified in NIMBLE using the following code:</p>
@@ -204,9 +210,9 @@ where [latex]H[/latex] is again a normal-inverse-gamma distribution.</p>
         <span class="hl std">x[i]</span> <span class="hl opt">~</span> <span class="hl kwd">dbin</span><span class="hl std">(</span><span class="hl kwc">size</span> <span class="hl std">= n[i],</span> <span class="hl kwc">prob</span> <span class="hl std">= p[i])</span> <span class="hl com"># control MIs</span>
         <span class="hl std">q[i]</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">expit</span><span class="hl std">(theta</span> <span class="hl opt">+</span> <span class="hl std">gamma[i])</span>       <span class="hl com"># Avandia log-odds</span>
         <span class="hl std">p[i]</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">expit</span><span class="hl std">(gamma[i])</span>               <span class="hl com"># control log-odds</span>
-        <span class="hl std">gamma[i]</span> <span class="hl opt">~</span> <span class="hl kwd">dnorm</span><span class="hl std">(mu[i],</span> <span class="hl kwc">var</span> <span class="hl std">= tau[i])</span>  <span class="hl com"># random effects from mixture dist.</span>
-        <span class="hl std">mu[i]</span> <span class="hl kwb">&lt;-</span> <span class="hl std">muTilde[xi[i]]</span>               <span class="hl com"># mean for random effect from cluster xi[i]</span>
-        <span class="hl std">tau[i]</span> <span class="hl kwb">&lt;-</span> <span class="hl std">tauTilde[xi[i]]</span>             <span class="hl com"># var for random effect from cluster xi[i]</span>
+        <span class="hl std">gamma[i]</span> <span class="hl opt">~</span> <span class="hl kwd">dnorm</span><span class="hl std">(mu[i],</span> <span class="hl kwc">var</span> <span class="hl std">= tau[i])</span> <span class="hl com"># random effects from mixture dist.</span>
+        <span class="hl std">mu[i]</span> <span class="hl kwb">&lt;-</span> <span class="hl std">muTilde[xi[i]]</span>         <span class="hl com"># mean for random effect from cluster xi[i]</span>
+        <span class="hl std">tau[i]</span> <span class="hl kwb">&lt;-</span> <span class="hl std">tauTilde[xi[i]]</span>       <span class="hl com"># var for random effect from cluster xi[i]</span>
     <span class="hl std">}</span>
     <span class="hl com"># mixture component parameters drawn from base measures</span>
     <span class="hl kwa">for</span><span class="hl std">(i</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">nStudies) {</span>
@@ -230,7 +236,8 @@ where [latex]H[/latex] is again a normal-inverse-gamma distribution.</p>
 
 <p>The following code compiles the model and runs a collapsed Gibbs sampler for the model</p>
 
-<div class="chunk" id="DP-MCMC"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">inits</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">gamma</span> <span class="hl std">=</span> <span class="hl kwd">rnorm</span><span class="hl std">(nStudies),</span> <span class="hl kwc">xi</span> <span class="hl std">=</span> <span class="hl kwd">sample</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">:</span><span class="hl num">2</span><span class="hl std">, nStudies,</span> <span class="hl kwc">replace</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">),</span>
+<div class="chunk" id="DP-MCMC"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">set.seed</span><span class="hl std">(</span><span class="hl num">9</span><span class="hl std">)</span>
+<span class="hl std">inits</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">gamma</span> <span class="hl std">=</span> <span class="hl kwd">rnorm</span><span class="hl std">(nStudies),</span> <span class="hl kwc">xi</span> <span class="hl std">=</span> <span class="hl kwd">sample</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">:</span><span class="hl num">2</span><span class="hl std">, nStudies,</span> <span class="hl kwc">replace</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">),</span>
               <span class="hl kwc">alpha</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwc">mu0</span> <span class="hl std">=</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl kwc">sd0</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwc">a0</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwc">b0</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwc">theta</span> <span class="hl std">=</span> <span class="hl num">0</span><span class="hl std">,</span>
               <span class="hl kwc">muTilde</span> <span class="hl std">=</span> <span class="hl kwd">rnorm</span><span class="hl std">(nStudies),</span> <span class="hl kwc">tauTilde</span> <span class="hl std">=</span> <span class="hl kwd">rep</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">, nStudies))</span>
 
@@ -260,13 +267,16 @@ where [latex]H[/latex] is again a normal-inverse-gamma distribution.</p>
 <div class="source"><pre class="knitr r"><span class="hl std">gammaCols</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'gamma'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samplesBNP))</span>
 <span class="hl std">xiCols</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'xi'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samplesBNP))</span>
 
-<span class="hl kwd">par</span><span class="hl std">(</span><span class="hl kwc">mfrow</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">2</span><span class="hl std">,</span><span class="hl num">3</span><span class="hl std">),</span> <span class="hl kwc">cex</span> <span class="hl std">=</span> <span class="hl num">1.1</span><span class="hl std">,</span> <span class="hl kwc">mgp</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">1.8</span><span class="hl std">,</span><span class="hl num">.7</span><span class="hl std">,</span><span class="hl num">0</span><span class="hl std">))</span>
-<span class="hl kwd">ts.plot</span><span class="hl std">(samplesBNP[ ,</span> <span class="hl str">'theta'</span><span class="hl std">],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'iteration'</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(theta))</span>
+<span class="hl kwd">par</span><span class="hl std">(</span><span class="hl kwc">mfrow</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">3</span><span class="hl std">,</span><span class="hl num">2</span><span class="hl std">),</span> <span class="hl kwc">cex</span> <span class="hl std">=</span> <span class="hl num">1.1</span><span class="hl std">,</span> <span class="hl kwc">mgp</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">1.8</span><span class="hl std">,</span><span class="hl num">.7</span><span class="hl std">,</span><span class="hl num">0</span><span class="hl std">))</span>
+<span class="hl kwd">ts.plot</span><span class="hl std">(samplesBNP[ ,</span> <span class="hl str">'theta'</span><span class="hl std">],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'iteration'</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(theta),</span>
+        <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(</span><span class="hl kwd">paste</span><span class="hl std">(</span><span class="hl str">'traceplot for '</span><span class="hl std">, theta)))</span>
 <span class="hl kwd">hist</span><span class="hl std">(samplesBNP[ ,</span> <span class="hl str">'theta'</span><span class="hl std">],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(theta),</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">'effect of Avandia'</span><span class="hl std">)</span>
 <span class="hl com"># How many mixture components are inferred?</span>
 <span class="hl std">xiRes</span> <span class="hl kwb">&lt;-</span> <span class="hl std">samplesBNP[ , xiCols]</span>
 <span class="hl std">nGrps</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">apply</span><span class="hl std">(xiRes,</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">x</span><span class="hl std">)</span> <span class="hl kwd">length</span><span class="hl std">(</span><span class="hl kwd">unique</span><span class="hl std">(x)))</span>
-<span class="hl kwd">ts.plot</span><span class="hl std">(nGrps,</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'iteration'</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl str">'number of components'</span><span class="hl std">)</span>
+<span class="hl kwd">hist</span><span class="hl std">(nGrps,</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">&quot;number of components&quot;</span><span class="hl std">,</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">'# of components'</span><span class="hl std">)</span>
+<span class="hl kwd">ts.plot</span><span class="hl std">(nGrps,</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'iteration'</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl str">'number of components'</span><span class="hl std">,</span>
+       <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">&quot;traceplot for # components&quot;</span><span class="hl std">)</span>
 <span class="hl std">gammaMn</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">colMeans</span><span class="hl std">(samplesBNP[ , gammaCols])</span>
 <span class="hl kwd">hist</span><span class="hl std">(gammaMn,</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'posterior means'</span><span class="hl std">,</span>
               <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">'random effects distribution'</span><span class="hl std">)</span>
@@ -283,17 +293,7 @@ where [latex]H[/latex] is again a normal-inverse-gamma distribution.</p>
 
 <p>We're in the midst of improvements to the existing BNP functionality as well as adding additional Bayesian nonparametric models, such as hierarchical Dirichlet processes and Pitman-Yor processes, so please add yourself to our <a href="https://groups.google.com/forum/#!forum/nimble-announce">announcement</a> or <a href="https://groups.google.com/forum/#!forum/nimble-users">user support/discussion</a> Google groups. </p>
 
-this was great <code class="knitr inline"><a id="cite-turek17"></a><a href="#bib-turek17">Turek, de
-    Valpine, Paciorek, Anderson-Bergman, and others (2017)</a></code>
 
-<h3> References </h3>
-
-
-<cite><a id="bib-turek17"></a><a href="#cite-turek17">Turek, D, P. de
-Valpine, C. J. Paciorek, et al.</a>
-(2017).
-Automated parameter blocking for efficient Markov chain Monte Carlo sampling.
-  In: <em>Bayesian Analysis</em> 12.2, pp. 465–490.</cite>
 
 </body>
 </html>
