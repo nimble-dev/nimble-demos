@@ -20,13 +20,15 @@ NIMBLE is a hierarchical modeling package that uses nearly the same language for
 
 Recently, we added support for Markov chain Monte Carlo inference of Bayesian nonparametric (BNP) mixture models to NIMBLE. In particular, starting with version 0.6-11, NIMBLE provides functionality for fitting models involving Dirichlet process priors using either the Chinese Restaurant Process (CRP), or a truncated stick-breaking (SB) representation of the Dirichlet process prior.
 
-We will illustrate NIMBLE's BNP capabilities using two examples.  First, we will show how to use nonparametric mixture models with different kernels for density estimation.  Then, we take a parametric generalized linear mixed model and show how to switch it into a nonparametric representation of the random effects that avoids the assumption of normally-distributed random effects.
+In this post we illustrate NIMBLE’s BNP capabilities by showing how to use nonparametric mixture models with different kernels for density estimation.  Then, we take a parametric generalized linear mixed model and show how to switch it into a nonparametric representation of the random effects that avoids the assumption of normally-distributed random effects.
+
+For more detailed information on NIMBLE and Bayesian nonparametrics in NIMBLE, see the  [NIMBLE User Manual](https://r-nimble.org/documentation).
 
 ## Basic density estimation using Dirichlet Process Mixture models
 
 NIMBLE provides the machinery for nonparametric density estimation by means of Dirichlet process mixture (DPM) models [@ferguson_73;@ferguson_74;@lo_84;@escobar_94;@escobar_west_95].  For an independent and identically distributed sample $y_1, \ldots, y_n$, the model takes the form
 $$
-y_i \mid \theta_i \sim p(y_i \mid \theta_i), \quad\quad \theta_i \mid G \sim G, \quad\quad G \sim \mbox{DP}(\alpha, H), \quad\quad i=1,\ldots, n .
+y_i \mid \theta_i \sim p(y_i \mid \theta_i), \quad\quad \theta_i \mid G \sim G, \quad\quad G \mid \alpha, H \sim \mbox{DP}(\alpha, H), \quad\quad i=1,\ldots, n .
 $$
 
 The NIMBLE implementation of this model is flexible and allows for mixtures of arbitrary kernels, $p(y_i \mid \theta)$, which can be either conjugate or non-conjugate to the (also arbitrary) base measure $H$.  In the case of conjugate kernel / base measure pairs, NIMBLE is able to detect the presence of the conjugacy and use it to improve the performance of the sampler.
@@ -42,9 +44,9 @@ The observations $y_1, \ldots, y_n$ correspond to the second column of the dataf
 
 #### Model specification
 
-We first consider a location-scale Dirichlet process mixture of normal distributionss fitted to the transformed data $y_i^{*} = \log (y_i)$:  
+We first consider a location-scale Dirichlet process mixture of normal distributions fitted to the transformed data $y_i^{*} = \log (y_i)$:  
 $$
-y^{*}_i \mid \mu_i, \sigma^2_i \sim \mbox{N}(\mu_i, \sigma^2_i), \quad\quad (\mu_i, \sigma^2_i) \mid G \sim G, \quad\quad G \sim \mbox{DP}(\alpha, H), \quad\quad i=1,\ldots, n,
+y^{*}_i \mid \mu_i, \sigma^2_i \sim \mbox{N}(\mu_i, \sigma^2_i), \quad\quad (\mu_i, \sigma^2_i) \mid G \sim G, \quad\quad G \mid \alpha, H \sim \mbox{DP}(\alpha, H), \quad\quad i=1,\ldots, n,
 $$
 where $H$ corresponds to a normal-inverse-gamma measure.  This model can be interpreted as providing a Bayesian version of kernel density estimation for $y^{*}_i$ using Gaussian kernels and *adaptive bandwidths*.  On the original scale of the data, this translates into a adaptive log-Gaussian kernel density estimate.
 
@@ -59,7 +61,7 @@ p(\xi \mid \alpha) = \frac{\Gamma(\alpha)}{\Gamma(\alpha + n)} \alpha^{K(\xi)} \
 $$
 $K(\xi) \le n$ is the the number of unique values in the vector $\xi$, and $m_k(\xi)$ is the number of times the $k$-th unique value appears in $\xi$.  This specification makes it clear that each observation belongs to any of *at most* $n$ normally distributed clusters, and that the CRP distribution corresponds to the prior distribution on the partition structure. 
 
-NIMBLE's BUGS-language specification of this model is given by
+NIMBLE's specification of this model is given by
 ```{r, normaldensity-bnp-CRP}
 code <- nimbleCode({
   for(i in 1:n) {
@@ -76,36 +78,35 @@ code <- nimbleCode({
 })
 ```
 
-Note that in the BUGS-language code the length of the parameter vectors 'muTilde' and 's2Tilde' has been set to $n$.  We do this because the current implementation of NIMBLE requires that the length of vector of parameters be set in advance and does not allow for their number to change between iterations.  Hence, if we are to ensure that the algorithm always works as intended we need to work with the worst case scenario, i.e., the case where there are as many components as observations.  While this ensures that the algorithm always works as intended, it is also somewhat inefficient, both in terms of memory requirements (when $n$ is large a large number of unoccupied components need to be maintained) and in terms of computational burden (a large number of parameters that are not required for posterior inference need to be updated at every iteration). When we use a mixture of gamma distributions below, we will show a computational shortcut that improves the efficiency.
+Note that in the BUGS-language code the length of the parameter vectors 'muTilde' and 's2Tilde' has been set to $n$.  We do this because the current implementation of NIMBLE requires that the length of vector of parameters be set in advance and does not allow for their number to change between iterations of MCMC sampling.  Hence, if we are to ensure that the algorithm always performs as intended we need to work with the worst case scenario, i.e., the case where there are as many components as observations.  While this ensures that the algorithm always works as intended, it is also somewhat inefficient, both in terms of memory requirements (when $n$ is large a large number of unoccupied components need to be maintained) and in terms of computational burden (a large number of parameters that are not required for posterior inference need to be updated at every iteration). When we use a mixture of gamma distributions below, we will show a computational shortcut that improves the algorithms efficiency.
            
 
 Note also that the value of $\alpha$ controls the number of components we expect a priori, with larger values of $\alpha$ corresponding to a larger number of components occupied by the data.  Hence, by assigning a prior to $\alpha$ we add flexibility to the model specification.  The particular choice of a Gamma prior allows NIMBLE to use a data-augmentation scheme to efficiently sample from the corresponding full conditional distribution.  Alternative prior specifications for $\alpha$ are possible, in which case the default sampler for this parameter is an adaptive random-walk Metropolis-Hastings algorithm.
 
 #### Running the MCMC algorithm
 
-The following code sets up the data and constants, initializes the parameters, defines the model object, and builds and runs the MCMC algorithm.  Because the specification is in terms of a Chinese restaurant process, the default sampler selected by NIMBLE is a collapsed Gibbs sampler [@neal_2000].
+The following code sets up the data and constants, initializes the parameters, defines the model object, and builds and runs the MCMC algorithm.  Because the specification is in terms of a CRP, the default sampler selected by NIMBLE is a collapsed Gibbs sampler [@neal_2000].
 ```{r, MCMC-normaldensity}
 set.seed(1)
 # Model Data
-logFaithful <- log(faithful$waiting)
-dataTransformed <- (logFaithful - mean(logFaithful)) / sd(logFaithful)
-n <- length(dataTransformed)
-data <- list(y = dataTransformed)
+lFaithful <- log(faithful$waiting)
+standlFaithful <- (lFaithful - mean(lFaithful)) / sd(lFaithful)
+data <- list(y = standlFaithful)
 # Model Constants
-consts <- list(n = length(dataTransformed))
+consts <- list(n = length(standlFaithful))
 # Parameter initialization
-inits <- list(xi = sample(1:10, size=n, replace=TRUE), 
-              muTilde = rnorm(n, 0, sd = sqrt(10)), 
-              s2Tilde = rinvgamma(n, 1, 1), 
+inits <- list(xi = sample(1:10, size=consts$n, replace=TRUE), 
+              muTilde = rnorm(consts$n, 0, sd = sqrt(10)), 
+              s2Tilde = rinvgamma(consts$n, 1, 1), 
               alpha = 1) 
 # Model creation and compilation
 rModel <- nimbleModel(code, data = data, inits = inits, constants = consts)    
 cModel <- compileNimble(rModel)                                            
 # MCMC configuration, creation, and compilation
-mConf <- configureMCMC(rModel, monitors = c("xi", "muTilde", "s2Tilde", "alpha")) 
-mMCMC <- buildMCMC(mConf)          
-cMCMC <- compileNimble(mMCMC, project = rModel)                                   
-samples <- runMCMC(cMCMC, niter = 2000, nburnin = 1000, setSeed = TRUE) # running the MCMC computation
+conf <- configureMCMC(rModel, monitors = c("xi", "muTilde", "s2Tilde", "alpha")) 
+mcmc <- buildMCMC(conf)          
+cmcmc <- compileNimble(mcmc, project = rModel)                                   
+samples <- runMCMC(cmcmc, niter = 2000, nburnin = 1000, setSeed = TRUE) # running the MCMC computation
 ```
 
 We can extract the samples from the posterior distributions of the parameters and create trace plots, histograms, and any other summary of interest.  For example, for the concentration parameter $\alpha$ we have:
@@ -116,7 +117,7 @@ hist(samples[ , "alpha"], xlab = expression(alpha), main = "", ylab = "Frequency
 quantile(samples[ , "alpha"], c(0.5, 0.025, 0.975))
 ```
 
-Under this model, the posterior predictive distribution for a new observation $\tilde{y}$, $p(\tilde{y} \mid y_1, \ldots, y_n)$ is the optimal density estimator (under squared error loss).  Samples for this estimator can be easily computed from the samples generated by our MCMC:
+Under this model, the posterior predictive distribution for a new observation $\tilde{y}$, $p(\tilde{y} \mid y_1, \ldots, y_n)$, is the optimal density estimator (under squared error loss).  Samples for this estimator can be easily computed from the samples generated by our MCMC:
 
 ```{r, MCMC-normaldensity-predictive}
 alphaSamples <- samples[ , "alpha"] # posterior samples of the concentration parameter
@@ -124,9 +125,9 @@ muTildeSamples <- samples[ , grep('muTilde', colnames(samples))] # posterior sam
 s2TildeSamples <- samples[ , grep('s2Tilde', colnames(samples))] # posterior samples of the cluster variances
 xiSamples <- samples [ , grep('xi', colnames(samples))] # posterior samples of the cluster memberships
 
-grid <- seq(-2.5, 2.5, len = 200) 
+standlgrid <- seq(-2.5, 2.5, len = 200) # grid of values for standardized data in logarithmic scale
 
-postPredictiveSamples <- matrix(0, ncol = length(grid), nrow = nrow(samples))
+densitySamplesStandl <- matrix(0, ncol = length(standlgrid), nrow = nrow(samples))
 for(i in 1:nrow(samples)){
   k <- unique(xiSamples[i, ])
   kNew <- max(k) + 1
@@ -143,31 +144,27 @@ for(i in 1:nrow(samples)){
   muKnew <-  muTildeSamples[i, kNew]
   s2Knew <-  s2TildeSamples[i, kNew]
   
-  postPredictiveSamples[i, ] <- sapply(grid, 
+  densitySamplesStandl[i, ] <- sapply(standlgrid, 
                 function(x)(sum(mk * dnorm(x, muK, sqrt(s2K))) +
-                alpha * dnorm(x, muKnew, sqrt(s2Knew)) )/(alpha+n))
+                alpha * dnorm(x, muKnew, sqrt(s2Knew)) )/(alpha+consts$n))
 }
 
-postPredictiveHat <- apply(postPredictiveSamples, 2, mean)
-
 # plots:
-hist(data$y, freq = FALSE, xlim = c(-2.5, 2.5), ylim = c(0,0.75), main = "", xlab = "Waiting times in log scale")
-lines(grid, apply(postPredictiveSamples, 2, mean), lwd = 2, col = 'black') # pointwise estimate of the density
-lines(grid, apply(postPredictiveSamples, 2, quantile, 0.025), lty = 2, col = 'black') 
-lines(grid, apply(postPredictiveSamples, 2, quantile, 0.975), lty = 2, col = 'black') 
+hist(data$y, freq = FALSE, xlim = c(-2.5, 2.5), ylim = c(0,0.75), main = "", xlab = "Waiting times in standardized log scale")
+lines(standlgrid, apply(densitySamplesStandl, 2, mean), lwd = 2, col = 'black') # pointwise estimate of the density
+lines(standlgrid, apply(densitySamplesStandl, 2, quantile, 0.025), lty = 2, col = 'black') 
+lines(standlgrid, apply(densitySamplesStandl, 2, quantile, 0.975), lty = 2, col = 'black') 
 ```
 
 Recall, however, that this is the density estimate for the logarithm of the waiting time.  To obtain the density on the original scale we need to apply the appropriate transformation to the kernel.
 ```{r, MCMC-normaldensity-predictive-originalScale}
-gridLogScale <- grid*sd(logFaithful) + mean(logFaithful) # grid on log scale
-predictiveHatLogScale <- apply(postPredictiveSamples, 2, mean) / sd(logFaithful)
-predictiveHatLogScaleCIinf <- apply(postPredictiveSamples, 2, quantile, 0.025) / sd(logFaithful)
-predictiveHatLogScaleCIsup <- apply(postPredictiveSamples, 2, quantile, 0.975) / sd(logFaithful)
+lgrid <- standlgrid*sd(lFaithful) + mean(lFaithful) # grid on log scale
+densitySamplesl <- densitySamplesStandl / sd(lFaithful)
 
 hist(faithful$waiting, freq = FALSE, xlim = c(40, 100), main = "", xlab = "Waiting times") 
-lines(exp(gridLogScale), predictiveHatLogScale/exp(gridLogScale), lwd = 2, col = 'black')
-lines(exp(gridLogScale), predictiveHatLogScaleCIinf/exp(gridLogScale), lty = 2, col = 'black')
-lines(exp(gridLogScale), predictiveHatLogScaleCIsup/exp(gridLogScale), lty = 2, col = 'black')
+lines(exp(lgrid), apply(densitySamplesl, 2, mean)/exp(lgrid), lwd = 2, col = 'black')
+lines(exp(lgrid), apply(densitySamplesl, 2, quantile, 0.025)/exp(lgrid), lty = 2, col = 'black')
+lines(exp(lgrid), apply(densitySamplesl, 2, quantile, 0.975)/exp(lgrid), lty = 2, col = 'black')
 ```
 
 
@@ -179,16 +176,17 @@ While samples from the posterior distribution of linear functionals of the mixin
 
 The following code generates posterior samples from the random measure $G$. The 'cMCMC' object includes the model and posterior samples from the parameters. When running the getSamplesDPmeasure() function, a message displays the truncation level of $G$, say $truncG$. The resulting object is a matrix having $(truncG * (p+1))$ columns, where $p$ is the dimension of the vector of parameters with distribution $G$ (in this example $p=2$).
 ```{r, G-normaldensity}
-samplesG <- getSamplesDPmeasure(cMCMC) 
+outputG <- getSamplesDPmeasure(cmcmc) 
+samplesG <- outputG$samples
 ```
 
 The following code computes posterior samples of $P(\tilde{y} > 70)$ using the posterior samples from the random measure $G$. Note that these samples are computed based on the transformed model and a value larger than 70 corresponds to a value larger than -0.06281407 on the above defined grid, which is the 98th component.
 
 ```{r, G-normaldensity-probYtildeLarger70}
-truncG <- 30 # truncation level for G, obtained from running the getSamplesDPmeasure(cMCMC) line
+truncG <- outputG$trunc # truncation level for G
 
 probY70 <- rep(0, nrow(samples))  # posterior samples of P(y.tilde > 70)
-for(i in seq_len(nrow(samples)) {
+for(i in seq_len(nrow(samples))) {
   probY70[i] <- sum(samplesG[i, grep('weight', colnames(samplesG))] * pnorm(-0.06281407, 
                               samplesG[i, grep('muTilde', colnames(samplesG))], 
                               sqrt(samplesG[i, grep('s2Tilde', colnames(samplesG))]), 
@@ -235,16 +233,16 @@ The following code sets up the model data and constants, initializes the paramet
 ```{r, MCMC-normaldensity2}
 data <- list(y = faithful$waiting)
 set.seed(1)
-inits <- list(xi = sample(1:10, size=n, replace=TRUE), 
+inits <- list(xi = sample(1:10, size=consts$n, replace=TRUE), 
               betaTilde = rgamma(50, shape = 71, scale = 2), 
               lambdaTilde = rgamma(50, shape = 2, scale = 2), 
               alpha = 1) 
 rModel <- nimbleModel(code, data = data, inits = inits, constants = consts)
 cModel <- compileNimble(rModel)
-mConf <- configureMCMC(rModel, monitors = c("xi", "betaTilde", "lambdaTilde", "alpha"))
-mMCMC <- buildMCMC(mConf)
-cMCMC <- compileNimble(mMCMC, project = rModel)
-samples <- runMCMC(cMCMC, niter = 2000, nburnin = 1000, setSeed = TRUE)
+conf <- configureMCMC(rModel, monitors = c("xi", "betaTilde", "lambdaTilde", "alpha"))
+mcmc <- buildMCMC(conf)
+cmcmc <- compileNimble(mcmc, project = rModel)
+samples <- runMCMC(cmcmc, niter = 2000, nburnin = 1000, setSeed = TRUE)
 ```
 
 In this case we use the posterior samples of the parameters to construct a trace plot and estimate the posterior distribution of $\alpha$:
@@ -260,24 +258,25 @@ hist(samples[ , 'alpha'], xlab = expression(alpha), ylab = "Frequency", main = "
 As before, we obtain samples from the posterior distribution of $G$ using the 'getSamplesDPmeasure' function. 
 
 ```{r, G-normaldensity2}
-samplesG <- getSamplesDPmeasure(cMCMC) 
+outputG <- getSamplesDPmeasure(cmcmc) 
+samplesG <- outputG$samples
 ```
 
 We use these samples to create an estimate of the density of the data along with a pointwise 95\% credible band:
 ```{r, results-normaldensity}
-truncG <- 25
+truncG <- outputG$trunc
 grid <- seq(40, 100, len = 200)
 
-postSampleDensity <- matrix(0, ncol = length(grid), nrow = nrow(samples))
+densitySamples <- matrix(0, ncol = length(grid), nrow = nrow(samples))
 for(iter in seq_len(nrow(samples))) {
-  postSampleDensity[iter, ] <- sapply(grid, function(x) sum(samplesG[iter, grep('weight', colnames(samplesG))] * dgamma(x, shape = samplesG[iter, grep('betaTilde', colnames(samplesG))], scale = samplesG[iter, grep('lambdaTilde', colnames(samplesG))]))) 
+  densitySamples[iter, ] <- sapply(grid, function(x) sum(samplesG[iter, grep('weight', colnames(samplesG))] * dgamma(x, shape = samplesG[iter, grep('betaTilde', colnames(samplesG))], scale = samplesG[iter, grep('lambdaTilde', colnames(samplesG))]))) 
 }
 
 
-hist(data$y, freq = FALSE, xlim = c(40,100), ylim = c(0, .045), main = "", ylab = "", xlab = "Old Faithful data")
-lines(grid, apply(postSampleDensity, 2, mean), lwd = 2, col = 'black')
-lines(grid, apply(postSampleDensity, 2, emp.hpd)[1, ], lwd = 2, lty = 2, col = 'grey')
-lines(grid, apply(postSampleDensity, 2, emp.hpd)[2, ], lwd = 2, lty = 2, col = 'grey')
+hist(faithful$waiting, freq = FALSE, xlim = c(40,100), ylim = c(0, .045), main = "", ylab = "", xlab = "Old Faithful data")
+lines(grid, apply(densitySamples, 2, mean), lwd = 2, col = 'black')
+lines(grid, apply(densitySamples, 2, quantile, 0.025), lwd = 2, lty = 2, col = 'black')
+lines(grid, apply(densitySamples, 2, quantile, 0.975), lwd = 2, lty = 2, col = 'black')
 ```
 
 Again, we see that the density of the data is bimodal, and looks very similar to the one we obtained before.
@@ -296,7 +295,7 @@ y_i \mid \{ {\beta}_k^{\star} \}, \{ {\lambda}_k^{\star} \}, z_i \sim \mbox{Gam}
 $$
 where $H$ is again the the product of two independent Gamma distributions, 
 $$w_1=v_1, \quad\quad w_l=v_l\prod_{m<l}(1-v_m), \quad l=2, \ldots, L-1,\quad\quad w_L=\prod_{m<L}(1-v_m)$$
-with $v_l \sim Beta(1, \alpha), l=1, \ldots, L-1$.  The following code provides the NIMBLE specification for the model:
+with $v_l \mid \alpha \sim Beta(1, \alpha), l=1, \ldots, L-1$.  The following code provides the NIMBLE specification for the model:
 
 ```{r, gammadensity-bnp-SB}
 code <- nimbleCode(
@@ -337,10 +336,10 @@ inits <- list(betaStar = rgamma(consts$Trunc, shape = 71, scale = 2),
 
 rModel <- nimbleModel(code, data = data, inits = inits, constants = consts) 
 cModel <- compileNimble(rModel) 
-mConf <- configureMCMC(rModel, monitors = c("w", "betaStar", "lambdaStar", 'z', 'alpha')) 
-mMCMC <- buildMCMC(mConf) 
-cMCMC <- compileNimble(mMCMC, project = rModel)  
-samples <- runMCMC(cMCMC, niter = 2000, nburnin = 1000, setSeed = TRUE)
+conf <- configureMCMC(rModel, monitors = c("w", "betaStar", "lambdaStar", 'z', 'alpha')) 
+mcmc <- buildMCMC(conf) 
+cmcmc <- compileNimble(mcmc, project = rModel)  
+samples <- runMCMC(cmcmc, niter = 2000, nburnin = 1000, setSeed = TRUE)
 ```
 
 Using the stick-breaking approximation automatically provides an approximation $G_L$ of the random distribution $G$.  The following code computes posterior samples of $G_L$ using posterior samples from the 'samples' object, and from them, a density estimate for the data.
@@ -353,18 +352,17 @@ wSamples <- samples[ , grep('w', colnames(samples))]
 grid <- seq(40, 100, len = 200)
 Trunc <- consts$Trunc
 
-postPredictiveSamples <- matrix(0, ncol = length(grid), nrow = nrow(samples))
+densitySamples <- matrix(0, ncol = length(grid), nrow = nrow(samples))
 for(i in 1:nrow(samples)) {
-  postPredictiveSamples[i, ] <- sapply(grid, function(x) sum(wSamples[i, ]*dgamma(x, 
+  densitySamples[i, ] <- sapply(grid, function(x) sum(wSamples[i, ]*dgamma(x, 
                                                 shape = betaStarSamples[i, ],
                                                 scale = lambdaStarSamples[i, ])))
 }
 
 hist(faithful$waiting, freq = FALSE,  main = "Old Faithful data") # histogram of original data
-lines(grid, apply(postPredictiveSamples, 2, mean), lwd = 2, col = 'black') 
-lines(grid, apply(postPredictiveSamples, 2, mean), lwd = 2, col = 'black') 
-lines(grid, apply(postPredictiveSamples, 2, emp.hpd)[1, ], lwd = 2, lty = 2, col = 'grey')
-lines(grid, apply(postPredictiveSamples, 2, emp.hpd)[2, ], lwd = 2, lty = 2, col = 'grey')
+lines(grid, apply(densitySamples, 2, mean), lwd = 2, col = 'black') 
+lines(grid, apply(densitySamples, 2, quantile, 0.025), lwd = 2, lty = 2, col = 'black')
+lines(grid, apply(densitySamples, 2, quantile, 0.975), lwd = 2, lty = 2, col = 'black')
 ```
 
 As expected, this estimate looks identical to the one we obtained through the CRP representation of the process.
@@ -468,17 +466,17 @@ codeBNP <- nimbleCode({
     }
     # mixture component parameters drawn from base measures
     for(i in 1:nStudies) {
-        muTilde[i] ~ dnorm(mu0, sd = sd0)
+        muTilde[i] ~ dnorm(mu0, var = var0)
         tauTilde[i] ~ dinvgamma(a0, b0)
     }
     # CRP for clustering studies to mixture components
     xi[1:nStudies] ~ dCRP(alpha, size = nStudies)
     # hyperparameters
     alpha ~ dgamma(1, 1)      
-    mu0 ~ dflat()
-    sd0 ~ dunif(0, 100)
-    a0 ~ dunif(0, 100)
-    b0 ~ dunif(0, 100)
+    mu0 ~ dnorm(0, 1)
+    var0 ~ dinvgamma(2, 1)
+    a0 ~ dinvgamma(2, 1)
+    b0 ~ dinvgamma(2, 1)
     theta ~ dflat()          # effect of Avandia
 })
 ```
@@ -489,12 +487,12 @@ codeBNP <- nimbleCode({
 The following code compiles the model and runs a collapsed Gibbs sampler for the model
 ```{r, DP-MCMC, fig.cap='', fig.width=12, fig.height=5}
 inits <- list(gamma = rnorm(nStudies), xi = sample(1:2, nStudies, replace = TRUE),
-              alpha = 1, mu0 = 0, sd0 = 1, a0 = 1, b0 = 1, theta = 0,
+              alpha = 1, mu0 = 0, var0 = 1, a0 = 1, b0 = 1, theta = 0,
               muTilde = rnorm(nStudies), tauTilde = rep(1, nStudies))
 
 samplesBNP <- nimbleMCMC(code = codeBNP, data = data, inits = inits,
                constants = constants,
-               monitors = c("theta", "gamma", "alpha", "xi", "mu0", "sd0", "a0", "b0"),
+               monitors = c("theta", "gamma", "alpha", "xi", "mu0", "var0", "a0", "b0"),
                thin = 10, niter = 21000, nburnin = 1000, nchains = 1, setSeed = TRUE)
 
 gammaCols <- grep('gamma', colnames(samplesBNP))
