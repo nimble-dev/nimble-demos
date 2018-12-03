@@ -1,7 +1,7 @@
 ---
 title: "Bayesian Nonparametric Models in NIMBLE"
-subtitle: "September 2018"
-author: "Claudia Wehrhahn, Chris Paciorek, and the NIMBLE Development Team"
+subtitle: "December 2018"
+author: "Claudia Wehrhahn, Christopher Paciorek, and the NIMBLE Development Team"
 output:
   html_document:
     code_folding: show
@@ -17,9 +17,9 @@ library(nimble)
 
 NIMBLE is a hierarchical modeling package that uses nearly the same language for model specification as the popular MCMC packages WinBUGS, OpenBUGS and JAGS, while making the modeling language extensible -- you can add distributions and functions -- and also allowing customization of the algorithms used to estimate the parameters of the model.
 
-Recently, we added support for Markov chain Monte Carlo (MCMC) inference of Bayesian nonparametric (BNP) mixture models to NIMBLE. In particular, starting with version 0.6-11, NIMBLE provides functionality for fitting models involving Dirichlet process priors using either the Chinese Restaurant Process (CRP), or a truncated stick-breaking (SB) representation of the Dirichlet process prior.
+Recently, we added support for Markov chain Monte Carlo (MCMC) inference for Bayesian nonparametric (BNP) mixture models to NIMBLE. In particular, starting with version 0.6-11, NIMBLE provides functionality for fitting models involving Dirichlet process priors using either the Chinese Restaurant Process (CRP) or a truncated stick-breaking (SB) representation of the Dirichlet process prior.
 
-In this post we illustrate NIMBLE’s BNP capabilities by showing how to use nonparametric mixture models with different kernels for density estimation.  Then, we take a parametric generalized linear mixed model and show how to switch it into a nonparametric representation of the random effects that avoids the assumption of normally-distributed random effects.
+In this post we illustrate NIMBLE’s BNP capabilities by showing how to use nonparametric mixture models with different kernels for density estimation.  Then, we take a parametric generalized linear mixed model and show how to switch to a nonparametric representation of the random effects that avoids the assumption of normally-distributed random effects.
 
 For more detailed information on NIMBLE and Bayesian nonparametrics in NIMBLE, see the  [NIMBLE User Manual](https://r-nimble.org/documentation).
 
@@ -47,7 +47,7 @@ We first consider a location-scale DPM of normal distributions fitted to the tra
 $$
 y^{*}_i \mid \mu_i, \sigma^2_i \sim \mbox{N}(\mu_i, \sigma^2_i), \quad\quad (\mu_i, \sigma^2_i) \mid G \sim G, \quad\quad G \mid \alpha, H \sim \mbox{DP}(\alpha, H), \quad\quad i=1,\ldots, n,
 $$
-where $H$ corresponds to a normal-inverse-gamma measure.  This model can be interpreted as providing a Bayesian version of kernel density estimation for $y^{*}_i$ using Gaussian kernels and *adaptive bandwidths*.  On the original scale of the data, this translates into an adaptive log-Gaussian kernel density estimate.
+where $H$ corresponds to a normal-inverse-gamma distribution.  This model can be interpreted as providing a Bayesian version of kernel density estimation for $y^{*}_i$ using Gaussian kernels and *adaptive bandwidths*.  On the original scale of the data, this translates into an adaptive log-Gaussian kernel density estimate.
 
 Introducing auxiliary variables $\xi_1, \ldots, \xi_n$ that indicate which component of the mixture generates each observation, and integrating over the random measure $G$, we obtain the CRP representation of the model [@blackwell_mcqueen_73]:
 $$
@@ -77,7 +77,7 @@ code <- nimbleCode({
 })
 ```
 
-Note that in the BUGS-language code the length of the parameter vectors 'muTilde' and 's2Tilde' has been set to $n$.  We do this because the current implementation of NIMBLE requires that the length of the vector of parameters be set in advance and does not allow for their number to change between iterations of MCMC sampling.  Hence, if we are to ensure that the algorithm always performs as intended we need to work with the worst case scenario, i.e., the case where there are as many components as observations.  While this ensures that the algorithm always works as intended, it is also somewhat inefficient, both in terms of memory requirements (when $n$ is large a large number of unoccupied components need to be maintained) and in terms of computational burden (a large number of parameters that are not required for posterior inference need to be updated at every iteration). When we use a mixture of gamma distributions below, we will show a computational shortcut that improves the  efficiency of the algorithm.
+Note that in the BUGS-language code the length of the parameter vectors *muTilde* and *s2Tilde* has been set to $n$.  We do this because the current implementation of NIMBLE requires that the length of the vector of parameters be set in advance and does not allow for their number to change between iterations of MCMC sampling.  Hence, if we are to ensure that the algorithm always performs as intended we need to work with the worst case scenario, i.e., the case where there are as many components as observations.  While this ensures that the algorithm always works as intended, it is also somewhat inefficient, both in terms of memory requirements (when $n$ is large a large number of unoccupied components need to be maintained) and in terms of computational burden (a large number of parameters that are not required for posterior inference need to be updated at every iteration). When we use a mixture of gamma distributions below, we will show a computational shortcut that improves the  efficiency of the algorithm.
            
 
 Note also that the value of $\alpha$ controls the number of components we expect a priori, with larger values of $\alpha$ corresponding to a larger number of components occupied by the data.  Hence, by assigning a prior to $\alpha$ we add flexibility to the model specification.  The particular choice of a Gamma prior allows NIMBLE to use a data-augmentation scheme to efficiently sample from the corresponding full conditional distribution.  Alternative prior specifications for $\alpha$ are possible, in which case the default sampler for this parameter is an adaptive random-walk Metropolis-Hastings algorithm.
@@ -99,34 +99,39 @@ inits <- list(xi = sample(1:10, size=consts$n, replace=TRUE),
               s2Tilde = rinvgamma(consts$n, 2, 1), 
               alpha = 1) 
 # Model creation and compilation
-model <- nimbleModel(code, data = data, inits = inits, constants = consts)    
-cmodel <- compileNimble(model)                                            
+rModel <- nimbleModel(code, data = data, inits = inits, constants = consts)    
+cModel <- compileNimble(rModel)                                            
 # MCMC configuration, creation, and compilation
-conf <- configureMCMC(model, monitors = c("xi", "muTilde", "s2Tilde", "alpha")) 
+conf <- configureMCMC(rModel, monitors = c("xi", "muTilde", "s2Tilde", "alpha")) 
 mcmc <- buildMCMC(conf)          
-cmcmc <- compileNimble(mcmc, project = model)                                   
-samples <- runMCMC(cmcmc, niter = 12000, nburnin = 2000, setSeed = TRUE) # running the MCMC computation
+cmcmc <- compileNimble(mcmc, project = rModel)                                   
+samples <- runMCMC(cmcmc, niter = 7000, nburnin = 2000, setSeed = TRUE) 
 ```
 
 We can extract the samples from the posterior distributions of the parameters and create trace plots, histograms, and any other summary of interest.  For example, for the concentration parameter $\alpha$ we have:
 ```{r, MCMC-normaldensity-somegraphs}
-# plots: 
-ts.plot(samples[ , "alpha"], xlab = "iteration", ylab = expression(alpha)) # Trace plot for the concentration parameter
-hist(samples[ , "alpha"], xlab = expression(alpha), main = "", ylab = "Frequency") # Posterior histogram
+# Trace plot for the concentration parameter
+ts.plot(samples[ , "alpha"], xlab = "iteration", ylab = expression(alpha)) 
+# Posterior histogram
+hist(samples[ , "alpha"], xlab = expression(alpha), main = "", ylab = "Frequency") 
 quantile(samples[ , "alpha"], c(0.5, 0.025, 0.975))
 ```
 
 Under this model, the posterior predictive distribution for a new observation $\tilde{y}$, $p(\tilde{y} \mid y_1, \ldots, y_n)$, is the optimal density estimator (under squared error loss).  Samples for this estimator can be easily computed from the samples generated by our MCMC:
 
 ```{r, MCMC-normaldensity-predictive}
-alphaSamples <- samples[ , "alpha"] # posterior samples of the concentration parameter
-muTildeSamples <- samples[ , grep('muTilde', colnames(samples))] # posterior samples of the cluster means
-s2TildeSamples <- samples[ , grep('s2Tilde', colnames(samples))] # posterior samples of the cluster variances
-xiSamples <- samples [ , grep('xi', colnames(samples))] # posterior samples of the cluster memberships
+# posterior samples of the concentration parameter
+alphaSamples <- samples[ , "alpha"] 
+# posterior samples of the cluster means
+muTildeSamples <- samples[ , grep('muTilde', colnames(samples))] 
+# posterior samples of the cluster variances
+s2TildeSamples <- samples[ , grep('s2Tilde', colnames(samples))] 
+# posterior samples of the cluster memberships
+xiSamples <- samples [ , grep('xi', colnames(samples))] 
 
-standlgrid <- seq(-2.5, 2.5, len = 200) # standardized grid in log scale
+standlGrid <- seq(-2.5, 2.5, len = 200) # standardized grid on log scale
 
-densitySamplesStandl <- matrix(0, ncol = length(standlgrid), nrow = nrow(samples)) # density samples for standardized grid in log scale
+densitySamplesStandl <- matrix(0, ncol = length(standlGrid), nrow = nrow(samples)) 
 for(i in 1:nrow(samples)){
   k <- unique(xiSamples[i, ])
   kNew <- max(k) + 1
@@ -143,25 +148,27 @@ for(i in 1:nrow(samples)){
   muKnew <-  muTildeSamples[i, kNew]
   s2Knew <-  s2TildeSamples[i, kNew]
   
-  densitySamplesStandl[i, ] <- sapply(standlgrid, 
+  densitySamplesStandl[i, ] <- sapply(standlGrid, 
                 function(x)(sum(mk * dnorm(x, muK, sqrt(s2K))) +
                 alpha * dnorm(x, muKnew, sqrt(s2Knew)) )/(alpha+consts$n))
 }
 
-# plots:
-hist(data$y, freq = FALSE, xlim = c(-2.5, 2.5), ylim = c(0,0.75), main = "", xlab = "Waiting times in standardized log scale")
-lines(standlgrid, apply(densitySamplesStandl, 2, mean), lwd = 2, col = 'black') # pointwise estimate of the density for standardized log grid
-lines(standlgrid, apply(densitySamplesStandl, 2, quantile, 0.025), lty = 2, col = 'black') 
-lines(standlgrid, apply(densitySamplesStandl, 2, quantile, 0.975), lty = 2, col = 'black') 
+hist(data$y, freq = FALSE, xlim = c(-2.5, 2.5), ylim = c(0,0.75), main = "",
+     xlab = "Waiting times on standardized log scale")
+## pointwise estimate of the density for standardized log grid
+lines(standlGrid, apply(densitySamplesStandl, 2, mean), lwd = 2, col = 'black')
+lines(standlGrid, apply(densitySamplesStandl, 2, quantile, 0.025), lty = 2, col = 'black') 
+lines(standlGrid, apply(densitySamplesStandl, 2, quantile, 0.975), lty = 2, col = 'black') 
 ```
 
 Recall, however, that this is the density estimate for the standardized logarithm of the waiting time.  To obtain the density on the original scale we need to apply the appropriate transformation to the kernel.
 ```{r, MCMC-normaldensity-predictive-originalScale}
-lgrid <- standlgrid*sd(lFaithful) + mean(lFaithful) # grid in log scale
-densitySamplesl <- densitySamplesStandl / sd(lFaithful) # density samples for grid in log scale
+lgrid <- standlGrid*sd(lFaithful) + mean(lFaithful) # grid on log scale
+densitySamplesl <- densitySamplesStandl / sd(lFaithful) # density samples for grid on log scale
 
-hist(faithful$waiting, freq = FALSE, xlim = c(40, 100), ylim=c(0, 0.05), main = "", xlab = "Waiting times") 
-lines(exp(lgrid), apply(densitySamplesl, 2, mean)/exp(lgrid), lwd = 2, col = 'black') # pointwise estimate of the density for original data
+hist(faithful$waiting, freq = FALSE, xlim = c(40, 100), ylim=c(0, 0.05),
+     main = "", xlab = "Waiting times") 
+lines(exp(lgrid), apply(densitySamplesl, 2, mean)/exp(lgrid), lwd = 2, col = 'black') 
 lines(exp(lgrid), apply(densitySamplesl, 2, quantile, 0.025)/exp(lgrid), lty = 2, col = 'black')
 lines(exp(lgrid), apply(densitySamplesl, 2, quantile, 0.975)/exp(lgrid), lty = 2, col = 'black')
 ```
@@ -171,18 +178,20 @@ In either case, there is clear evidence that the data has two components for the
 
 #### Generating samples from the mixing distribution
 
-While samples from the posterior distribution of linear functionals of the mixing distribution $G$ (such as the predictive distribution above) can be computed directly from the realizations of the collapsed sampler, inference for non-linear functionals of $G$ requires that we first generate samples from the mixing distribution.  In NIMBLE we can get posterior samples from the random measure $G$, using the *getSamplesDPmeasure()* function.  Note that, in order to get posterior samples from G, we need to monitor all the random variables involved in its computations, here, the membership variable, 'xi', the cluster parameters, 'muTilde' and 's2Tilde', and the concentration parameter, 'alpha'.
+While samples from the posterior distribution of linear functionals of the mixing distribution $G$ (such as the predictive distribution above) can be computed directly from the realizations of the collapsed sampler, inference for non-linear functionals of $G$ requires that we first generate samples from the mixing distribution.  In NIMBLE we can get posterior samples from the random measure $G$, using the *getSamplesDPmeasure()* function.  Note that, in order to get posterior samples from G, we need to monitor all the random variables involved in its computations, here, the membership variable, *xi*, the cluster parameters, *muTilde* and *s2Tilde*, and the concentration parameter, *alpha*.
 
-The following code generates posterior samples from the random measure $G$. The 'cmcmc' object includes the model and posterior samples from the parameters. The  getSamplesDPmeasure() function returns a list  with 'trunc' and 'samples'. 'trunc' returns the trucation level of the random measure $G$ and 'samples' returns samples from $G$ in a matrix with $(truncG * (p+1))$ columns, where $p$ is the dimension of the vector of parameters with distribution $G$ (in this example $p=2$).
+The following code generates posterior samples from the random measure $G$. The *cmcmc* object includes the model and posterior samples from the parameters. The  *getSamplesDPmeasure()* function estimates a truncation level of $G$, namely *truncG*. The posterior samples are in a matrix with $(truncG * (p+1))$ columns, where $p$ is the dimension of the vector of parameters with distribution $G$ (in this example $p=2$).
 ```{r, G-normaldensity}
 outputG <- getSamplesDPmeasure(cmcmc) 
-samplesG <- outputG$samples
+if(packageVersion('nimble') <= '0.6-12') 
+  samplesG <- outputG else samplesG <- outputG$samples
 ```
 
-The following code computes posterior samples of $P(\tilde{y} > 70)$ using the posterior samples from the random measure $G$. Note that these samples are computed based on the transformed model and a value larger than 70 corresponds to a value larger than 0.03557236 in the previously defined grid.
+The following code computes posterior samples of $P(\tilde{y} > 70)$ using the posterior samples from the random measure $G$. Note that these samples are computed based on the transformed model and a value larger than 70 corresponds to a value larger than 0.03557236 on the previously defined grid.
 
 ```{r, G-normaldensity-probYtildeLarger70}
-truncG <- outputG$trunc # truncation level for G
+if(packageVersion('nimble') >= '0.6.13') 
+     truncG <- outputG$trunc # truncation level for G
 
 weightIndex <- grep('weight', colnames(samplesG))
 muTildeIndex <- grep('muTilde', colnames(samplesG))
@@ -206,7 +215,7 @@ NIMBLE is not restricted to using Gaussian kernels in DPM models.  In the case o
 
 In this case, the model takes the form
 $$
-y_i \mid \{ \tilde{\beta}_k \}, \{ \tilde{\lambda}_k \} \sim \mbox{Gam}\left( \tilde{\beta}_{\xi_i}, \tilde{\lambda}_{\xi_i} \right), \quad\quad \xi \mid \alpha \sim \mbox{CRP}(\alpha), \quad\quad (\tilde{\beta}_k, \tilde{\lambda}_k) \mid H \sim H ,
+y_i \mid \{ \tilde{\beta}_k \}, \{ \tilde{\lambda}_k \} \sim \mbox{Gamma}\left( \tilde{\beta}_{\xi_i}, \tilde{\lambda}_{\xi_i} \right), \quad\quad \xi \mid \alpha \sim \mbox{CRP}(\alpha), \quad\quad (\tilde{\beta}_k, \tilde{\lambda}_k) \mid H \sim H ,
 $$
 where $H$ corresponds to the product of two independent Gamma distributions.  The following code provides the NIMBLE specification for the model:
 ```{r, gammadensity-bnp}
@@ -225,12 +234,12 @@ code <- nimbleCode({
 })
 ```
 
-Note that in this case the vectors 'betaTilde' and 'lambdaTilde' have length $50 \ll n = 272$.  This is done to reduce the computational and storage burdens associated with the sampling algorithm.  You could think about this approach as truncating the process, except that it can be thought of as an *exact* truncation.  Indeed, under the CRP representation, using parameter vector(s) with a length that is shorter than the number of observations in the sample will lead to a proper algorithm as long as the number of components instatiated by the sampler is strictly lower than the length of the parameter vector(s) for every iteration of the sampler.
+Note that in this case the vectors *betaTilde* and *lambdaTilde* have length $50 \ll n = 272$.  This is done to reduce the computational and storage burdens associated with the sampling algorithm.  You could think about this approach as truncating the process, except that it can be thought of as an *exact* truncation.  Indeed, under the CRP representation, using parameter vector(s) with a length that is shorter than the number of observations in the sample will lead to a proper algorithm as long as the number of components instatiated by the sampler is strictly lower than the length of the parameter vector(s) for every iteration of the sampler.
 
 
 #### Running the MCMC algorithm
 
-The following code sets up the model data and constants, initializes the parameters, defines the model object, and builds and runs the MCMC algorithm for the mixture of Gamma distributions.  Note that, when building the MCMC, a warning message about the number of cluster parameters is generated. This is because the 'size' of 'betaTilde' and 'lambdaTilde' is smaller than $n$.  Also, note that no error message is generated during execution, which indicates that the number of clusters required never exceeded the maximum of 50.
+The following code sets up the model data and constants, initializes the parameters, defines the model object, and builds and runs the MCMC algorithm for the mixture of Gamma distributions.  Note that, when building the MCMC, a warning message about the number of cluster parameters is generated. This is because the 'size' of *betaTilde* and *lambdaTilde* is smaller than $n$.  Also, note that no error message is generated during execution, which indicates that the number of clusters required never exceeded the maximum of 50.
 
 ```{r, MCMC-normaldensity2}
 data <- list(y = faithful$waiting)
@@ -239,51 +248,56 @@ inits <- list(xi = sample(1:10, size=consts$n, replace=TRUE),
               betaTilde = rgamma(50, shape = 71, scale = 2), 
               lambdaTilde = rgamma(50, shape = 2, scale = 2), 
               alpha = 1) 
-model <- nimbleModel(code, data = data, inits = inits, constants = consts)
-cmodel <- compileNimble(model)
-conf <- configureMCMC(model, monitors = c("xi", "betaTilde", "lambdaTilde", "alpha"))
+rModel <- nimbleModel(code, data = data, inits = inits, constants = consts)
+cModel <- compileNimble(rModel)
+conf <- configureMCMC(rModel, monitors = c("xi", "betaTilde", "lambdaTilde", "alpha"))
 mcmc <- buildMCMC(conf)
-cmcmc <- compileNimble(mcmc, project = model)
-samples <- runMCMC(cmcmc, niter = 12000, nburnin = 2000, setSeed = TRUE)
+cmcmc <- compileNimble(mcmc, project = rModel)
+samples <- runMCMC(cmcmc, niter =  7000, nburnin = 2000, setSeed = TRUE)
 ```
 
 In this case we use the posterior samples of the parameters to construct a trace plot and estimate the posterior distribution of $\alpha$:
 ```{r, results-CRPalpha2}
-ts.plot(samples[ , 'alpha'], xlab = "iteration", ylab = expression(alpha)) # Trace plot of concentration parameter
-hist(samples[ , 'alpha'], xlab = expression(alpha), ylab = "Frequency", main = "") # Histogram of concentration parameter
+# Trace plot of the posterior samples of the concentration parameter
+ts.plot(samples[ , 'alpha'], xlab = "iteration", ylab = expression(alpha)) 
+# Histogram of the posterior samples for the concentration parameter 
+hist(samples[ , 'alpha'], xlab = expression(alpha), ylab = "Frequency", main = "") 
 ```
 
 
 #### Generating samples from the mixing distribution
 
-As before, we obtain samples from the posterior distribution of $G$ using the 'getSamplesDPmeasure' function. 
+As before, we obtain samples from the posterior distribution of $G$ using the *getSamplesDPmeasure* function. 
 
 ```{r, G-normaldensity2}
 outputG <- getSamplesDPmeasure(cmcmc) 
-samplesG <- outputG$samples
+if(packageVersion('nimble') <= '0.6-12') 
+  samplesG <- outputG else samplesG <- outputG$samples
 ```
 
 We use these samples to create an estimate of the density of the data along with a pointwise 95\% credible band:
 ```{r, results-normaldensity}
-truncG <- outputG$trunc
+if(packageVersion('nimble') >= '0.6.13') 
+     truncG <- outputG$trunc # truncation level for G
 grid <- seq(40, 100, len = 200)
 
-weightSam <- samplesG[ , grep('weight', colnames(samplesG))]
-betaTildeSam <- samplesG[ , grep('betaTilde', colnames(samplesG))] 
-lambdaTildeSam <- samplesG[ , grep('lambdaTilde', colnames(samplesG))]
+weightSamples <- samplesG[ , grep('weight', colnames(samplesG))]
+betaTildeSamples <- samplesG[ , grep('betaTilde', colnames(samplesG))] 
+lambdaTildeSamples <- samplesG[ , grep('lambdaTilde', colnames(samplesG))]
 
 densitySamples <- matrix(0, ncol = length(grid), nrow = nrow(samples))
 for(iter in seq_len(nrow(samples))) {
   densitySamples[iter, ] <- sapply(grid, function(x) 
-    sum( weightSam[iter, ] * dgamma(x, shape = betaTildeSam[iter, ], 
-                scale = lambdaTildeSam[iter, ]))) 
+    sum( weightSamples[iter, ] * dgamma(x, shape = betaTildeSamples[iter, ], 
+                scale = lambdaTildeSamples[iter, ]))) 
 }
 
 
-hist(faithful$waiting, freq = FALSE, xlim = c(40,100), ylim = c(0, .045), main = "", ylab = "", xlab = "Old Faithful data")
+hist(faithful$waiting, freq = FALSE, xlim = c(40,100), ylim = c(0, .05), main = "", 
+   ylab = "", xlab = "Waiting times")
 lines(grid, apply(densitySamples, 2, mean), lwd = 2, col = 'black')
-lines(grid, apply(densitySamples, 2, quantile, 0.1), lwd = 2, lty = 2, col = 'black')
-lines(grid, apply(densitySamples, 2, quantile, 0.9), lwd = 2, lty = 2, col = 'black')
+lines(grid, apply(densitySamples, 2, quantile, 0.025), lwd = 2, lty = 2, col = 'black')
+lines(grid, apply(densitySamples, 2, quantile, 0.975), lwd = 2, lty = 2, col = 'black')
 ```
 
 Again, we see that the density of the data is bimodal, and looks very similar to the one we obtained before.
@@ -294,15 +308,15 @@ Again, we see that the density of the data is bimodal, and looks very similar to
 
 #### Model specification
 
-An alternative representation of the Dirichlet process mixture uses the stick breaking representation of the random distribution $G$, [@sethuraman_94].  NIMBLE allows us to specify an approximation that involves a truncation of the Dirichlet process to a finite number of atoms of $L$.  The resulting model therefore reduces to a finite mixture with $L$ components and a very particular prior on the weights of the mixture components.
+An alternative representation of the Dirichlet process mixture uses the stick-breaking representation of the random distribution $G$ [@sethuraman_94].  NIMBLE allows us to specify an approximation that involves a truncation of the Dirichlet process to a finite number of atoms of $L$.  The resulting model therefore reduces to a finite mixture with $L$ components and a very particular prior on the weights of the mixture components.
 
-Introducing auxiliary variables $z_1, \ldots, z_n$ that indicate which component generated each observation, the corresponding model for the mixture of Gamma densities discussed in the previous section takes the form
+Introducing auxiliary variables, $z_1, \ldots, z_n$, that indicate which component generated each observation, the corresponding model for the mixture of Gamma densities discussed in the previous section takes the form
 $$
-y_i \mid \{ {\beta}_k^{\star} \}, \{ {\lambda}_k^{\star} \}, z_i \sim \mbox{Gam}\left( {\beta}_{z_i}^{\star}, {\lambda}_{z_i}^{\star} \right), \quad\quad \boldsymbol{z} \mid \boldsymbol{w} \sim \mbox{Discrete}(\boldsymbol{w}), \quad\quad ({\beta}_k^{\star}, {\lambda}_k^{\star}) \mid H \sim H ,
+y_i \mid \{ {\beta}_k^{\star} \}, \{ {\lambda}_k^{\star} \}, z_i \sim \mbox{Gamma}\left( {\beta}_{z_i}^{\star}, {\lambda}_{z_i}^{\star} \right), \quad\quad \boldsymbol{z} \mid \boldsymbol{w} \sim \mbox{Discrete}(\boldsymbol{w}), \quad\quad ({\beta}_k^{\star}, {\lambda}_k^{\star}) \mid H \sim H ,
 $$
 where $H$ is again the the product of two independent Gamma distributions, 
 $$w_1=v_1, \quad\quad w_l=v_l\prod_{m<l}(1-v_m), \quad l=2, \ldots, L-1,\quad\quad w_L=\prod_{m<L}(1-v_m)$$
-with $v_l \mid \alpha \sim Beta(1, \alpha), l=1, \ldots, L-1$.  The following code provides the NIMBLE specification for the model:
+with $v_l \mid \alpha \sim \mbox{Beta}(1, \alpha), l=1, \ldots, L-1$.  The following code provides the NIMBLE specification for the model:
 
 ```{r, gammadensity-bnp-SB}
 code <- nimbleCode(
@@ -325,7 +339,7 @@ code <- nimbleCode(
   }
 )
 ```
-Note that the truncation level $L$ of $G$ has been set to a value 'Trunc', which is to be defined in the 'constants' argument of the nimbleModel function.
+Note that the truncation level $L$ of $G$ has been set to a value *Trunc*, which is to be defined in the *constants* argument of the nimbleModel function.
 
 
 #### Running the MCMC algorithm
@@ -349,23 +363,24 @@ cmcmc <- compileNimble(mcmc, project = rModel)
 samples <- runMCMC(cmcmc, niter = 24000, nburnin = 4000, setSeed = TRUE)
 ```
 
-Using the stick-breaking approximation automatically provides an approximation $G_L$ of the random distribution $G$.  The following code computes posterior samples of $G_L$ using posterior samples from the 'samples' object, and from them, a density estimate for the data.
+Using the stick-breaking approximation automatically provides an approximation, $G_L$, of the random distribution $G$.  The following code computes posterior samples of $G_L$ using posterior samples from the *samples* object, and from them, a density estimate for the data.
 
 ```{r, MCMC-gammadensity-bnp-SB-G}
-betaStarSam <- samples[ , grep('betaStar', colnames(samples))]
-lambdaStarSam <- samples[ , grep('lambdaStar', colnames(samples))]
-weightSam <- samples[ , grep('w', colnames(samples))]
+betaStarSamples <- samples[ , grep('betaStar', colnames(samples))]
+lambdaStarSamples <- samples[ , grep('lambdaStar', colnames(samples))]
+weightSamples <- samples[ , grep('w', colnames(samples))]
 
 grid <- seq(40, 100, len = 200)
 
 densitySamples <- matrix(0, ncol = length(grid), nrow = nrow(samples))
 for(i in 1:nrow(samples)) {
   densitySamples[i, ] <- sapply(grid, function(x) 
-    sum(weightSam[i, ] * dgamma(x, shape = betaStarSam[i, ],
-                                          scale = lambdaStarSam[i, ])))
+    sum(weightSamples[i, ] * dgamma(x, shape = betaStarSamples[i, ],
+                                    scale = lambdaStarSamples[i, ])))
 }
 
-hist(faithful$waiting, freq = FALSE,  main = "Old Faithful data", ylim=c(0,0.05)) # histogram of original data
+hist(faithful$waiting, freq = FALSE,  xlab = "Waiting times", ylim=c(0,0.05),
+     main = '')
 lines(grid, apply(densitySamples, 2, mean), lwd = 2, col = 'black') 
 lines(grid, apply(densitySamples, 2, quantile, 0.025), lwd = 2, lty = 2, col = 'black')
 lines(grid, apply(densitySamples, 2, quantile, 0.975), lwd = 2, lty = 2, col = 'black')
@@ -379,6 +394,7 @@ We will illustrate the use of nonparametric mixture models for modeling random e
 ```{r, avandia-view}
 dat <- read.csv('https://rawgit.com/nimble-dev/nimble-demos/master/intro_bnp/avandia.csv')
 head(dat)
+dat <- dat[-49, ]
 ```
 
 
@@ -392,13 +408,10 @@ We begin with a standard generalized linear mixed model (GLMM)-based meta analys
 $$
 x_{i} \mid \theta, \gamma_i \sim \mbox{Bin} \left(n_i,   \frac{\exp\left\{ \gamma_i  \right\}}{1 + \exp\left\{ \gamma_i  \right\}} \right) , \quad\quad y_{i} \mid \theta, \gamma_i \sim \mbox{Bin} \left(m_i,   \frac{\exp\left\{ \theta + \gamma_i  \right\}}{1 + \exp\left\{ \theta + \gamma_i  \right\}} \right) 
 $$
-where the random effects $\gamma_i$ follow a common normal distributions, $\gamma_i \sim \mbox{N}(\mu, \tau^2)$, and the $\theta$ and $\tau^2$ are given reasonably non-informative priors.  The parameter $\theta$ quantifies the difference in risk between the control and treatment arms, while the $\gamma_i$ quantify study-specific variation.
+where the random effects, $\gamma_i$, follow a common normal distribution, $\gamma_i \sim \mbox{N}(\mu, \tau^2)$, and the $\theta$ and $\tau^2$ are given reasonably non-informative priors.  The parameter $\theta$ quantifies the difference in risk between the control and treatment arms, while the $\gamma_i$ quantify study-specific variation.
 
 This model can be specified in NIMBLE using the following code:
 ```{r, avandia-setup}
-dat <- read.csv('avandia.csv')
-dat <- dat[-49, ]
-
 x <- dat$controlMI
 n <- dat$nControl
 y <- dat$avandiaMI
@@ -414,12 +427,12 @@ codeParam <- nimbleCode({
         x[i] ~ dbin(size = n[i], prob = p[i]) # control MIs
         q[i] <- expit(theta + gamma[i])       # Avandia log-odds
         p[i] <- expit(gamma[i])               # control log-odds
-        gamma[i] ~ dnorm(mu, sd = tau)        # study effects
+        gamma[i] ~ dnorm(mu, var = tau2)        # study effects
     }
     theta ~ dflat()        # effect of Avandia
     # random effects hyperparameters
-    mu ~ dnorm(0, 1)
-    tau ~ dgamma(2, 1)
+    mu ~ dnorm(0, 10)
+    tau2 ~ dinvgamma(2, 1)
 })
 ```
 
@@ -429,21 +442,22 @@ codeParam <- nimbleCode({
 Let's run a basic MCMC.
 
 ```{r, mcmc, fig.cap='', fig.width=12, fig.height=5}
-inits = list(theta = 0, mu = 0, tau = 1, gamma = rnorm(nStudies))
+inits = list(theta = 0, mu = 0, tau2 = 1, gamma = rnorm(nStudies))
 
 samples <- nimbleMCMC(code = codeParam, data = data, inits = inits,
-                      constants = constants, monitors = c("mu", "tau", "theta", "gamma"),
+                      constants = constants, monitors = c("mu", "tau2", "theta", "gamma"),
                       thin = 10, niter = 22000, nburnin = 2000, nchains = 1, setSeed = TRUE)
 
-par(mfrow = c(1, 4))
-ts.plot(samples[ , 'theta'], xlab = 'iteration', ylab = expression(theta))
+par(mfrow = c(1, 4), cex = 1.1, mgp = c(1.8,.7,0))
+ts.plot(samples[ , 'theta'], xlab = 'iteration', ylab = expression(theta),
+        main = expression(paste('traceplot for ', theta)))
 hist(samples[ , 'theta'], xlab = expression(theta), main = 'effect of Avandia')
 
 gammaCols <- grep('gamma', colnames(samples))
 gammaMn <- colMeans(samples[ , gammaCols])
-hist(gammaMn, xlab = 'posterior means of random effects', main = 'random effects distribution')
-hist(samples[1000, gammaCols], xlab = 'single draw of random effects',
-                   main = 'random effects distribution')
+hist(gammaMn, xlab = 'posterior means', main = "random effects distrib'n")
+hist(samples[1000, gammaCols], xlab = 'single draw',
+                   main = "random effects distrib'n")
 ```
 
 The results suggests there is an overall difference in risk between the control and treatment arms.  But what about the normality assumption? Are our conclusions robust to that assumption? Perhaps the random effects distribution are skewed. (And recall that the estimates above of the random effects are generated under the normality assumption, which pushes the estimated effects to look more normal...)
@@ -453,22 +467,22 @@ The results suggests there is an overall difference in risk between the control 
 
 #### Model formulation
 
-Now, we use a nonparametric distribution for $\gamma_i$s.  More specifically, we assume that each $\gamma_i$ is generated from a location-scale mixture of normal distributions:
+Now, we use a nonparametric distribution for the $\gamma_i$s.  More specifically, we assume that each $\gamma_i$ is generated from a location-scale mixture of normal distributions:
 $$
 \gamma_i \mid \mu_i, \tau_i^2 \sim \mbox{N}(\mu_i, \tau_i^2),   \quad\quad  (\mu_i, \tau_i^2) \mid G \sim G,   \quad\quad     G \sim \mbox{DP}(\alpha, H),
 $$
 where $H$ is again a normal-inverse-gamma distribution.
 
-This specification induces clustering among the random effect.  As in the case of density estimation problems, the DP prior allows the data to determine the number of components, from as few as one component (i.e., simplifying to the parametric model), to as many as $n$ components, i.e., one component for each observation. This allows the distribution of the random effects to be multimodal if the data supports such behavior, greatly increasing its flexibility.  This model can be specified in NIMBLE using the following code:
+This specification induces clustering among the random effects.  As in the case of density estimation problems, the DP prior allows the data to determine the number of components, from as few as one component (i.e., simplifying to the parametric model), to as many as $n$ components, i.e., one component for each observation. This allows the distribution of the random effects to be multimodal if the data supports such behavior, greatly increasing its flexibility.  This model can be specified in NIMBLE using the following code:
 ```{r, meta-bnp}
 codeBNP <- nimbleCode({
     for(i in 1:nStudies) {
-        y[i] ~ dbin(size = m[i], prob = q[i]) # avandia MIs
-        x[i] ~ dbin(size = n[i], prob = p[i]) # control MIs
-        q[i] <- expit(theta + gamma[i])       # Avandia log-odds
-        p[i] <- expit(gamma[i])               # control log-odds
+        y[i] ~ dbin(size = m[i], prob = q[i])   # avandia MIs
+        x[i] ~ dbin(size = n[i], prob = p[i])   # control MIs
+        q[i] <- expit(theta + gamma[i])         # Avandia log-odds
+        p[i] <- expit(gamma[i])                 # control log-odds
         gamma[i] ~ dnorm(mu[i], var = tau2[i])  # random effects from mixture dist.
-        mu[i] <- muTilde[xi[i]]               # mean for random effect from cluster xi[i]
+        mu[i] <- muTilde[xi[i]]                 # mean for random effect from cluster xi[i]
         tau2[i] <- tau2Tilde[xi[i]]             # var for random effect from cluster xi[i]
     }
     # mixture component parameters drawn from base measures
@@ -492,7 +506,7 @@ codeBNP <- nimbleCode({
 ### Running an MCMC for the DP-based meta analysis
 
 The following code compiles the model and runs a collapsed Gibbs sampler for the model
-```{r, DP-MCMC, fig.cap='', fig.width=12, fig.height=5}
+```{r, DP-MCMC, fig.cap='', fig.width=15, fig.height=5}
 inits <- list(gamma = rnorm(nStudies), xi = sample(1:2, nStudies, replace = TRUE),
               alpha = 1, mu0 = 0, var0 = 1, a0 = 1, b0 = 1, theta = 0,
               muTilde = rnorm(nStudies), tau2Tilde = rep(1, nStudies))
@@ -506,21 +520,23 @@ gammaCols <- grep('gamma', colnames(samplesBNP))
 gammaMn <- colMeans(samplesBNP[ , gammaCols])
 xiCols <- grep('xi', colnames(samplesBNP))
 
-par(mfrow = c(1,5))
-ts.plot(samplesBNP[ , 'theta'], xlab = 'iteration', ylab = expression(theta))
-hist(samplesBNP[ , 'theta'], xlab = expression(theta), main = 'effect of Avandia')
-hist(gammaMn, xlab = 'posterior means of random effects',
-              main = 'random effects distribution')
-hist(samplesBNP[1000, gammaCols], xlab = 'single draw of random effects',
-                   main = 'random effects distribution')
+par(mfrow = c(1,5), cex = 1.1, mgp = c(1.8,.7,0))
+ts.plot(samplesBNP[ , 'theta'], xlab = 'iteration', ylab = expression(theta),
+    main = expression(paste('traceplot for ', theta)))
+hist(samples[ , 'theta'], xlab = expression(theta), main = 'effect of Avandia')
+hist(gammaMn, xlab = 'posterior means',
+              main = "random effects distrib'n")
+hist(samplesBNP[1000, gammaCols], xlab = 'single draw',
+                   main = "random effects distrib'n")
 
 # How many mixture components are inferred?
 xiRes <- samplesBNP[ , xiCols]
 nGrps <- apply(xiRes, 1, function(x) length(unique(x)))
-ts.plot(nGrps, xlab = 'iteration', ylab = 'number of components')
+ts.plot(nGrps, xlab = 'iteration', ylab = 'number of components',
+        main = 'number of components')
 ```
 
-The primary inference seems robust.  This is probably driven by the fact that there is not much evidence of lack of normality in the random effects distribution (as evidenced by the fact that the posterior distribution of the number of mixture components places a large amount of probability on exactly one component).
+The primary inference seems robust to the original parametric assumption. This is probably driven by the fact that there is not much evidence of lack of normality in the random effects distribution (as evidenced by the fact that the posterior distribution of the number of mixture components places a large amount of probability on exactly one component).
 
 ## More information and future development
 
