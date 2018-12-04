@@ -308,7 +308,7 @@ Again, we see that the density of the data is bimodal, and looks very similar to
 
 #### Model specification
 
-An alternative representation of the Dirichlet process mixture uses the stick-breaking representation of the random distribution $G$ [@sethuraman_94].  NIMBLE allows us to specify an approximation that involves a truncation of the Dirichlet process to a finite number of atoms of $L$.  The resulting model therefore reduces to a finite mixture with $L$ components and a very particular prior on the weights of the mixture components.
+An alternative representation of the Dirichlet process mixture uses the stick-breaking representation of the random distribution $G$ [@sethuraman_94].  NIMBLE allows us to specify an approximation that involves a truncation of the Dirichlet process to a finite number of atoms, $L$.  The resulting model therefore reduces to a finite mixture with $L$ components and a very particular prior on the weights of the mixture components.
 
 Introducing auxiliary variables, $z_1, \ldots, z_n$, that indicate which component generated each observation, the corresponding model for the mixture of Gamma densities discussed in the previous section takes the form
 $$

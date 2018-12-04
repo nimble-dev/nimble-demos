@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html>
 <head>
 <style type="text/css">
@@ -209,11 +208,11 @@ We can extract the samples from the posterior distributions of the parameters an
 <div class="chunk" id="MCMC-normaldensity-somegraphs"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com"># Trace plot for the concentration parameter</span>
 <span class="hl kwd">ts.plot</span><span class="hl std">(samples[ ,</span> <span class="hl str">&quot;alpha&quot;</span><span class="hl std">],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">&quot;iteration&quot;</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(alpha))</span>
 </pre></div>
-</div><div class="rimage default"><img src="figure/MCMC-normaldensity-somegraphs-1.png" class="plot" /></div><div class="rcode">
+</div><div class="rimage default"><img src="https://r-nimble.org/wp-content/uploads/2018/12/MCMC-normaldensity-somegraphs-1.png" class="plot" /></div><div class="rcode">
 <div class="source"><pre class="knitr r"><span class="hl com"># Posterior histogram</span>
 <span class="hl kwd">hist</span><span class="hl std">(samples[ ,</span> <span class="hl str">&quot;alpha&quot;</span><span class="hl std">],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(alpha),</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">&quot;&quot;</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl str">&quot;Frequency&quot;</span><span class="hl std">)</span>
 </pre></div>
-</div><div class="rimage default"><img src="figure/MCMC-normaldensity-somegraphs-2.png" class="plot" /></div><div class="rcode">
+</div><div class="rimage default"><img src="https://r-nimble.org/wp-content/uploads/2018/12/MCMC-normaldensity-somegraphs-2.png" class="plot" /></div><div class="rcode">
 <div class="source"><pre class="knitr r"><span class="hl kwd">quantile</span><span class="hl std">(samples[ ,</span> <span class="hl str">&quot;alpha&quot;</span><span class="hl std">],</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">0.5</span><span class="hl std">,</span> <span class="hl num">0.025</span><span class="hl std">,</span> <span class="hl num">0.975</span><span class="hl std">))</span>
 </pre></div>
 <div class="output"><pre class="knitr r">##        50%       2.5%      97.5% 
@@ -263,7 +262,7 @@ Under this model, the posterior predictive distribution for a new observation [l
 <span class="hl kwd">lines</span><span class="hl std">(standlGrid,</span> <span class="hl kwd">apply</span><span class="hl std">(densitySamplesStandl,</span> <span class="hl num">2</span><span class="hl std">, quantile,</span> <span class="hl num">0.025</span><span class="hl std">),</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
 <span class="hl kwd">lines</span><span class="hl std">(standlGrid,</span> <span class="hl kwd">apply</span><span class="hl std">(densitySamplesStandl,</span> <span class="hl num">2</span><span class="hl std">, quantile,</span> <span class="hl num">0.975</span><span class="hl std">),</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
 </pre></div>
-</div><div class="rimage default"><img src="figure/MCMC-normaldensity-predictive-1.png" class="plot" /></div></div>
+</div><div class="rimage default"><img src="https://r-nimble.org/wp-content/uploads/2018/12/MCMC-normaldensity-predictive-1.png" class="plot" /></div></div>
 
 Recall, however, that this is the density estimate for the logarithm of the waiting time.  To obtain the density on the original scale we need to apply the appropriate transformation to the kernel.
 
@@ -278,7 +277,7 @@ Recall, however, that this is the density estimate for the logarithm of the wait
 <span class="hl kwd">lines</span><span class="hl std">(</span><span class="hl kwd">exp</span><span class="hl std">(lgrid),</span> <span class="hl kwd">apply</span><span class="hl std">(densitySamplesl,</span> <span class="hl num">2</span><span class="hl std">, quantile,</span> <span class="hl num">0.975</span><span class="hl std">)</span><span class="hl opt">/</span><span class="hl kwd">exp</span><span class="hl std">(lgrid),</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span>
       <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
 </pre></div>
-</div><div class="rimage default"><img src="figure/MCMC-normaldensity-predictive-originalScale-1.png" class="plot" /></div></div>
+</div><div class="rimage default"><img src="https://r-nimble.org/wp-content/uploads/2018/12/MCMC-normaldensity-predictive-originalScale-1.png" class="plot" /></div></div>
 
 
 In either case, there is clear evidence that the data has two components for the waiting times.
@@ -320,7 +319,7 @@ The following code computes posterior samples of [latex]P(\tilde{y} > 70)[/latex
 
 <span class="hl kwd">hist</span><span class="hl std">(probY70,</span>  <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">&quot;Probability&quot;</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl str">&quot;P(yTilde &gt; 70 | data)&quot;</span> <span class="hl std">,</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">&quot;&quot;</span> <span class="hl std">)</span>
 </pre></div>
-</div><div class="rimage default"><img src="figure/G-normaldensity-probYtildeLarger70-1.png" class="plot" /></div></div>
+</div><div class="rimage default"><img src="https://r-nimble.org/wp-content/uploads/2018/12/G-normaldensity-probYtildeLarger70-1.png" class="plot" /></div></div>
 
 <h2> Fitting a mixture of gamma distributions using the CRP representation</h2>
 
@@ -405,11 +404,11 @@ In this case we use the posterior samples of the parameters to construct a trace
 <div class="chunk" id="results-CRPalpha2"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com"># Trace plot of the posterior samples of the concentration parameter</span>
 <span class="hl kwd">ts.plot</span><span class="hl std">(samples[ ,</span> <span class="hl str">'alpha'</span><span class="hl std">],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">&quot;iteration&quot;</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(alpha))</span>
 </pre></div>
-</div><div class="rimage default"><img src="figure/results-CRPalpha2-1.png" class="plot" /></div><div class="rcode">
+</div><div class="rimage default"><img src="https://r-nimble.org/wp-content/uploads/2018/12/results-CRPalpha2-1.png" class="plot" /></div><div class="rcode">
 <div class="source"><pre class="knitr r"><span class="hl com"># Histogram of the posterior samples for the concentration parameter </span>
 <span class="hl kwd">hist</span><span class="hl std">(samples[ ,</span> <span class="hl str">'alpha'</span><span class="hl std">],</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(alpha),</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl str">&quot;Frequency&quot;</span><span class="hl std">,</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">&quot;&quot;</span><span class="hl std">)</span>
 </pre></div>
-</div><div class="rimage default"><img src="figure/results-CRPalpha2-2.png" class="plot" /></div></div>
+</div><div class="rimage default"><img src="https://r-nimble.org/wp-content/uploads/2018/12/results-CRPalpha2-2.png" class="plot" /></div></div>
 
 
 <h3> Generating samples from the mixing distribution</h3>
@@ -453,7 +452,7 @@ We use these samples to create an estimate of the density of the data along with
 <span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(densitySamples,</span> <span class="hl num">2</span><span class="hl std">, quantile,</span> <span class="hl num">0.025</span><span class="hl std">),</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
 <span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(densitySamples,</span> <span class="hl num">2</span><span class="hl std">, quantile,</span> <span class="hl num">0.975</span><span class="hl std">),</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
 </pre></div>
-</div><div class="rimage default"><img src="figure/results-normaldensity-1.png" class="plot" /></div></div>
+</div><div class="rimage default"><img src="https://r-nimble.org/wp-content/uploads/2018/12/results-normaldensity-1.png" class="plot" /></div></div>
 
 Again, we see that the density of the data is bimodal, and looks very similar to the one we obtained before.
 
@@ -569,7 +568,7 @@ Using the stick-breaking approximation automatically provides an approximation, 
 <span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(densitySamples,</span> <span class="hl num">2</span><span class="hl std">, quantile,</span> <span class="hl num">0.025</span><span class="hl std">),</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
 <span class="hl kwd">lines</span><span class="hl std">(grid,</span> <span class="hl kwd">apply</span><span class="hl std">(densitySamples,</span> <span class="hl num">2</span><span class="hl std">, quantile,</span> <span class="hl num">0.975</span><span class="hl std">),</span> <span class="hl kwc">lwd</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">lty</span> <span class="hl std">=</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'black'</span><span class="hl std">)</span>
 </pre></div>
-</div><div class="rimage default"><img src="figure/MCMC-gammadensity-bnp-SB-G-1.png" class="plot" /></div></div>
+</div><div class="rimage default"><img src="https://r-nimble.org/wp-content/uploads/2018/12/MCMC-gammadensity-bnp-SB-G-1.png" class="plot" /></div></div>
 
 As expected, this estimate looks identical to the one we obtained through the CRP representation of the process.
 
