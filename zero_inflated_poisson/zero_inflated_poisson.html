@@ -85,7 +85,7 @@ img {
   for(i in 1:N)
     y[i] ~ dZIP(lambda, zeroProb = p) ## Note NIMBLE allows R-like named-parameter syntax
 })</code></pre>
-<p>Here there is nothing more than the parameters p and lambda, the data y, and the constant N.</p>
+<p>Here there is nothing more than the parameters <span class="math">\(p\)</span> and <span class="math">\(\lambda\)</span>, the data <span class="math">\(y\)</span>, and the constant <span class="math">\(N\)</span>.</p>
 </div>
 <div id="write-our-dzip-distribution" class="section level3">
 <h3>Write our dZIP distribution</h3>
@@ -114,7 +114,8 @@ img {
 <li>Everything else here is like R.</li>
 <li>In a user-defined distribution, we must define a log argument indicating whether to return the probability or the log probability, as is standard in R’s distribution functions. Also, the first argument, representing a value of the random variable, must be named “x”, which again is like R’s distribution functions.</li>
 </ul>
-<p>Now to allow a user-defined distribution, NIMBLE requires that we also provide an “r” function for random number generation. That would be:</p>
+<p>In earlier versions of NIMBLE, to allow a user-defined distribution, we required one provide an "r" function for random number generation. That's not required any longer unless any algorithms you use would need to generate from the distribution (e.g., generating from a prior or from the data distribution), but we show it here anyway.</p>
+
 <pre class="r"><code>rZIP &lt;- nimbleFunction(
  run = function(n = integer(), lambda = double(), zeroProb = double()) {
    returnType(integer())
