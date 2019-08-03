@@ -34,7 +34,7 @@ ZIPcode <- nimbleCode({
 })
 ```
 
-Here there is nothing more than the parameters p and lambda, the data y, and the constant N.
+Here there is nothing more than the parameters $p$ and $lambda$, the data $y$, and the constant $N$.
 
 ### Write our dZIP distribution
 
@@ -67,8 +67,8 @@ This example doesn't include a full introduction to nimbleFunctions, but here ar
 * Everything else here is like R.
 * In a user-defined distribution, we must define a log argument indicating whether to return the probability or the log probability, as is standard in R's distribution functions.  Also, the first argument, representing a value of the random variable, must be named "x", which again is like R's distribution functions.
 
+In earlier versions of NIMBLE, to allow a user-defined distribution, we required one provide an "r" function for random number generation. That's not required any longer unless any algorithms you use would need to generate from the distribution (e.g., generating from a prior or from the data distribution), but we show it here anyway.
 
-Now to allow a user-defined distribution, NIMBLE requires that we also provide an "r" function for random number generation.  That would be:
 ```{r}
 rZIP <- nimbleFunction(
  run = function(n = integer(), lambda = double(), zeroProb = double()) {
