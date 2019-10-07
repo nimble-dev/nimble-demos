@@ -13,7 +13,7 @@ code <- nimbleCode({
     beta0 ~ dnorm(0, sd = 10000)
     beta1 ~ dnorm(0, sd = 10000)
     sigma_RE ~ dunif(0, 1000)
-    for(i in 1:N) {
+    for (i in 1:N) {
         beta2[i] ~ dnorm(0, sd = sigma_RE)
         logit(p[i]) <- beta0 + beta1 * x[i] + beta2[i]
         r[i] ~ dbin(p[i], n[i])
@@ -32,58 +32,65 @@ data <- list(
 inits <- list(beta0 = 0, beta1 = 0, sigma_RE = 1)
 
 ## create the model object
-Rmodel <- nimbleModel(code=code, constants=constants, data=data, inits=inits, check = FALSE)
+glmmModel <- nimbleModel(code = code, constants = constants, data = data, 
+                         inits = inits, check = FALSE)
 ```
 
 ## Default MCMC Algorithm
 
-Now we are ready to create the default MCMC algorithm from model object
+Now we are ready to create the default MCMC algorithm from model object.
+
 ```{r}
-Rmcmc <- buildMCMC(Rmodel)
+glmmMCMC <- buildMCMC(glmmModel)
 ```
 
 ## Compile the model and MCMC algorithm
+
 ```{r}
-Cmodel <- compileNimble(Rmodel)
-Cmcmc <- compileNimble(Rmcmc, project = Rmodel)
+CglmmModel <- compileNimble(glmmModel)
+CglmmMCMC <- compileNimble(glmmMCMC, project = glmmModel)
 ```
 
 ## Execute MCMC algorithm and extract samples
 ```{r}
-Cmcmc$run(10000)
-samples <- as.matrix(Cmcmc$mvSamples)
+samples <- runMCMC(CglmmMCMC, niter = 10000)
 ```
 
 ## Customize an MCMC Algorithm
 
-First we make a new instance of the model:
+We may want to customize the MCMC with specific samplers. To do so, we first make a new instance of the model:
+
 ```{r}
-Rmodel <- nimbleModel(code=code, constants=constants, data=data, inits=inits)
+glmmModel <- nimbleModel(code = code, constants = constants, 
+                         data = data, inits = inits)
 ```
 
 Then we make an empty MCMC configuration and add some samplers of our choice to it:
+
 ```{r}
-spec <- configureMCMC(Rmodel, nodes=NULL)
-spec$addSampler(type = 'slice', target ='beta0')
-spec$addSampler(type = 'slice', target ='beta1')
-spec$addSampler(type = 'RW', target ='sigma_RE')
-spec$addSampler(type = 'RW_block', target ='beta2[1:10]')
+spec <- configureMCMC(glmmModel, nodes = NULL)
+spec$addSampler(type = 'slice', target = 'beta0')
+spec$addSampler(type = 'slice', target = 'beta1')
+spec$addSampler(type = 'RW', target = 'sigma_RE')
+spec$addSampler(type = 'RW_block', target = 'beta2[1:10]')
 ```
 
 Then we build the MCMC from the configuration:
+
 ```{r}
-Rmcmc <- buildMCMC(spec)
+customGlmmMCMC <- buildMCMC(spec)
 ```
 
 
 ## Compile model and custom MCMC algorithm
 ```{r}
-Cmodel <- compileNimble(Rmodel)
-Cmcmc <- compileNimble(Rmcmc, project = Rmodel)
+CglmmModel <- compileNimble(glmmModel)
+CglmmMCMC <- compileNimble(customGlmmMCMC, project = glmmModel)
 ```
 
 ## Execute custom MCMC algorithm and extract samples
 ```{r}
-Cmcmc$run(10000)
-samples <- as.matrix(Cmcmc$mvSamples)
+samples <- runMCMC(CglmmMCMC, niter = 10000)
 ```
+
+Note that NIMBLE does not provide its own tools for working with posterior samples.
