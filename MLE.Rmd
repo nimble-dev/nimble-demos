@@ -1,0 +1,73 @@
+
+## Maximum likelihood in NIMBLE
+We show here that maximum likelihood estimation can be easily done using NIMBLE for models without latent states. This is also possible for models with latent states, but we will need to use numerical integration or the Laplace approximation or some other techniques (e.g. MCEM).   
+
+```{r}
+library(nimble)
+```
+
+#### A simple Gaussian example
+
+```{r}
+## Model code
+gaussianCode <- nimbleCode({
+  for (i in 1:N){
+    y[i] ~ dnorm(mu, sd = sigma)
+  }
+  sigma ~ dexp(1)
+  mu ~ dnorm(0, sd = 100)
+})
+
+## Simulate data
+N <- 1000
+mu <- 0
+sigma <- 5
+
+set.seed(1)
+dat <- rnorm(n = N, mean = mu, sd = sigma)
+
+## Setup
+gaussianConsts <- list(N = N)
+gaussianData <- list(y = dat)
+gaussianInits <- list(mu = 0, sigma = 1)
+
+## Create the model
+gaussianModel <- nimbleModel(code = gaussianCode, name = "gaussianModel", constants = gaussianConsts,
+                             data = gaussianData, inits = gaussianInits)
+
+## Compile the model
+CgaussianModel <- compileNimble(gaussianModel)
+```
+
+#### Find the MLEs of parameters mu and sigma
+
+```{r}
+## Calculate the log-likelihood
+calcLoglike <- nimbleFunction(
+  setup = function(model, wrt, nodes){},
+  run = function(parVals = double(1)){
+    values(model, wrt) <<- parVals
+    ll <- model$calculate(nodes)
+    return(ll)
+    returnType(double())
+  }
+)
+
+## Log-likelihood for the example
+wrt <- c("mu", "sigma")
+nodes <- gaussianModel$getDependencies(wrt, self = FALSE)
+gaussianll <- calcLoglike(gaussianModel, wrt, nodes)
+Cgaussianll <- compileNimble(gaussianll, project = gaussianModel)
+
+## Maximize the log-likelihood in R
+ll <- function(pars) Cgaussianll$run(pars)
+res <- optim(par = c(0, 1), fn = ll, control = list(fnscale = -1))
+
+## MLEs
+res$par
+
+## Analytic results for comparison
+c(mean(dat), sd(dat) * sqrt((N-1)/N))
+
+ 
+```
