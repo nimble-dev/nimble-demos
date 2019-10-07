@@ -1,27 +1,30 @@
-# Creating and running a Markov chain Monte Carlo algorithm in NIMBLE
+# Creating and running a Markov chain Monte Carlo (MCMC) algorithm in NIMBLE
 
 This example shows how to quickly build and run a MCMC algorithm in NIMBLE with default sampler choices.
 
-## pump example
-Let's use another of the classic [WinBUGS](http://www.mrc-bsu.cam.ac.uk/software/bugs/) examples: the pump model (because it is really easy to show the model and the data).
+## Pump example
+Let's use another of the classic [WinBUGS](http://www.mrc-bsu.cam.ac.uk/software/bugs/) examples: the pump model.
 
 A description can be found [here](http://www.mrc-bsu.cam.ac.uk/wp-content/uploads/WinBUGS_Vol1.pdf).  The original example can be found in our GitHub repository [here](https://github.com/nimble-dev/nimble/tree/devel/packages/nimble/inst/classic-bugs/vol1/pump).
 
-### Create the model
+## Create the model
 
-We could load the model using `readBUGSmodel`, but instead we'll show it fully here:
+We could load the model using `readBUGSmodel()`, but instead we'll show it fully here:
 ```{r}
 library(nimble)
 pumpCode <- nimbleCode({ 
+# Define relationships between nodes
   for (i in 1:N){
       theta[i] ~ dgamma(alpha,beta)
       lambda[i] <- theta[i]*t[i]
       x[i] ~ dpois(lambda[i])
   }
+# Set priors
   alpha ~ dexp(1.0)
   beta ~ dgamma(0.1,1.0)
 })
 
+# Create some contrants, data, and initial values to pass to the model builder
 pumpConsts <- list(N = 10,
                    t = c(94.3, 15.7, 62.9, 126, 5.24,
                        31.4, 1.05, 1.05, 2.1, 10.5))
@@ -30,37 +33,93 @@ pumpData <- list(x = c(5, 1, 5, 14, 3, 19, 1, 1, 4, 22))
 
 pumpInits <- list(alpha = 1, beta = 1,
                   theta = rep(0.1, pumpConsts$N))
+```
 
-pump <- nimbleModel(code = pumpCode, name = 'pump', constants = pumpConsts,
+## Three ways to runMCMC
+
+NIMBLE provides three different workflows for running MCMC giving you different levels of control over how the algorithm runs. From least to most control, these are: the `nimbleMCMC()` function, the `runMCMC()` function, and the `mcmc$run()` MCMC object function.
+
+In general, we recommend the `runMCMC()` path, although `nimbleMCMC()` is useful for very straightforward cases.
+
+### `nimbleMCMC()`
+
+The `nimbleMCMC()` function handles everything from model building to compilation to running the MCMC. It takes model code and model inputs (constants, data, and initial values) and returns MCMC samples. The `nimbleMCMC()` function is easy and quick to use but provides little control over the MCMC algorithm. Also, since the objects (the uncompiled and compiled model and MCMC) are used only in the function, they aren't saved and can't be manipulated for debugging.
+
+
+```{r}
+nimbleMCMC_samples <- nimbleMCMC(code = pumpCode, 
+                                 constants = pumpConsts, 
+                                 data = pumpData, 
+                                 inits = pumpInits,
+                                 nburnin = 1000, niter = 10000)
+head(nimbleMCMC_samples)
+```
+
+We can look at the results:
+
+```{r}
+plot(nimbleMCMC_samples[ , 'alpha'], type = 'l', xlab = 'iteration',  
+     ylab = expression(alpha))
+plot(nimbleMCMC_samples[ , 'beta'], type = 'l', xlab = 'iteration',
+     ylab = expression(beta))
+```
+
+### `runMCMC()`
+
+The `runMCMC()` function provides more control and a closer look at what NIMBLE is doing. `runMCMC()` takes a NIMBLE MCMC object, so we need to back up and build these things.
+
+First, build the NIMBLE model.
+
+```{r}
+pumpModel <- nimbleModel(code = pumpCode, name = 'pump', constants = pumpConsts,
                     data = pumpData, inits = pumpInits)
 ```
 
-## Create the MCMC algorithm
+Next, build an MCMC object for this model using `buildMCMC()`.
 
 ```{r}
-pumpMCMC <- buildMCMC(pump)
+pumpMCMC <- buildMCMC(pumpModel)
 ```
 
-## Run the uncompiled MCMC if you want to
+We can use `runMCMC()` on this uncompiled model if we want to, but we'll get a warning reminding us that compiled MCMC will be much faster. Uncompiled MCMC will be really slow, but running in R allows easy testing and debugging. Here is how you would run it for 5 iterations:
 
-The model and algorithm can be used completely in R.  They will be really slow, but running in R allows easy testing and debugging.  I'm not going to actually run it for this document because it generates a bunch of warnings that are harmless but annoying.  Here is how you would run it for 10 iterations:
-```
-pumpMCMC$run(10)
-```
-
-
-## Compile the model and MCMC
-
-It's more exciting to compile both the model and algorithm and run them.
 ```{r}
-Cpump <- compileNimble(pump)
-CpumpMCMC <- compileNimble(pumpMCMC, project = pump)
+runMCMC(pumpMCMC, niter = 5)
 ```
 
-## Run it and look at the results
+To compile the model and MCMC object, use `compileNimble()`. Note that the model object must be compiled first for the MCMC to compile.
+
+```{r}
+CpumpModel <- compileNimble(pumpModel)
+CpumpMCMC <- compileNimble(pumpMCMC, project = pumpModel)
+```
+
+Now we can use `runMCMC()` on the compiled model object.
+
+```{r}
+runMCMC_samples <- runMCMC(CpumpMCMC, nburnin = 1000, niter = 10000)
+```
+
+We can look at the results:
+
+```{r}
+plot(runMCMC_samples[ , 'alpha'], type = 'l', xlab = 'iteration',  ylab = expression(alpha))
+plot(runMCMC_samples[ , 'beta'], type = 'l', xlab = 'iteration', ylab = expression(beta))
+```
+
+### `mcmc$run()`
+
+You can directly call the `$run()` method of an MCMC object. Similarly to `runMCMC()`, the MCMC object and model object must be built and compiled. Once this is done, you can use it as:
+
 ```{r}
 CpumpMCMC$run(10000)
-MCMCsamples <- as.matrix(CpumpMCMC$mvSamples)
-plot(MCMCsamples[ , 'alpha'], type = 'l', xlab = 'iteration',  ylab = expression(alpha))
-plot(MCMCsamples[ , 'beta'], type = 'l', xlab = 'iteration', ylab = expression(beta))
+run_samples <- as.matrix(CpumpMCMC$mvSamples)
+
+plot(runMCMC_samples[ , 'alpha'], type = 'l', xlab = 'iteration',  ylab = expression(alpha))
+plot(runMCMC_samples[ , 'beta'], type = 'l', xlab = 'iteration', ylab = expression(beta))
 ```
+
+There are several advantages to using `runMCMC()` over `$run()`. `runMCMC()` can handle multiple chains and burn-in. It also returns a friendlier output, whereas `$run()` requires retrieving samples from the MCMC object and converting to a matrix.
+
+
+
