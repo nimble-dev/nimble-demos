@@ -1,0 +1,100 @@
+# Simulating from a model
+
+NIMBLE models can be used to simulate data. The steps required to do so are as follows:
+
+1. Create BUGS model code with `nimbleCode()` describing the model
+2. Build the model with `nimbleModel()` providing constants and initial values for parameters needed for simulation
+3. Identify the nodes to simulate
+4. Run `model$simulate()`
+
+### 1. Create model code
+
+We'll use a very simple toy hierarchical model, a basic occupancy model from ecology. The occupancy model describes a situation where an observer visits multiple sites multiple times, and on each site visit records whether or not a target species is seen there. The parameters of interest are `psi`, the probability that any one site is occupied, and `p[j]`, the probability of detecting the species on the *j*th visit given that it is present. It's assumed that sites don't change occupancy status during the visiting period.
+
+```{r}
+library(nimble)
+simCode <- nimbleCode({
+  for (i in 1:nsite) {
+    z[i] ~ dbern(prob = psi)
+    for (j in 1:nvisit) {
+      y[i,j] ~ dbern(z[i] * p)
+    }
+  }
+  psi ~ dunif(0,1)
+  p ~ dunif(0,1)
+})
+```
+
+### 2. Build the model
+
+We build the model object. We provide constants, in this case, number of sites (`nsite`) and number of visits to each site (`nvisit`). We also provide initial values for `p` and `psi`.
+
+```{r}
+simModel <- nimbleModel(code = simCode,
+                        constants = list(nsite = 10, nvisit = 3),
+                        inits = list(psi = 0.7, p = 0.33))
+```
+
+Note that the message lets us know that some variables are not initialized--in this case, all `y` and `z` nodes. If we try to calculate probability of the model at this point, we'll get `NA`.
+
+### 3. Identify nodes and simulate
+
+The `model$simulate()` function allows you to specify which nodes you want to simulate. Naively, we may want to go ahead and simulate the `y` nodes with `simModel$simulate("y")`.However, since `y` depends on `z`, which has not been simulated, we'll just get back a bunch of `NA`s again. 
+
+We could get around this by simulating `z` before `y`. In more complicated models, it can be useful to use the NIMBLE function `model$getDependencies()` to gather all nodes needing to be simulated given the parameters we provided.
+
+```{r}
+nodesToSim <- simModel$getDependencies(c("psi", "p"),
+                                         self = F, downstream = T)
+nodesToSim
+```
+
+By setting `self = FALSE` we specified that we didn't want to see `psi` or `p` in the return vector. By setting `downstream = TRUE` we recursively looked at the dependencies of nodes, rather than just the nodes directly dependent on `psi` and `p`.
+
+We successfully retrieved all `z` and `y` nodes, as well as an internal set of nodes NIMBLE created to handle the operation `z[i] * p`.
+
+### 4. Simulate
+
+```{r}
+simModel$simulate(nodesToSim)
+simModel$y
+```
+
+We got values back for `y`!
+
+We can also view the simulated latent state `z`.
+
+```{r}
+simModel$z
+```
+
+## Compiled models
+
+Note that this workflow looks the same with a compiled model:
+
+```{r}
+CsimModel <- compileNimble(simModel)
+
+nodesToSim <- CsimModel$getDependencies(c("psi", "p"),
+                                        self = F, downstream = T)
+CsimModel$simulate(nodesToSim)
+
+CsimModel$y
+```
+
+## Use simulated data in MCMC
+
+To use a simulated dataset for MCMC, the data must be retrieved and set so that the target node is identified as a data node type. Note that we do *not* set the latent state `z`, which should not be treated as data by the MCMC algorithm.
+
+```{r}
+simulatedYs <- CsimModel$y
+CsimModel$setData(list(y = simulatedYs))
+
+simMCMC <- buildMCMC(CsimModel)
+CsimMCMC <- compileNimble(simMCMC, project = simModel)
+samples <- runMCMC(CsimMCMC, niter = 10000)
+
+plot(samples[ , 'psi'], type = 'l', xlab = 'iteration',  ylab = expression(psi))
+plot(samples[ , 'p'], type = 'l', xlab = 'iteration', ylab = expression(p))
+```
+
