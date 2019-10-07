@@ -13,7 +13,7 @@ Here we'll use an intrinsic (i.e., ICAR) model for disease mapping.  We'll illus
 As usual, the mean of the Poisson counts includes an offset for the expected count. We'll also include a covariate, the percentage of people defined to be income deprived in each spatial region.
 
 
-```
+```{r}
 library(CARBayesdata)
 library(sp)
 library(spdep)

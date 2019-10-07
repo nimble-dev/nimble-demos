@@ -10,7 +10,7 @@ As in the CAR example, we'll use data on hospital admissions due to respiratory 
 
 First we'll define a user-defined function that calculates the covariance for a Gaussian process using an exponential covariance function.
 
-```
+```{r}
 expcov <- nimbleFunction(     
    run = function(dists = double(2), rho = double(0), sigma = double(0)) {
       returnType(double(2))
@@ -27,7 +27,7 @@ cExpcov <- compileNimble(expcov)
 
 This function is then used in the model code to determine the covariance matrix for the Gaussian spatial process at a finite set of locations (in this case the centroids of the spatial regions). 
 
-```
+```{r}
 code <- nimbleCode({
      mu0 ~ dnorm(0, sd = 100)
      sigma ~ dunif(0, 100)  # prior for variance components based on Gelman (2006)
@@ -76,7 +76,7 @@ cModel <- compileNimble(model)
 In order to improve mixing, we'll customize the initial proposal scale for the block random walk (Metropolis)
 sampler on the latent spatial values.
 
-```
+```{r}
 conf <- configureMCMC(model)
 conf$addMonitors('s')
 conf$printSamplers()

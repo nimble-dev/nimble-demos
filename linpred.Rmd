@@ -1,0 +1,95 @@
+---
+title: "NIMBLE example: the linear predictor in a regression model"
+author: "Christopher Paciorek"
+date: "October 2019"
+output: pdf_document
+---
+
+[UNDER CONSTRUCTION]
+
+In NIMBLE one can specify the linear predictor in a regression type model in a variety of ways.
+
+Here's a small simulated dataset we can use to illustrate coding of the model, also used in our reversible jump example.
+
+```
+set.seed(1)
+p <- 15
+n <- 100
+X <- matrix(rnorm(p*n), nrow = n, ncol = p)
+true_betas <- c(c(0.1, 0.2, 0.3, 0.4, 0.5), rep(0, p-5))
+sigma <- 1
+y <- rnorm(n, X %*% true_betas, sigma)
+```
+
+## Manual specification
+
+With a small number of predictors (also know as covariates or independent variables), one can simply 'manually' add each covariate. Here we'll just use the first two predictors from the full set of predictors.
+
+```{r}
+code <- nimbleCode{(
+     beta0 ~ dnorm(0, sd = 100)
+     beta1 ~ dnorm(0, sd = 100)
+     beta2 ~ dnorm(0, sd = 100)
+     sigma ~ dunif(0, 100)  # # prior for variance components based on Gelman (2006)
+     for(i in 1:n) {
+     	   y[i] ~ dnorm(beta0 + beta1*x1[i] + beta2*x2[i], sd = sigma)
+	   }
+})
+
+## extract two predictors and center for better MCMC performance
+x1 <- X[,1] - mean(X[,1])
+x2 <- X[,2] - mean(X[,2])
+
+constants <- list(n = n, x1 = x1, x2 = x2)
+data <- list(y = y)
+inits <- list(beta0 = mean(y), beta1 = 0, beta2 = 0, sigma = 1)
+model <- nimbleModel(code, constants = constants, data = data, inits = inits)
+```
+
+## Using `inprod`
+
+Alternatively, we can use a vectorized representation with `inprod`.
+
+```{r}
+code <- nimbleCode({
+     beta0 ~ dnorm(0, sd = 100)
+     for(k in 1:p)
+          beta[k] ~ dnorm(0, sd = 100)
+     sigma ~ dunif(0, 100)  # # prior for variance components based on Gelman (2006)
+     for(i in 1:n) {
+     	   y[i] ~ dnorm(beta0 + inprod(beta[1:p], x[i, 1:p]), sd = sigma)
+	   }
+})
+
+X <- sweep(X, 2, colMeans(X))  # center for better MCMC performance
+
+constants <- list(n = n, p = p, x = X)
+data <- list(y = y)
+inits <- list(beta0 = mean(y), beta = rep(0, p), sigma = 0.5)
+model <- nimbleModel(code, constants = constants, data = data, inits = inits)
+```
+
+## Using matrix algebra
+
+Finally, we can use matrix algebra, but we need to be careful about dimensionality.
+
+NOTE: need to use nimble 0.9.0 when it is released or PR 929
+
+NOTE: probably want to write likelihood as mvnorm so can have conjugate multivar.
+update for beta.
+
+
+```{r}
+code <- nimbleCode({
+     beta[1:p] ~ dmnorm(zeros[1:p], omega[1:p, 1:p])
+     sigma ~ dunif(0, 100)  # # prior for variance components based on Gelman (2006)
+     for(i in 1:n) {
+     	   y[i] ~ dnorm(beta0 + (beta[1:p] %*% x[i, 1:p])[1], sd = sigma)
+	   }
+})
+
+constants <- list(n = n, p = p, x = X, zeros = rep(0, p), omega = 0.0001 * diag(p))
+data <- list(y = y)
+inits <- list(beta0 = mean(y), beta = rep(0, p), sigma = 0.5)
+model <- nimbleModel(code, constants = constants, data = data, inits = inits)
+```
