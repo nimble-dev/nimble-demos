@@ -42,7 +42,7 @@ bonesModel <- readBUGSmodel('bones', dir = getBUGSexampleDir('bones'))
 
 ## Make an MCMC configuration object
 
-An MCMC configuration holds the information on which samplers are included in the MCMC, which nodes they operate on, and any parameters needed for them.  It also has a set of nodes to include (monitor) in the MCMC output.  Actually it allows two different sets of nodes to be monitored, each with its own thinning interval.  We can modify the MCMC configuration before we build the MCMC algorithm from it.
+An MCMC configuration holds the information on which samplers are included in the MCMC, which nodes the samplers operate on, and any parameters they need.  It also has a set of nodes to include (or monitor) in the MCMC output.  Actually it allows two different sets of nodes to be monitored, each with its own thinning interval.  We can modify the MCMC configuration before we build the MCMC algorithm from it.
 
 Here is how to make the configuration and look at the default samplers:
 
@@ -51,7 +51,7 @@ bonesMCMCconfiguration <- configureMCMC(bonesModel)
 bonesMCMCconfiguration$getSamplers()
 ```
 
-Now we can see that `theta[1]`-`theta[13]` have each been assigned adaptive random walk Metropolis-Hastings samplers.  A smattering of entries in the grade matrix are missing.  Those have no dependencies -- they are essentially posterior predictive nodes -- so they have been assigned end samplers.
+Now we can see that `theta[1]` through `theta[13]` have each been assigned adaptive random walk Metropolis-Hastings samplers.  A smattering of entries in the grade matrix are missing.  Those have no dependencies -- they are essentially posterior predictive nodes -- so they have been assigned end samplers.
 
 Note that if we had called `buildMCMC(bonesModel)`, it would have made the default MCMC configuration and then built the MCMC algorithm in one step.
 
@@ -84,10 +84,8 @@ Look at samples from `theta[1:4]` because that fits conveniently on one plot:
 pairs(MCMCsamples[,1:4], pch = '.')
 ```
 
-Of course we haven't actually compared the efficiencies of the default to the customized MCMC.  We'll do that kind of thing in other examples.
-
 ## Writing your own samplers and running different MCMCs side by side
 
-You can learn to write your own samplers and include them in an MCMC in Chapter 7 of the User Manual.  You can also learn to run multiple MCMCs side by side, including from WinBUGS, JAGS, and Stan (if you provide the necessary files) using NIMBLE's `MCMCsuite` function.
+You can learn to write your own samplers and include them in an MCMC in Chapter 7 of the User Manual.  You can also learn to run multiple MCMCs side by side, including from WinBUGS, JAGS, and Stan (if you provide the necessary files) using NIMBLE's `MCMCsuite()` function.
 
 
