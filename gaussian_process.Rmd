@@ -1,0 +1,94 @@
+---
+title: "NIMBLE example: Gaussian process spatial modeling"
+author: "Christopher Paciorek"
+date: "October 2019"
+output: pdf_document
+---
+
+As in the CAR example, we'll use data on hospital admissions due to respiratory disease in 2010 from the 134 Intermediate Geographies (IG) north of the river Clyde in the Greater Glasgow and Clyde health board. The data are available in the `CARBayesdata` package.
+
+
+First we'll define a user-defined function that calculates the covariance for a Gaussian process using an exponential covariance function.
+
+```{r}
+expcov <- nimbleFunction(     
+   run = function(dists = double(2), rho = double(0), sigma = double(0)) {
+      returnType(double(2))
+      n <- dim(dists)[1]
+      result <- matrix(nrow = n, ncol = n, init = FALSE)
+      sigma2 <- sigma*sigma
+      for(i in 1:n)
+            for(j in 1:n)
+                  result[i, j] <- sigma2*exp(-dists[i,j]/rho)
+      return(result)
+})
+cExpcov <- compileNimble(expcov)
+```
+
+This function is then used in the model code to determine the covariance matrix for the Gaussian spatial process at a finite set of locations (in this case the centroids of the spatial regions). 
+
+```{r}
+code <- nimbleCode({
+     mu0 ~ dnorm(0, sd = 100)
+     sigma ~ dunif(0, 100)  # prior for variance components based on Gelman (2006)
+     rho ~ dunif(0, 5)
+     beta ~ dnorm(0, sd = 100)
+	   
+     mu[1:N] <- mu0*ones[1:N]
+     cov[1:N, 1:N] <- expcov(dists[1:N, 1:N], rho, sigma)
+     s[1:N] ~ dmnorm(mu[1:N], cov = cov[1:N, 1:N])
+     # likelihood
+     for(i in 1:N) {
+        lambda[i] <- exp(log(expected[i]) + beta*x[i] + s[i])
+        y[i] ~ dpois(lambda[i])
+    }
+})
+
+library(CARBayesdata)
+data(GGHB.IG)
+data(respiratorydata)
+
+respiratorydata_spatial <- merge(x = GGHB.IG, y = respiratorydata, by = "IG", all.x = FALSE)
+nregions <- nrow(respiratorydata_spatial)
+
+dists <- as.matrix(dist(respiratorydata_spatial[ , c('easting', 'northing')]))
+dists <- dists / max(dists)  # normalize to max distance of 1
+
+x <- respiratorydata_spatial$incomedep
+x <- x - mean(x)  # center for improved MCMC performance
+
+constants <- list(N = nregions, dists = dists, ones = rep(1, nregions),
+	    	            x = x, expected = respiratorydata_spatial$expected)
+data <- list(y = respiratorydata_spatial$observed)
+inits <- list(beta = 0, mu0 = 0, sigma = 1, rho = 0.2)
+
+set.seed(1)
+
+## setup initial spatially-correlated latent process values
+inits$cov <- cExpcov(dists, inits$rho, inits$sigma)
+inits$s <-  t(chol(inits$cov)) %*% rnorm(nregions)
+inits$s <- inits$s[ , 1]  # so can give nimble a vector rather than one-column matrix
+
+model <- nimbleModel(code, constants = constants, data = data, inits = inits)
+cModel <- compileNimble(model)
+```
+
+In order to improve mixing, we'll customize the initial proposal scale for the block random walk (Metropolis)
+sampler on the latent spatial values.
+
+```{r}
+conf <- configureMCMC(model)
+conf$addMonitors('s')
+conf$printSamplers()
+conf$removeSamplers('s[1:134]')
+## reduce the initial proposal covariance scale for better mixing
+conf$addSampler('s[1:134]', 'RW_block', control = list(scale = 0.1))
+
+MCMC <- buildMCMC(conf)
+cMCMC <- compileNimble(MCMC, project = cModel)
+samples <- runMCMC(cMCMC, niter = 10000, nburnin = 5000)
+```
+
+Note that mixing in this model is slow, because of the need to explore the correlated spatial process, `s`,
+which is generally less effective in non-conjugate settings, such as this one, where the observations
+are Poisson and the prior for the latent process is normal.

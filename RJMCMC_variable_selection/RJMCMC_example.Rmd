@@ -1,0 +1,154 @@
+---
+title: "RJMCMC_example"
+author: "Sally Paganin"
+date: "October 7, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(nimble)
+```
+
+## Reversible Jump MCMC
+<!-- What is reversible jump and why -->
+
+Reversible Jump MCMC (RJMCMC) is a method for sampling across models with a different numbers of dimensions, which founds natural application in Bayesian variable selection problems.
+NIMBLE implements RJMCMC for variable selection using a univariate Normal distribution as proposal density and supports two types of model specifications, depending on whether or not 
+indicator variables are included in the model.
+
+<!-- `RJ` sampler takes prior inclusion probabilities and do not support stochastic prior
+Refer to the user manual and `help(configure_RJ)`
+ -->
+## Linear regression example
+
+In the following we consider a linear regression example in which we have $15$ explanatory variables and $5$ of those are real effects while the others have null effects.  
+
+
+```{r nimble_model}
+lmCode <- nimbleCode({
+  sigma ~ dunif(0, 20)
+  psi ~ dunif(0,1)   ## prior on inclusion probability
+  
+  for(i in 1:numVars) {
+    z[i] ~ dbern(psi) ## indicator variable for each coefficient
+    beta[i] ~ dnorm(0, sd = 100)  
+    zbeta[i] <- z[i] * beta[i]  ## indicator * beta
+  }
+  for(i in 1:n) {
+    pred.y[i] <- inprod(X[i, 1:numVars], zbeta[1:numVars])
+    y[i] ~ dnorm(pred.y[i], sd = sigma)
+  }
+})
+## Generate data and define model constants
+set.seed(1)
+X <- matrix(rnorm(100*15), nrow = 100, ncol = 15)
+lmConstants <- list(numVars = 15, n = 100, X = X)
+lmModel <- nimbleModel(lmCode, constants = lmConstants)
+```
+
+
+
+We can simulate data using the `nimbleModel` we just created by initializing the model parameters and calling the `calculate()` method. 
+
+```{r simulate_data}
+true_betas <- c(c(0.1, 0.2, 0.3, 0.4, 0.5),
+                rep(0, 10))
+
+lmModel$beta <- true_betas
+lmModel$sigma <- 1
+lmModel$z <- rep(1, 15)
+lmModel$psi <- 0.5
+lmModel$calculate()
+set.seed(0) ## Make this reproducible
+lmModel$simulate('y')
+lmModel$calculate() 
+lmModel$setData('y')
+lmData = list(y = lmModel$y)
+
+```
+
+For comparison we look first to simple linear regression:
+
+```{r use_lm}
+summary(lm(lmModel$y ~ lmModel$X))
+```
+
+## Configuring RJMCMC
+
+The RJCMCM sampler can be added to the MCMC configuration by calling the function `configureRJ()`. In the example considered we introduced `z` as indicator variables associated with the regression coefficients `beta`, that we can pass to `configureRJ` using the arguments `indicatorNodes` and `targetNodes`. The `control` arguments allows to specify the mean and the scale of the normal proposal distribution. 
+
+```{r configure_RJ}
+lmConf <- configureMCMC(lmModel)
+lmConf$addMonitors('z')
+configureRJ(lmConf,
+            targetNodes = 'beta',
+            indicatorNodes = 'z',
+            control = list(mean = 0, scale = .2))
+```
+
+Checking the assigned samplers we can notice indicator variables are assigned to an `RJ_indicator` sampler whose `targetNode` is the corresponding coefficient, while `beta` parameters have a `toggled` sampler which update the parameter only when it is in the model. 
+
+```{r }
+## Check the assigned samplers
+lmConf$printSamplers(c("z[1]", "beta[1]"))
+
+```
+
+## Build and run the RJMCMC
+
+```{r build_run_model}
+mcmcRJ <- buildMCMC(lmConf)
+
+cLmModel <- compileNimble(lmModel)
+CMCMCRJ <- compileNimble(mcmcRJ, project = lmModel)
+set.seed(100)
+# set.seed(1)
+system.time(samples_nimble <- runMCMC(CMCMCRJ, niter = 100000, nburnin = 10000))
+```
+
+## Looking at the results
+<!-- post-processing : variables probabilities, model probabilities -->
+
+```{r}
+plot(samples_nimble[,'beta[1]'], pch = '.', main = "beta[1] traceplot")
+plot(samples_nimble[,'z[1]'], pch = '.', main = "z[1] traceplot")
+```
+
+```{r}
+plot(samples_nimble[,'beta[5]'], pch = '.', main = "beta[1] traceplot")
+plot(samples_nimble[,'z[5]'], pch = '.', main = "z[1] traceplot")
+```
+
+### Look at posterior inclusion probability, `psi`
+
+
+```{r}
+plot(density(samples_nimble[,'psi']), main = "Inclusion probability", xlab = "Probability", ylab = "Density")
+```
+
+### Individual inclusion probabilities
+
+```{r}
+zCols <- grep("z\\[", colnames(samples_nimble))
+posterior_inclusion_prob <- colMeans(samples_nimble[,zCols])
+plot(1:length(true_betas), posterior_inclusion_prob, 
+	xlab = "beta", ylab = "inclusion probability", 
+	main = "Inclusion probabilities for each beta")
+```
+
+<!-- ### Model probabilities
+
+```{r}
+
+binary <- data.table::as.data.table((samples_nimble[, zSamp] != 0)+ 0)
+
+res <- binary[,.N, by=names(binary)]
+res <-res[order(N, decreasing = T)]
+res[1:5, ]
+
+```
+ -->
+

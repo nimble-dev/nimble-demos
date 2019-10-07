@@ -1,0 +1,62 @@
+---
+title: "NIMBLE example: Disease mapping with spatial CAR models"
+author: "Christopher Paciorek"
+date: "October 2019"
+output: pdf_document
+---
+
+NIMBLE provides the ability to specify and fit conditional autoregressive (CAR) models,
+both intrinsic and proper models.
+
+Here we'll use an intrinsic (i.e., ICAR) model for disease mapping.  We'll illustrate with data on hospital admissions due to respiratory disease in 2010 from the 134 Intermediate Geographies (IG) north of the river Clyde in the Greater Glasgow and Clyde health board. The data are available in the `CARBayesdata` package and can be transformed into the neighborhood information needed by NIMBLE using functions from the `spdep` package.
+
+As usual, the mean of the Poisson counts includes an offset for the expected count. We'll also include a covariate, the percentage of people defined to be income deprived in each spatial region.
+
+
+```{r}
+library(CARBayesdata)
+library(sp)
+library(spdep)
+data(GGHB.IG)
+data(respiratorydata)
+
+respiratorydata_spatial <- merge(x = GGHB.IG, y = respiratorydata, by = "IG", all.x = FALSE)
+W.nb <- poly2nb(respiratorydata_spatial, row.names =  rownames(respiratorydata_spatial@data))
+nbInfo <- nb2WB(W.nb)
+
+nregions <- nrow(respiratorydata_spatial)
+
+code <- nimbleCode({
+    # priors
+    beta ~ dnorm(0, sd = 100)
+    sigma ~ dunif(0, 100)   # prior for variance components based on Gelman (2006)
+    tau <- 1 / sigma^2
+    # latent process
+    s[1:N] ~ dcar_normal(adj[1:L], weights[1:L], num[1:N], tau, zero_mean = 0)
+    # likelihood
+    for(i in 1:N) {
+        lambda[i] <- exp(log(expected[i]) + beta*x[i] + s[i])
+        y[i] ~ dpois(lambda[i])
+    }
+})
+
+x <- respiratorydata_spatial$incomedep
+x <- x - mean(x)  # center for improved MCMC performance
+
+constants <- list(N = nregions, L = length(nbInfo$adj), 
+			   adj = nbInfo$adj, weights = nbInfo$weights, num = nbInfo$num,
+	     	            x = x, expected = respiratorydata_spatial$expected)
+data <- list(y = respiratorydata_spatial$observed)
+inits <- list(beta = 0, sigma = 1, s = rnorm(nregions))
+	  
+model <- nimbleModel(code, constants = constants, data = data, inits = inits)
+cModel <- compileNimble(model)
+
+conf <- configureMCMC(model, monitors = c('beta', 'sigma', 's'))
+conf$printSamplers()
+
+MCMC <- buildMCMC(conf)
+cMCMC <- compileNimble(MCMC, project = cModel)
+samples <- runMCMC(cMCMC, niter = 10000, nburnin = 1000)
+```
+
