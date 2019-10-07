@@ -1,0 +1,62 @@
+---
+title: "Running MCEM in NIMBLE"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Here we use the pump model example from BUGS to illustrate how to implement the Monte Carlo expectation maximization (MCEM) algorithm to find maximum likelihood estimates of parameters for statistical models with latent states. 
+
+```{r}
+library(nimble)
+```
+
+#### NIMBLE code for the pump example 
+
+```{r}
+pumpCode <- nimbleCode({ 
+  for (i in 1:N){
+    theta[i] ~ dgamma(alpha, beta)
+    lambda[i] <- theta[i] * t[i]
+    x[i] ~ dpois(lambda[i])
+  }
+  alpha ~ dexp(1.0)
+  beta ~ dgamma(0.1, 1.0)
+})
+```
+
+#### Assign values to the constants in the model, provide data, initialize the random variables, and then create the model
+
+```{r}
+pumpConsts <- list(N = 10,
+                   t = c(94.3, 15.7, 62.9, 126, 5.24,
+                         31.4, 1.05, 1.05, 2.1, 10.5))
+
+pumpData <- list(x = c(5, 1, 5, 14, 3, 19, 1, 1, 4, 22))
+
+pumpInits <- list(alpha = 0.1, beta = 0.1,
+                  theta = rep(0.1, pumpConsts$N))
+
+## Create the model
+pump <- nimbleModel(code = pumpCode, name = "pump", constants = pumpConsts,
+                    data = pumpData, inits = pumpInits)
+
+```
+
+#### Compile the model
+
+```{r}
+Cpump <- compileNimble(pump)
+```
+
+
+#### Run the MCEM algorithm provided by NIMBLE
+
+```{r}
+box <- list( list(c("alpha","beta"), c(0, Inf))) ## Constraints for the parameters
+pumpMCEM <- buildMCEM(model = pump, latentNodes = "theta[1:10]", boxConstraints = box)
+pumpMLE <- pumpMCEM$run()
+pumpMLE
+```
