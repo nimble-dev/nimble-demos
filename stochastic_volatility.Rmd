@@ -1,0 +1,95 @@
+---
+title: "Stochastic volatility (with a custom distribution)"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(nimble)
+stochvol_installed <- require(stochvol, quietly = TRUE)
+```
+
+Stochastic volatility models are often used for time series of log returns of financial assets.  The main idea is to model volatility (standard deviation of log returns) as an unobserved autoregressive process.
+
+This example shows coding of a stochastic volatility model in nimble.  See the particle filter and particle MCMC (PMCMC) examples for demonstrations of these methods with this model.  We follow the example model and data described in the vignette ("Dealing with Stochastic Volatility in Time Series Using the R Package stochvol") of the `stochvol` package (Kastner 2016, Kaster and Hosszejni 2019).   We reparameterize relative to the  `stochvol` example as noted below.
+
+Code for this model is:
+```{r}
+stochVolCode <- nimbleCode({
+  x[1] ~ dnorm(0, sd = sigma / sqrt(1-phi*phi))
+  y[1] ~ dnorm(0, sd = beta * exp(0.5 * x[1]))
+  for(t in 2:T){
+    x[t] ~ dnorm(phi * x[t-1], sd = sigma)
+    y[t] ~ dnorm(0, sd = beta * exp(0.5 * x[t]))
+  }
+  phi <- 2 * phiStar - 1
+  phiStar ~ dbeta(20, 1.1)
+  logsigma2 ~ dgammalog(shape = 0.5, rate = 1/(2*0.1)) ## This is Omega
+  sigma <- exp(0.5*logsigma2)
+  mu ~ dnorm(-10, sd = 1) ## It matters whether data are converted to % or not.
+  beta <- exp(0.5*mu)
+})
+```
+
+In this model:
+
+- `y[t]` is the daily log return, i.e. log(exchange rate at time t / exchange rate at time t-1).  These are the observed data.
+- `x[t]` is the latent state related volalitility that undergoes a linear autoregressive stochastic process with autocorrelation `phi` and noise standard deviation `sigma`.
+- The distribution of `x[1]` is the stationary distribution of the `x[t]` stochastic process.
+- `beta` is a constant for the volatility.
+- Standard deviation of observations is `beta * exp(0.5 * x[t])`.
+- The strongly informative prior on `phi` is parameterized in terms of `phiStar` following the `stochvol` vignette.
+- The priors for `sigma` and `beta` also follow the `stochvol` vignette.
+- The prior for `logsigma2` requires a custom probability density calculation, provided below, such that `exp(logsigma2)` follows a gamma distribution with shape and rate as given in the code.
+
+The probability density needed for `logsigma2` is given by:
+```{r}
+dgammalog <- nimbleFunction(
+  run = function(x = double(), shape = double(),
+                 rate = double(),log = integer(0, default = 0)) {
+    logProb <- shape * log(rate) + shape * x - rate * exp(x) - lgamma(shape)
+    if(log) return(logProb)
+    else return(exp(logProb))
+    returnType(double())
+  }
+)
+
+rgammalog <- nimbleFunction(
+  run = function(n = integer(),
+                 shape = double(), rate = double()) {
+    xg <- rgamma(1, shape = shape, rate = rate)
+    return(log(xg))
+    returnType(double())
+  }
+)
+```
+
+The "r" function can be skipped if it will be not be needed, but we include it here for completeness.
+
+Again following the `stochvol` vignette, we use as data exchange rates for the Euro (EUR) quoted in U.S. Dollars (USD).  Here we choose to start after January 1st, 2010, and continue until the end of the time-series, 582 days after that. 
+
+```{r include = !stochvol_installed}
+message('To rebuild this example further, the stochvol package must be installed.')
+```
+
+## Set up the data
+```{r, eval = stochvol_installed}
+data('exrates')
+y <- logret(exrates$USD[exrates$date > '2010-01-01'], demean = TRUE)
+T <- length(y)
+```
+
+## Build the model
+```{r, eval = stochvol_installed}
+stochVolModel <- nimbleModel(code = stochVolCode,
+                             constants = list(T = T), data = list(y = y),
+                             inits = list(mu = -10, phiStar = .99,
+                                          logsigma2 = log(.004)))
+```
+
+## Compile the model
+```{r, eval = stochvol_installed}
+CstochVolModel <- compileNimble(stochVolModel)
+```
+
+See further examples for using this model.
