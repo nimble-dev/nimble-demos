@@ -1,0 +1,27 @@
+---
+title: "Ecological examples"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Nearly all examples from the "AHM" book, [*Applied Hierarchical Modeling in Ecology: Analysis of distribution, abundance and species richness in R and BUGS.  Volume I.* by Marc Kéry and J. Andrew Royle (2015. Academic Press)](https://www.elsevier.com/books/applied-hierarchical-modeling-in-ecology-analysis-of-distribution-abundance-and-species-richness-in-r-and-bugs/kery/978-0-12-801378-6), have been converted to `nimble` and can be found [here](https://github.com/nimble-training/AHMnimble).
+
+Here are some links to specific examples organized by model type (See the book for more details):
+
+- Linear regression with missing values ([5.5.1 - 5.5.3](https://github.com/nimble-training/AHMnimble/tree/master/Chapter_5))
+- Linear models ([5.6](https://github.com/nimble-training/AHMnimble/tree/master/Chapter_5))
+- Generalized Linear Models ([5.8 - 5.12](https://github.com/nimble-training/AHMnimble/tree/master/Chapter_5))
+- Generalized Linear Mixed Models ([5.13, 5.14](https://github.com/nimble-training/AHMnimble/tree/master/Chapter_5))
+- N-mixture (abundance) models ([6.3, 6.4](https://github.com/nimble-training/AHMnimble/tree/master/Chapter_6))
+- Zero-inflated N-mixture model ([6.11](https://github.com/nimble-training/AHMnimble/tree/master/Chapter_6))
+- Multinomial N-mixture model ([7.6](https://github.com/nimble-training/AHMnimble/tree/master/Chapter_7))
+- Spatially stratified capture-recapture ([7.8](https://github.com/nimble-training/AHMnimble/tree/master/Chapter_7))
+- Distance sampling ([8.3](https://github.com/nimble-training/AHMnimble/tree/master/Chapter_8))
+- Hierarchical distance sampling ([8.5](https://github.com/nimble-training/AHMnimble/tree/master/Chapter_8))
+- More advanced hierarchical distance sampling ([9.2 - 9.8](https://github.com/nimble-training/AHMnimble/tree/master/Chapter_9))
+- Basic occupancy models ([10.3, 10.4, 10.6](https://github.com/nimble-training/AHMnimble/tree/master/Chapter_10))
+- More advanced occupancy models ([10.3, 10.4, 10.6, 10.10 - 10.14](https://github.com/nimble-training/AHMnimble/tree/master/Chapter_10))
+- Community (multi-species) models ([11.3, 11.5 - 11.7, 11.10](https://github.com/nimble-training/AHMnimble/tree/master/Chapter_11))
