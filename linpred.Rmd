@@ -26,14 +26,14 @@ y <- rnorm(n, X %*% true_betas, sigma)
 With a small number of predictors (also know as covariates or independent variables), one can simply 'manually' add each covariate. Here we'll just use the first two predictors from the full set of predictors.
 
 ```{r}
-code <- nimbleCode{(
+code <- nimbleCode({
      beta0 ~ dnorm(0, sd = 100)
      beta1 ~ dnorm(0, sd = 100)
      beta2 ~ dnorm(0, sd = 100)
      sigma ~ dunif(0, 100)  # # prior for variance components based on Gelman (2006)
      for(i in 1:n) {
      	   y[i] ~ dnorm(beta0 + beta1*x1[i] + beta2*x2[i], sd = sigma)
-	   }
+        }
 })
 
 ## extract two predictors and center for better MCMC performance
@@ -44,7 +44,11 @@ constants <- list(n = n, x1 = x1, x2 = x2)
 data <- list(y = y)
 inits <- list(beta0 = mean(y), beta1 = 0, beta2 = 0, sigma = 1)
 model <- nimbleModel(code, constants = constants, data = data, inits = inits)
+mcmcConf <- configureMCMC(model)
+mcmcConf$printSamplers()
 ```
+
+Here by default NIMBLE will assign univariate scalar samplers to each beta coefficient because they are specified via separate lines in the model code.
 
 ## Using `inprod`
 
@@ -67,24 +71,28 @@ constants <- list(n = n, p = p, x = X)
 data <- list(y = y)
 inits <- list(beta0 = mean(y), beta = rep(0, p), sigma = 0.5)
 model <- nimbleModel(code, constants = constants, data = data, inits = inits)
+mcmcConf <- configureMCMC(model)
+mcmcConf$printSamplers()
 ```
+
+Again, by default NIMBLE will assign univariate scalar samplers to each beta coefficient because they are specified via separate lines in the model code. However, changing a single beta coefficient results in the full inner product being recalculated for each of those samplers. So in some cases it may make sense to block the elements of `beta` together by modifying the MCMC configuration. Alternatively if you place a multivariate prior on `beta[1:p]` the default sampler will be a block sampler.
 
 ## Using matrix algebra
 
-Finally, we can use matrix algebra, but we need to be careful about dimensionality.
+Finally, we can use matrix algebra, but we need to be careful about dimensionality, as
+the matrix-vector multiplication produces a (one-column) matrix, so to use as a scalar
+we need to use the `[1,1]` indexing.
 
-NOTE: need to use nimble 0.9.0 when it is released or PR 929
-
-NOTE: probably want to write likelihood as mvnorm so can have conjugate multivar.
-update for beta.
+NOTE: need to use nimble 0.9.0 when it is released or PR 929 (branch fix_nct_141)
 
 
 ```{r}
 code <- nimbleCode({
+     beta0 ~ dnorm(0, sd = 100)
      beta[1:p] ~ dmnorm(zeros[1:p], omega[1:p, 1:p])
      sigma ~ dunif(0, 100)  # # prior for variance components based on Gelman (2006)
      for(i in 1:n) {
-     	   y[i] ~ dnorm(beta0 + (beta[1:p] %*% x[i, 1:p])[1], sd = sigma)
+     	   y[i] ~ dnorm(beta0 + (beta[1:p] %*% x[i, 1:p])[1,1], sd = sigma)
 	   }
 })
 
@@ -92,4 +100,68 @@ constants <- list(n = n, p = p, x = X, zeros = rep(0, p), omega = 0.0001 * diag(
 data <- list(y = y)
 inits <- list(beta0 = mean(y), beta = rep(0, p), sigma = 0.5)
 model <- nimbleModel(code, constants = constants, data = data, inits = inits)
+mcmcConf <- configureMCMC(model)
+mcmcConf$printSamplers()
 ```
+
+Here by specifying a joint prior for `beta[1:p]`, NIMBLE assigns a block sampler.
+
+In some cases it may be more efficient to compute the linear predictor in a single vectorized step.
+Again we need to be careful about dimensionality.
+
+```
+code <- nimbleCode({
+     beta0 ~ dnorm(0, sd = 100)
+     beta[1:p] ~ dmnorm(zeros[1:p], omega[1:p, 1:p])
+     sigma ~ dunif(0, 100)  # # prior for variance components based on Gelman (2006)
+     linpred[1:n] <- (x[1:n, 1:p] %*% beta[1:p])[1:n,1]
+     for(i in 1:n) {
+     	   y[i] ~ dnorm(beta0 + linpred[i], sd = sigma)
+	   }
+})
+
+constants <- list(n = n, p = p, x = X, zeros = rep(0, p), omega = 0.0001 * diag(p))
+data <- list(y = y)
+inits <- list(beta0 = mean(y), beta = rep(0, p), sigma = 0.5)
+model <- nimbleModel(code, constants = constants, data = data, inits = inits)
+mcmcConf <- configureMCMC(model)
+mcmcConf$printSamplers()
+```
+
+Unfortunately at the moment, NIMBLE does not recognize conjugacy in this situation where the prior is `dmnorm` and the dependents are `dnorm`. 
+
+If `n` is very large (say 10s of thousands or more) one may be able to reduce the model building time and potentially the MCMC run time by setting up `y[1:n]` to follow a vectorized distribution by using a user-defined distribution. The result is there is a single node for `y[1:n]` in the NIMBLE model rather than `n` nodes.
+
+```
+dnorm_vec <- nimbleFunction(
+    run = function(x = double(1), mean = double(1), sd = double(0), log = integer(0, default = 0)) {
+        returnType(double(0))
+        logProb <- sum(dnorm(x, mean, sd, log = TRUE))
+        if(log) return(logProb)
+        else return(exp(logProb)) 
+    })
+
+rnorm_vec <- nimbleFunction(
+    run = function(n = integer(0), mean = double(1), sd = double(0)) {
+        returnType(double(1))
+        if(n != 1) print("rnorm_vec only allows n = 1; using n = 1.")
+        smp <- rnorm(n, mean, sd)
+        return(smp)
+    })
+
+code <- nimbleCode({
+     beta0 ~ dnorm(0, sd = 100)
+     beta[1:p] ~ dmnorm(zeros[1:p], omega[1:p, 1:p])
+     sigma ~ dunif(0, 100)  # # prior for variance components based on Gelman (2006)
+     linpred[1:n] <- beta0 + x[1:n, 1:p] %*% beta[1:p]
+     y[1:n] ~ dnorm_vec(linpred[1:n], sigma)
+})
+
+constants <- list(n = n, p = p, x = X, zeros = rep(0, p), omega = 0.0001 * diag(p))
+data <- list(y = y)
+inits <- list(beta0 = mean(y), beta = rep(0, p), sigma = 0.5)
+model <- nimbleModel(code, constants = constants, data = data, inits = inits)
+mcmcConf <- configureMCMC(model)
+mcmcConf$printSamplers()
+```
+
