@@ -5,10 +5,16 @@ date: "October 2019"
 output: pdf_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(nimble)
+```
+
+
 NIMBLE provides the ability to specify and fit conditional autoregressive (CAR) models,
 both intrinsic and proper models.
 
-Here we'll use an intrinsic (i.e., ICAR) model for disease mapping.  We'll illustrate with data on hospital admissions due to respiratory disease in 2010 from the 134 Intermediate Geographies (IG) north of the river Clyde in the Greater Glasgow and Clyde health board. The data are available in the `CARBayesdata` package and can be transformed into the neighborhood information needed by NIMBLE using functions from the `spdep` package.
+Here we'll use an intrinsic (i.e., ICAR) model for disease mapping.  We'll illustrate with data on hospital admissions due to respiratory disease in 2010 from the 134 Intermediate Geographies (IG) north of the river Clyde in the Greater Glasgow and Clyde health board. The data are available in the `CARBayesdata` package and can be transformed into the neighborhood information needed by NIMBLE using functions from the `spdep` package. In particular, we need to provide vectors indicating which regions are neighbors of which other regions (`adj`), the weights for each pair of neighbors (`weights`), and the number of neighbors for each region (`num`).
 
 As usual, the mean of the Poisson counts includes an offset for the expected count. We'll also include a covariate, the percentage of people defined to be income deprived in each spatial region.
 
@@ -35,13 +41,15 @@ code <- nimbleCode({
     s[1:N] ~ dcar_normal(adj[1:L], weights[1:L], num[1:N], tau, zero_mean = 0)
     # likelihood
     for(i in 1:N) {
-        lambda[i] <- exp(log(expected[i]) + beta*x[i] + s[i])
+        log(lambda[i]) <- log(expected[i]) + beta*x[i] + s[i]
         y[i] ~ dpois(lambda[i])
     }
 })
 
 x <- respiratorydata_spatial$incomedep
 x <- x - mean(x)  # center for improved MCMC performance
+
+set.seed(1)
 
 constants <- list(N = nregions, L = length(nbInfo$adj), 
 			   adj = nbInfo$adj, weights = nbInfo$weights, num = nbInfo$num,
