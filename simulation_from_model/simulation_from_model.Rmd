@@ -9,15 +9,15 @@ NIMBLE models can be used to simulate data. The steps required to do so are as f
 
 ### 1. Create model code
 
-We'll use a very simple toy hierarchical model, a basic occupancy model from ecology. The occupancy model describes a situation where an observer visits multiple sites multiple times, and on each site visit records whether or not a target species is seen there. The parameters of interest are `psi`, the probability that any one site is occupied, and `p[j]`, the probability of detecting the species on the *j*th visit given that it is present. It's assumed that sites don't change occupancy status during the visiting period.
+We'll use a very simple toy hierarchical model, a basic occupancy model from ecology. The occupancy model describes a situation where an observer visits multiple sites multiple times, and on each site visit records whether or not a target species is seen there. The parameters of interest are `psi`, the probability that any one site is occupied, and `p`, the probability of detecting the species on any visit given that it is present. Note that the detection probability may depend on the visit but for this simple example we make it a constant across visits. It's assumed that sites don't change occupancy status during the visiting period.
 
 ```{r}
 library(nimble)
 simCode <- nimbleCode({
   for (i in 1:nsite) {
-    z[i] ~ dbern(prob = psi)
+    z[i] ~ dbern(prob = psi) # True occupancy status
     for (j in 1:nvisit) {
-      y[i,j] ~ dbern(z[i] * p)
+      y[i,j] ~ dbern(z[i] * p) # Observed data
     }
   }
   psi ~ dunif(0,1)
@@ -35,7 +35,11 @@ simModel <- nimbleModel(code = simCode,
                         inits = list(psi = 0.7, p = 0.33))
 ```
 
-Note that the message lets us know that some variables are not initialized--in this case, all `y` and `z` nodes. If we try to calculate probability of the model at this point, we'll get `NA`.
+Note that the message lets us know that some variables are not initialized -- in this case, all `y` and `z` nodes. If we try to calculate the log probabilities of these nodes at this point, we'll get `NA`.
+
+```{r}
+simModel$calculate('y')
+```
 
 ### 3. Identify nodes and simulate
 
