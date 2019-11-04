@@ -43,28 +43,42 @@ bonesModel <- readBUGSmodel('bones', dir = getBUGSexampleDir('bones'))
 
 ## Make an MCMC configuration object
 
-An MCMC configuration holds the information on which samplers are included in the MCMC, which nodes the samplers operate on, and any parameters they need.  It also has a set of nodes to include (or monitor) in the MCMC output.  Actually it allows two different sets of nodes to be monitored, each with its own thinning interval.  We can modify the MCMC configuration before we build the MCMC algorithm from it.
+An MCMC configuration holds the information on which samplers are included in the MCMC, which nodes the samplers operate on, and any parameters they need. We can modify the MCMC configuration before we build the MCMC algorithm from it.
 
 Here is how to make the configuration and look at the default samplers:
 
 ```{r}
 bonesMCMCconfiguration <- configureMCMC(bonesModel)
-bonesMCMCconfiguration$getSamplers()
+bonesMCMCconfiguration$printSamplers()
 ```
 
-Now we can see that `theta[1]` through `theta[13]` have each been assigned adaptive random walk Metropolis-Hastings samplers.  A smattering of entries in the grade matrix are missing.  Those have no dependencies -- they are essentially posterior predictive nodes -- so they have been assigned end samplers.
+Now we can see that `theta[1]` through `theta[13]` have each been assigned adaptive random walk Metropolis-Hastings samplers. A smattering of entries in the grade matrix are missing. Those have no dependencies -- they are essentially posterior predictive nodes -- so they have been assigned end samplers.
 
-Note that if we had called `buildMCMC(bonesModel)`, it would have made the default MCMC configuration and then built the MCMC algorithm in one step.
+The MCMC configuration also has a set of nodes to include (or monitor) in the MCMC output, that can be accessed as in the following. 
 
-## Customize by replacing the univariate samplers for theta dimensions with a block sampler.
+```{r}
+bonesMCMCconfiguration$monitors
+```
 
-Let's say we want to compare the efficiency of the univariate samplers to a block sampler.  We can remove the univariate samplers and insert a block sampler like this:
+In addition it allows a second sets of nodes to be monitored with its own thinning interval, which is empty by default.
+
+```{r}
+bonesMCMCconfiguration$monitors2
+```
+
+Note that if we call `buildMCMC(bonesModel)` at this stage, it would make the default MCMC configuration and then build the MCMC algorithm in one step.
+
+## Customize the MCMC
+
+Let's say we want to replace the univariate samplers with a block sampler. We can remove the univariate samplers and insert a block sampler like this:
+
 ```{r}
 bonesMCMCconfiguration$removeSamplers('theta', print = FALSE)
 bonesMCMCconfiguration$addSampler(target = 'theta[1:13]', type = 'RW_block')
 ```
 
 ## Build the customized MCMC
+
 ```{r}
 bonesMCMC <- buildMCMC(bonesMCMCconfiguration)
 ```
@@ -85,8 +99,7 @@ Look at samples from `theta[1:4]` because that fits conveniently on one plot:
 pairs(MCMCsamples[,1:4], pch = '.')
 ```
 
-## Writing your own samplers and running different MCMCs side by side
+## Writing your own samplers
 
-You can learn to write your own samplers and include them in an MCMC in Chapter 7 of the User Manual.  You can also learn to run multiple MCMCs side by side, including from WinBUGS, JAGS, and Stan (if you provide the necessary files) using NIMBLE's `MCMCsuite()` function.
-
+You can find more on the MCMC configuration and its customization in Chapter 7.2 of the User Manual, while you can learn how to write your own samplers and include them in an MCMC in Chapter 15 of the User Manual.
 
