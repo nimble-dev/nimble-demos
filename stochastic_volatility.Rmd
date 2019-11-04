@@ -5,20 +5,23 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(nimble)
+```
+
+```{r}
+library(nimble, warn.conflicts = F)
 stochvol_installed <- require(stochvol, quietly = TRUE)
 ```
 
 Stochastic volatility models are often used for time series of log returns of financial assets.  The main idea is to model volatility (standard deviation of log returns) as an unobserved autoregressive process.
 
-This example shows coding of a stochastic volatility model in nimble.  See the particle filter and particle MCMC (PMCMC) examples for demonstrations of these methods with this model.  We follow the example model and data described in the vignette ("Dealing with Stochastic Volatility in Time Series Using the R Package stochvol") of the `stochvol` package (Kastner 2016, Kaster and Hosszejni 2019).   We reparameterize relative to the  `stochvol` example as noted below.
+This example shows coding of a stochastic volatility model in nimble.  See the particle filter and particle MCMC (PMCMC) examples for demonstrations of these methods with this model.  We follow the example model and data described in the vignette ("Dealing with Stochastic Volatility in Time Series Using the R Package stochvol") of the `stochvol` package (Kastner 2016, Kaster and Hosszejni 2019).   We reparameterize relative to the `stochvol` example as noted below.
 
 Code for this model is:
 ```{r}
 stochVolCode <- nimbleCode({
   x[1] ~ dnorm(0, sd = sigma / sqrt(1-phi*phi))
   y[1] ~ dnorm(0, sd = beta * exp(0.5 * x[1]))
-  for(t in 2:T){
+  for (t in 2:T){
     x[t] ~ dnorm(phi * x[t-1], sd = sigma)
     y[t] ~ dnorm(0, sd = beta * exp(0.5 * x[t]))
   }
@@ -33,7 +36,7 @@ stochVolCode <- nimbleCode({
 
 In this model:
 
-- `y[t]` is the daily log return, i.e. log(exchange rate at time t / exchange rate at time t-1).  These are the observed data.
+- `y[t]` is the daily log return, i.e. log(exchange rate at time `t` / exchange rate at time `t-1`).  These are the observed data.
 - `x[t]` is the latent state related volalitility that undergoes a linear autoregressive stochastic process with autocorrelation `phi` and noise standard deviation `sigma`.
 - The distribution of `x[1]` is the stationary distribution of the `x[t]` stochastic process.
 - `beta` is a constant for the volatility.
@@ -42,7 +45,7 @@ In this model:
 - The priors for `sigma` and `beta` also follow the `stochvol` vignette.
 - The prior for `logsigma2` requires a custom probability density calculation, provided below, such that `exp(logsigma2)` follows a gamma distribution with shape and rate as given in the code.
 
-The probability density needed for `logsigma2` is given by:
+The probability density needed for `logsigma2` is given by the following custom distributions:
 ```{r}
 dgammalog <- nimbleFunction(
   run = function(x = double(), shape = double(),
@@ -76,13 +79,12 @@ message('To rebuild this example further, the stochvol package must be installed
 ```{r, eval = stochvol_installed}
 data('exrates')
 y <- logret(exrates$USD[exrates$date > '2010-01-01'], demean = TRUE)
-T <- length(y)
 ```
 
 ## Build the model
 ```{r, eval = stochvol_installed}
 stochVolModel <- nimbleModel(code = stochVolCode,
-                             constants = list(T = T), data = list(y = y),
+                             constants = list(T = length(y)), data = list(y = y),
                              inits = list(mu = -10, phiStar = .99,
                                           logsigma2 = log(.004)))
 ```

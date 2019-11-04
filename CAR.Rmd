@@ -1,35 +1,46 @@
 ---
 title: "NIMBLE example: Disease mapping with spatial CAR models"
-author: "Christopher Paciorek"
 date: "October 2019"
-output: pdf_document
+output: html_document
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-library(nimble)
-```
-
 
 NIMBLE provides the ability to specify and fit conditional autoregressive (CAR) models,
 both intrinsic and proper models.
 
-Here we'll use an intrinsic (i.e., ICAR) model for disease mapping.  We'll illustrate with data on hospital admissions due to respiratory disease in 2010 from the 134 Intermediate Geographies (IG) north of the river Clyde in the Greater Glasgow and Clyde health board. The data are available in the `CARBayesdata` package and can be transformed into the neighborhood information needed by NIMBLE using functions from the `spdep` package. In particular, we need to provide vectors indicating which regions are neighbors of which other regions (`adj`), the weights for each pair of neighbors (`weights`), and the number of neighbors for each region (`num`).
+Here we'll use an intrinsic CAR (ICAR) model for disease mapping. We'll illustrate with data on hospital admissions due to respiratory disease in 2010 from the 134 Intermediate Geographies (IG) north of the river Clyde in the Greater Glasgow and Clyde health board. The data are available in the `CARBayesdata` package and can be transformed into the neighborhood information needed by NIMBLE using functions from the `spdep` package. In particular, we need to provide vectors indicating which regions are neighbors of which other regions (`adj`), the weights for each pair of neighbors (`weights`), and the number of neighbors for each region (`num`).
 
 As usual, the mean of the Poisson counts includes an offset for the expected count. We'll also include a covariate, the percentage of people defined to be income deprived in each spatial region.
 
 
 ```{r}
-library(CARBayesdata)
-library(sp)
-library(spdep)
+library(nimble, warn.conflicts = FALSE)
+library(CARBayesdata, quietly = TRUE)
+library(sp, quietly = TRUE)
+library(spdep, quietly = TRUE)
 data(GGHB.IG)
 data(respiratorydata)
+```
 
+We handle the spatial analysis here with `nb2WB` from the package `spdep`.
+
+```{r}
 respiratorydata_spatial <- merge(x = GGHB.IG, y = respiratorydata, by = "IG", all.x = FALSE)
 W.nb <- poly2nb(respiratorydata_spatial, row.names =  rownames(respiratorydata_spatial@data))
+## Determine neighborhood/adjacency information needed for neighborhood-based CAR model
 nbInfo <- nb2WB(W.nb)
 
+# A vector of indices indicating which regions are neighbors of which.
+nbInfo$adj
+# A vector of weights. In this case, all weights are 1.
+head(nbInfo$weights)
+# A vector of length N. num[n] indicates how many neighbors region n contains.
+# This helps map the adj vector to the starting region.
+nbInfo$num
+```
+
+Now we have the three pieces of information we need. We're ready to use the dcar_normal distribution in a nimbleModel.
+
+```{r}
 nregions <- nrow(respiratorydata_spatial)
 
 code <- nimbleCode({
@@ -66,5 +77,13 @@ conf$printSamplers()
 MCMC <- buildMCMC(conf)
 cMCMC <- compileNimble(MCMC, project = cModel)
 samples <- runMCMC(cMCMC, niter = 10000, nburnin = 1000)
+```
+
+Here are density plots for some posterior samples of interest.
+
+```{r}
+plot(density(samples[,"sigma"]))
+plot(density(samples[,"s[1]"]))
+plot(density(samples[,"beta"]))
 ```
 

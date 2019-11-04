@@ -1,6 +1,6 @@
 # Creating and running a Markov chain Monte Carlo (MCMC) algorithm in NIMBLE
 
-This example shows how to quickly build and run a MCMC algorithm in NIMBLE with default sampler choices.
+This example shows how to quickly build and run an MCMC algorithm in NIMBLE with default sampler choices.
 
 ## Pump example
 Let's use another of the classic [WinBUGS](http://www.mrc-bsu.cam.ac.uk/software/bugs/) examples: the pump model.
@@ -11,7 +11,7 @@ A description can be found [here](http://www.mrc-bsu.cam.ac.uk/wp-content/upload
 
 We could load the model using `readBUGSmodel()`, but instead we'll show it fully here:
 ```{r}
-library(nimble)
+library(nimble, warn.conflicts = F)
 pumpCode <- nimbleCode({ 
 # Define relationships between nodes
   for (i in 1:N){

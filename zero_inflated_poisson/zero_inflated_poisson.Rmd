@@ -18,7 +18,7 @@ We'll call the density function for our new zero-inflated Poisson distribution "
 
 Of course we need to load the package first:
 ```{r}
-library(nimble)
+library(nimble, warn.conflicts = F)
 ```
 
 ### Write the model to use the dZIP distribution we plan to write
