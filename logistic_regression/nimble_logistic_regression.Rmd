@@ -1,10 +1,10 @@
 # MCMC for logistic regression with random effects
 
-This example shows how to build and run MCMC for a generalized linear mixed model (GLMM), specifically a logistic regression model with random effects.
+This example shows how to build and run MCMC for a Generalized Linear Mixed Model (GLMM), specifically a logistic regression model with random effects.
 
 ## Model Creation
 
-```{r}
+```{r, warn.conflict = FALSE}
 ## load the NIMBLE library
 library(nimble)
 
@@ -38,7 +38,7 @@ glmmModel <- nimbleModel(code = code, constants = constants, data = data,
 
 ## Default MCMC Algorithm
 
-Now we are ready to create the default MCMC algorithm from model object.
+Now we are ready to create the default MCMC algorithm from the model object.
 
 ```{r}
 glmmMCMC <- buildMCMC(glmmModel)
