@@ -1,0 +1,239 @@
+---
+title: "Item Response Theory models"
+output: html_document
+bibliography: bibliography.bib
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(nimble)
+```
+
+## Item Response Theory
+
+Item Response Theory (IRT) refers to a family of models that attempt to explaining the relationship between latent traits and their manifestation; base postulate is that a individual observable behavior is related to this latent trait.
+
+Standard settings considers $I$ items and $P$ persons for which responses $y_{pi} \in \{0, 1\}$ are observed with values encoding wrong and correct answers.
+The probability of a correct answer for each item/persons $\pi_{pi} = \text{Pr}(y_{pi} = 1)$ is modeled via logistic or probit regression, conditionally to a set of parameters encoding respondents and item characteristics. Typically a parameter $\eta_p$ is defined for each respondent $p = 1, \ldots, P$ representing the unobserved ability of the respondent. Parameters $\{\eta_p\}_1^P$ are assumed to be drawn from a common distribution, taking the role of ``random effects''. 
+
+Different models can be defined according to the number of parameters associated with item characteristic. We consider in this demo two classic models for dichotomous item responses, namely the one-parameter logistic (1PL) model and the two-parameter logistic (2PL) model. 
+
+For this example we use data from the The Law School Admission Test (LSAT) which is classical example in educational testing [@DarrellBock1970], from the `ltm` package. The dataset comprises $1000$ responses to $5$ questions. 
+
+```{r}
+LSATdata <- ltm::LSAT
+```
+
+## 1PL model
+
+The one-parameter logistic model (1PL) assumes the presence of one parameter $\beta_i$ for each item $i = 1, \ldots, I$ encoding the *difficulty* of the item. We choose a non-informative normal prior $N(0, 100)$ for the difficulty parameters, and a uniform distribution for abilities variance. 
+
+```{r 1PLmodel}
+
+code1PL <- nimbleCode({  
+  for(i in 1:I) {
+    for(p in 1:P) {
+      y[p,i] ~ dbern(pi[p,i])
+      logit(pi[p, i]) <-  eta[p] - beta[i]
+    }
+    beta[i] ~ dnorm(0,  var = 100)
+  }  
+  
+  for(p in 1:P) {
+    eta[p] ~ dnorm(0, var = var.eta)
+  }
+
+  var.eta ~ dunif(0, 100)
+})
+
+constants <- list(I= dim(LSATdata)[2], P = dim(LSATdata)[1])
+data <- list(y = LSATdata)
+
+set.seed(1)
+inits <- list(beta    = rnorm(constants$I, 0, 1),
+              eta     = rnorm(constants$P, 0, 1), 
+              var.eta = 10)
+
+monitors = c("beta", "eta", "var.eta")
+
+model1PL <- nimbleModel(code1PL, constants, data, inits)
+```
+
+### Building and running the model
+
+```{r 1PLmodel_compile}
+cModel1PL <- compileNimble(model1PL)
+conf1PL <- configureMCMC(model1PL, monitors = monitors)
+
+model1PLMCMC <- buildMCMC(conf1PL)
+cModel1PLMCMC <- compileNimble(model1PLMCMC, project = model1PL)
+```
+
+Run the model and save posterior samples. 
+
+```{r 1PLmodel_run}
+system.time(samples1PL <- runMCMC(cModel1PLMCMC, niter = 20000, nburnin = 10000))
+```
+
+### Checking the results
+
+We can obtain a summary of the estimates of item difficulties.
+
+```{r}
+betaCols <- grep("beta", colnames(samples1PL))
+varEtaCol <- grep("var.eta", colnames(samples1PL))
+samplesSummary(samples1PL[, c(betaCols, varEtaCol)])
+```
+
+Check posterior convergence.
+
+```{r,  fig.cap='', fig.width=15, fig.height=5}
+par(mfrow = c(1, 3), cex = 1.1)
+for(i in 1:5) ts.plot(samples1PL[ , betaCols[i]], xlab = 'iteration', ylab = colnames(samples1PL)[ betaCols[i]])
+
+ts.plot(samples1PL[ , varEtaCol], xlab = 'iteration', ylab = colnames(samples1PL)[varEtaCol])
+
+```
+
+### Item characteristic curve
+
+We can use the posterior samples to estimate the posterior Item Characteristic Curve (ICC) for an interval of ability values. 
+
+```{r 1PL_ICC}
+
+## plot of ICC 
+abilityGrid <- seq(-8, 5, length = 1000)
+iccVals <- matrix(0, 1000, constants$I)
+for(i in 1:constants$I){
+	tmp <- sapply(abilityGrid, function(x) expit(x - samples1PL[, betaCols[i]]))
+	iccVals[,i] <- apply(tmp, 2, mean)
+}
+
+library(ggplot2)
+rownames(iccVals) <- abilityGrid
+df <- reshape2::melt(iccVals)
+colnames(df) <- c("Ability", "Item", "Probability")
+df$Item <- factor(df$Item, levels = 1:5, labels = paste0("Item ", 1:5))
+
+ggplot(df, aes(x = Ability, y = Probability, group = Item)) +
+ geom_line(aes(color = Item)) + theme_bw() +
+ ggtitle("Item characteristic curves - 1PL model")
+```
+
+```{r, echo = FALSE, eval = FALSE}
+
+## r base version
+# plot(abilityGrid, iccVals[,1], ylim = c(0,1), type = "l")
+# lines(abilityGrid, iccVals[,2], ylim = c(0,1), type = "l", col = 2)
+# lines(abilityGrid, iccVals[,3], ylim = c(0,1), type = "l", col = 4)
+# lines(abilityGrid, iccVals[,4], ylim = c(0,1), type = "l", col = 3)
+# lines(abilityGrid, iccVals[,5], ylim = c(0,1), type = "l", col = 5)
+
+```
+
+## 2PL model
+
+A generalization of the 1PL model is the two-parameter logistic model, which considers an additional parameter $\lambda_i$ for each item $i = 1, \ldots, I$, often referred as *discrimination* parameter, because items with a large $\lambda_i$ are better at discriminating between subjects with different abilities. Typically the $\lambda_i$'s are assumed to be positive, so we choose independent lognormal distributions as priors. 
+
+Given the additional parameter, the metric (location and scale) of the individual parameters is only known up to a linear transformation. In the literature, several types of restrictions are proposed to anchor the metric, either acting on item or ability parameters. A simple restriction is to assume that abilities are drawn from a $\mathcal{N}(0,1)$ and freely estimate item parameters.
+
+
+```{r 2PLmodel}
+code2PL <- nimbleCode({
+  for(i in 1:I) {
+    for(p in 1:P) {
+      y[p, i] ~ dbern(pi[p, i])
+      logit(pi[p, i]) <-  lambda[i]*eta[p] + beta[i]
+    }
+  }  
+  
+  for(i in 1:I) {
+    beta[i] ~ dnorm(mean = 0,  var = 100)  
+    lambda[i] ~ dlnorm(meanlog = 0, sdlog = 6)
+  }
+   
+  for(p in 1:P) {
+    eta[p] ~ dnorm(mean = 0, var = 1)
+  }
+ })
+
+constants <- list(I = dim(LSATdata)[2], P = dim(LSATdata)[1])
+
+data <- list(y = LSATdata)
+
+set.seed(2)
+inits <- list(beta   = rnorm(constants$I, 0, 3),
+              eta    = rnorm(constants$P, 0, 3),
+              lambda = rep(2, constants$I))
+
+monitors = c("beta", "lambda", "eta")
+
+model2PL <- nimbleModel(code2PL, constants, data, inits)
+
+```
+
+### Building and running the model
+
+```{r 2PLmodel_compile}
+cModel2PL <- compileNimble(model2PL)
+conf2PL <- configureMCMC(model2PL, monitors = monitors)
+
+model2PLMCMC <- buildMCMC(conf2PL)
+cModel2PLMCMC <- compileNimble(model2PLMCMC, project = model2PL)
+
+```
+
+
+```{r 2PLmodel_run}
+system.time(samples2PL <- runMCMC(cModel2PLMCMC, niter = 20000, nburnin = 10000))
+
+```
+### Check the results
+
+Similarly to the previous case, we can obtain posterior summaries, check the convergence and the item characteristic curves. 
+
+```{r 2PL_posterior_estimates}
+
+betaCols <- grep("beta", colnames(samples2PL))
+lambdaCols <- grep("lambda", colnames(samples2PL))
+
+samplesSummary(samples2PL[, c(betaCols, lambdaCols)])
+```
+
+```{r 2PL_traceplots,  fig.cap='', fig.width=15, fig.height=5}
+par(mfrow = c(1, 5), cex = 1.1)
+for(i in 1:5) ts.plot(samples2PL[ , betaCols[i]], xlab = 'iteration', ylab = colnames(samples2PL)[ betaCols[i]])
+
+par(mfrow = c(1, 5), cex = 1.1)
+for(i in 1:5) ts.plot(samples2PL[ , lambdaCols[i]], xlab = 'iteration', ylab = colnames(samples2PL)[ lambdaCols[i]])
+
+```
+
+### Item characteristic curve
+
+
+```{r 2PL_ICC}
+
+abilityGrid <- seq(-8, 12, length = 1000)
+iccVals <- matrix(0, 1000, constants$I)
+for(i in 1:constants$I){
+	## evaluate probability at each ability point
+	tmp <- sapply(abilityGrid, function(x) expit(samples2PL[, lambdaCols[i]]*(x - samples2PL[, betaCols[i]])))
+	iccVals[,i] <- apply(tmp, 2, mean)
+}
+
+rownames(iccVals) <- abilityGrid
+df <- reshape2::melt(iccVals)
+colnames(df) <- c("Ability", "Item", "Probability")
+df$Item <- factor(df$Item, levels = 1:5, labels = paste0("Item ", 1:5))
+
+ggplot(df, aes(x = Ability, y = Probability, group = Item)) +
+ geom_line(aes(color = Item)) + theme_bw() +
+ ggtitle("Item characteristic curves - 2PL model")
+
+```
+
+
+# References
