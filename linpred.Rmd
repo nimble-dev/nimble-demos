@@ -1,68 +1,68 @@
 ---
-title: "NIMBLE example: the linear predictor in a regression model"
+title: "Four ways to set up linear predictors in a regression model"
 date: "October 2019"
 output: html_document
 ---
 
-In NIMBLE one can specify the linear predictor in a regression-type model in a variety of ways. We'll illustrate
+In NIMBLE one can specify linear predictors in a regression-type model in a variety of ways. We'll illustrate
 with linear regression, but the ideas hold for other models with linear predictors.
 
-Here's a small simulated dataset we can use to illustrate coding of the model, also used in our reversible jump example.
+Here's a small simulated dataset we can use to illustrate coding of the model. (This is also used in our example of variable selection using reversible jump MCMC.)
 
 ```{r}
 set.seed(1)
-p <- 15
-n <- 100
-X <- matrix(rnorm(p*n), nrow = n, ncol = p)
-true_betas <- c(c(0.1, 0.2, 0.3, 0.4, 0.5), rep(0, p-5))
+p <- 15    # number of explanatory variables
+n <- 100   # number of observations
+X <- matrix(rnorm(p*n), nrow = n, ncol = p) # explanatory variables
+true_betas <- c(c(0.1, 0.2, 0.3, 0.4, 0.5), rep(0, p-5)) # coefficients
 sigma <- 1
 y <- rnorm(n, X %*% true_betas, sigma)
 ```
 
 ## Manual specification
 
-With a small number of predictors (also know as covariates or independent variables), one can simply 'manually' add each covariate. Here we'll just use the first two predictors from the full set of predictors.
+With a small number of predictors (also know as covariates, independent variables, or explanatory variables), one can simply 'manually' add each covariate. Here we'll just use the first two predictors.
 
 ```{r}
 library(nimble, warn.conflicts = FALSE)
-
+    
 code <- nimbleCode({
-     beta0 ~ dnorm(0, sd = 100)
-     beta1 ~ dnorm(0, sd = 100)
-     beta2 ~ dnorm(0, sd = 100)
-     sigma ~ dunif(0, 100)        # prior for variance components based on Gelman (2006)
-     for(i in 1:n) {
-     	   y[i] ~ dnorm(beta0 + beta1*x1[i] + beta2*x2[i], sd = sigma)
-        }
+  beta0 ~ dnorm(0, sd = 100)
+  beta1 ~ dnorm(0, sd = 100)
+  beta2 ~ dnorm(0, sd = 100)
+  sigma ~ dunif(0, 100)        # prior for variance components based on Gelman (2006)
+  for(i in 1:n) {
+    y[i] ~ dnorm(beta0 + beta1*x1[i] + beta2*x2[i], sd = sigma) # manual entry of linear predictors
+  }
 })
 
-## extract two predictors and center for better MCMC performance
+## extract data for two predictors and center for better MCMC performance
 x1 <- X[,1] - mean(X[,1])
 x2 <- X[,2] - mean(X[,2])
 
 constants <- list(n = n, x1 = x1, x2 = x2)
 data <- list(y = y)
 inits <- list(beta0 = mean(y), beta1 = 0, beta2 = 0, sigma = 1)
-model <- nimbleModel(code, constants = constants, data = data, inits = inits)
-mcmcConf <- configureMCMC(model)
-mcmcConf$printSamplers()
+model <- nimbleModel(code, constants = constants, data = data, inits = inits) # build model
+mcmcConf <- configureMCMC(model) # assign default samplers to nodes
+mcmcConf$printSamplers() # look at default sampler assignments
 ```
 
-Here by default NIMBLE will assign univariate scalar samplers to each beta coefficient, because they are specified via separate lines in the model code.
+Here by default NIMBLE has assigned univariate scalar samplers to each beta coefficient.
 
 ## Using `inprod`
 
-Alternatively, we can use a vectorized representation with `inprod`.
+Alternatively, we can use a vectorized representation with `inprod` (inner product).
 
 ```{r}
 code <- nimbleCode({
-     beta0 ~ dnorm(0, sd = 100)
-     for(k in 1:p)
-          beta[k] ~ dnorm(0, sd = 100)
-     sigma ~ dunif(0, 100)  # prior for variance components based on Gelman (2006)
-     for(i in 1:n) {
-     	   y[i] ~ dnorm(beta0 + inprod(beta[1:p], x[i, 1:p]), sd = sigma)
-	   }
+  beta0 ~ dnorm(0, sd = 100)
+  for(k in 1:p)
+    beta[k] ~ dnorm(0, sd = 100)
+  sigma ~ dunif(0, 100)  # prior for variance components based on Gelman (2006)
+  for(i in 1:n) {
+    y[i] ~ dnorm(beta0 + inprod(beta[1:p], x[i, 1:p]), sd = sigma)
+  }
 })
 
 X <- sweep(X, 2, colMeans(X))  # center for better MCMC performance
@@ -72,28 +72,30 @@ data <- list(y = y)
 inits <- list(beta0 = mean(y), beta = rep(0, p), sigma = 0.5)
 model <- nimbleModel(code, constants = constants, data = data, inits = inits)
 mcmcConf <- configureMCMC(model)
-mcmcConf$printSamplers()
+mcmcConf$printSamplers() ## Look at sampler assignments in this case.
 ```
 
-Again, by default NIMBLE will assign univariate scalar samplers to each beta coefficient, because their priors are specified via separate lines in the model code. However, changing a single beta coefficient results in the full inner product being recalculated within each of those samplers. So in some cases it may make sense to block the elements of `beta` together by modifying the MCMC configuration. Alternatively if you place a multivariate prior on `beta[1:p]` the default sampler will be a block sampler.
+Again, by default NIMBLE has assigned univariate scalar samplers to each beta coefficient, because each one is a scalar node in the model. 
+
+In some cases, it may make sense to sample the elements of `beta` jointly by modifying the MCMC configuration to use a block sampler.  Alternatively if one places a multivariate prior on `beta[1:p]` the default sampler will be a block sampler, as shown next.
+
+(Note that `beta0` could be included in the `beta` vector if a corresponding column of ones is included in `x`.)
 
 ## Using matrix algebra
 
-Finally, we can use matrix algebra, but we need to be careful about dimensionality, as
-the matrix-vector multiplication produces a (one-column) matrix, so to use as a scalar
-we need to use the `[1,1]` indexing.
+Finally, we can use matrix algebra, but we need to be careful about matrix vs. scalar types, as the matrix-vector multiplication produces a (one-row, one-column) matrix.  To use that as a scalar, we need to extract the `[1,1]` element.
 
 NOTE: this approach now works cleanly in NIMBLE version 0.9.0. 
 
 
 ```{r}
 code <- nimbleCode({
-     beta0 ~ dnorm(0, sd = 100)
-     beta[1:p] ~ dmnorm(zeros[1:p], omega[1:p, 1:p])
-     sigma ~ dunif(0, 100)  # prior for variance components based on Gelman (2006)
-     for(i in 1:n) {
-     	   y[i] ~ dnorm(beta0 + (beta[1:p] %*% x[i, 1:p])[1,1], sd = sigma)
-     }
+  beta0 ~ dnorm(0, sd = 100)
+  beta[1:p] ~ dmnorm(zeros[1:p], omega[1:p, 1:p])
+  sigma ~ dunif(0, 100)  # prior for variance components based on Gelman (2006)
+  for(i in 1:n) {
+    y[i] ~ dnorm(beta0 + (beta[1:p] %*% x[i, 1:p])[1,1], sd = sigma)
+  }
 })
 
 constants <- list(n = n, p = p, x = X, zeros = rep(0, p), omega = 0.0001 * diag(p))
@@ -106,9 +108,8 @@ mcmcConf$printSamplers()
 
 Here by specifying a joint prior for `beta[1:p]`, NIMBLE assigns a block sampler.
 
-In some cases it may be more efficient to compute the linear predictor in a single vectorized step.
-Again we need to be careful about dimensionality, converting the matrix-valued result of the matrix
-multiplication into a vector. .
+In some cases it may be more efficient to compute all `n` values of the linear predictor in a single vectorized step.
+This time we need to be careful about matrix vs. vector types, converting the matrix-valued result of the matrix multiplication into a vector.
 
 ```{r}
 code <- nimbleCode({
@@ -131,10 +132,12 @@ mcmcConf$printSamplers()
 
 Unfortunately at the moment, NIMBLE does not recognize conjugacy in this situation where the prior is `dmnorm` and the dependents are `dnorm`. 
 
-If `n` is very large (say 10s of thousands or more) one may be able to reduce the model building time and potentially the MCMC run time by setting up `y[1:n]` to follow a vectorized distribution by using a user-defined distribution. The result is there is a single node for `y[1:n]` in the NIMBLE model rather than `n` nodes.
+If `n` is very large (say 10s of thousands or more) one may be able to reduce the model building time and potentially the MCMC run time by setting up `y[1:n]` to follow a vectorized distribution by using a user-defined distribution.  When done this way, there is a single vector node for `y[1:n]` in the NIMBLE model rather than `n` scalar nodes, one for each element `y[i]`.
+
+The distribution `dnorm_vec` below simply calculates the probability density of all `y[i]` elements together.  The re-written model below is equivalent the models above.
 
 ```{r}
-dnorm_vec <- nimbleFunction(
+dnorm_vec <- nimbleFunction( ## Define the distribution
     run = function(x = double(1), mean = double(1), sd = double(0), log = integer(0, default = 0)) {
         returnType(double(0))
         logProb <- sum(dnorm(x, mean, sd, log = TRUE))
@@ -142,7 +145,7 @@ dnorm_vec <- nimbleFunction(
         else return(exp(logProb)) 
     })
 
-rnorm_vec <- nimbleFunction(
+rnorm_vec <- nimbleFunction( ## Define a simulation function, optionally.
     run = function(n = integer(0), mean = double(1), sd = double(0)) {
         returnType(double(1))
         if(n != 1) print("rnorm_vec only allows n = 1; using n = 1.")
@@ -163,8 +166,7 @@ data <- list(y = y)
 inits <- list(beta0 = mean(y), beta = rep(0, p), sigma = 0.5)
 model <- nimbleModel(code, constants = constants, data = data, inits = inits)
 mcmcConf <- configureMCMC(model)
-mcmcConf$printSamplers()
-
-model$getNodeNames()
+mcmcConf$printSamplers() ## Look at sampler assignments
+model$getNodeNames()     ## Look at node names in the re-written model
 ```
 
