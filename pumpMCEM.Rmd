@@ -7,7 +7,9 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Here we use the pump model example from BUGS to illustrate how to implement the Monte Carlo expectation maximization (MCEM) algorithm to find maximum likelihood estimates of parameters for statistical models with latent states.
+The Monte Carlo expectation maximization (MCEM) algorithm is a method for finding maximum likelihoods in models with latent or missing information. MCEM uses Monte Carlo integration methods to simplify and evaluate potentially high-dimensional integrals.
+
+Here we use the pump model example from BUGS to illustrate how to implement the MCEM algorithm to find maximum likelihood estimates of parameters for statistical models with latent states.
 
 ```{r}
 library(nimble, warn.conflicts = F)
