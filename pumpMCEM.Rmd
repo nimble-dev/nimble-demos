@@ -7,10 +7,10 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Here we use the pump model example from BUGS to illustrate how to implement the Monte Carlo expectation maximization (MCEM) algorithm to find maximum likelihood estimates of parameters for statistical models with latent states. 
+Here we use the pump model example from BUGS to illustrate how to implement the Monte Carlo expectation maximization (MCEM) algorithm to find maximum likelihood estimates of parameters for statistical models with latent states.
 
 ```{r}
-library(nimble)
+library(nimble, warn.conflicts = F)
 ```
 
 #### NIMBLE code for the pump example 
@@ -50,7 +50,6 @@ pump <- nimbleModel(code = pumpCode, name = "pump", constants = pumpConsts,
 ```{r}
 Cpump <- compileNimble(pump)
 ```
-
 
 #### Run the MCEM algorithm provided by NIMBLE
 
