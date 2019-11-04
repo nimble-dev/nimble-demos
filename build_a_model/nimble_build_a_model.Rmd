@@ -2,7 +2,7 @@
 
 The BUGS language for declaring statistical models was popularized by [WinBUGS](http://www.mrc-bsu.cam.ac.uk/software/bugs/), [OpenBUGS](http://www.openbugs.net/w/FrontPage) and [JAGS](http://mcmc-jags.sourceforge.net/).  Those generate and run an MCMC for the model, but they don't allow a programmer to use the model in any other way.  NIMBLE provides a new implementation of the BUGS language and creates model objects you can program with.
 
-NIMBLE accommodates most of BUGS, but it doesn't yet handle stochastic indices (indices that are random variables).  It also extends the BUGS language in a bunch of ways that we won't go into here. See the [User Manual](https://r-nimble.org/html_manual/cha-welcome-nimble.html) for more details.
+NIMBLE supports most models written for BUGS or JAGS.  It also extends the BUGS language in a bunch of ways that we won't go into here. See the [User Manual](https://r-nimble.org/html_manual/cha-welcome-nimble.html) for more details.
 
 ## Dyes example
 
@@ -11,7 +11,7 @@ Let's pick a simple model from the classic WinBUGS examples: the dyes example. T
 library(nimble)
 
 dyesCode <- nimbleCode({
-# Set the relationships between nodes
+# Model
    for (i in 1:BATCHES) {
       for (j in 1:SAMPLES) {
          y[i,j] ~ dnorm(mu[i], sd = sigma.within);
@@ -19,14 +19,14 @@ dyesCode <- nimbleCode({
       mu[i] ~ dnorm(theta, sd = sigma.between);
    }
    
-# Set priors
+# Priors
    theta ~ dnorm(0.0, 1.0E-10);
    sigma.within ~ dunif(0, 100)
    sigma.between ~ dunif(0, 100)
 })
 ```
 
-Compared to the original, this has been modified by using standard deviation parameters instead of precision parameters in two places -- for the sole purpose of illustrating NIMBLE's ability to handle different parameterizations -- and removing the posterior predictive nodes.
+Compared to the original, this has been modified by using standard deviation parameters instead of precision parameters in two places -- to illustrate NIMBLE's ability to handle different parameterizations -- and by removing the posterior predictive nodes.
 
 By the way, any of the standard WinBUGS examples can be loaded automatically in NIMBLE like this:
 ```
@@ -50,6 +50,8 @@ dyesModel$setData(list(y = data))
 dyesModel$y
 ```
 
+It is also possible to set data values when calling `nimbleModel`.
+
 ## Use the model
 
 Now the model is an R object, and we can manipulate it as such.
@@ -67,14 +69,14 @@ dyesModel$theta
 ### Calculate log probability densities for part or all of the model
 ```{r}
 ## arbitrary example
-calculate(dyesModel, c('theta', 'mu[1:6]', 'y[,2]'))
+dyesModel$calculate(c('theta', 'mu[1:6]', 'y[,2]'))
 ```
 
 ### Simulate part or all of the model
 ```{r}
 ## arbitrary example
 dyesModel$mu
-simulate(dyesModel, c('mu[1:3]'))
+dyesModel$simulate(c('mu[1:3]'))
 dyesModel$mu
 ```
 
@@ -90,7 +92,7 @@ library(igraph)
 plot(dyesModel$getGraph())
 ```
 
-With many nodes, the automatically generated graph can be hard to interpret. Note that arrows indicate node dependencies. The `mu` nodes depend on the centrally plotted `sigma.within`, `sigma.between`, and `theta` nodes, and the `y`s depend on their corresponding `mu`s. The purpose of this illustration is to visualize that NIMBLE models are truly graphical objects and can be manipulated as such.
+With many nodes, the automatically generated graph can be hard to interpret. Note that arrows indicate node dependencies. The `mu` nodes depend on the centrally plotted `sigma.within`, `sigma.between`, and `theta` nodes, and the `y`s depend on their corresponding `mu`s. The purpose of this illustration is to visualize that NIMBLE models are represented as graphical objects that can be used programmatically.
 
 ## Compile the model
 
@@ -98,6 +100,6 @@ Finally we can compile the model and use the compiled version the same way we us
 ```{r}
 compiled_dyesModel <- compileNimble(dyesModel)
 compiled_dyesModel$theta <- 1450
-calculate(compiled_dyesModel) ## all nodes by default
+compiled_dyesModel$calculate() ## all nodes by default
 ```
 Naturally, the compiled version is much faster.
