@@ -17,9 +17,7 @@ Demos for the [NIMBLE](http://r-nimble.org) project.
 
 [Linear predictors: linear predictors](http://nimble-dev.github.io/nimble-demos/linear_predictors/linpred.html)
 
-Writing a custom sampler
-
-[Reversible Jump: Nimble reversible jump](http://nimble-dev.github.io/nimble-demos/reversible_jump/reversible_jump.html)
+[Reversible Jump: Nimble reversible jump](http://nimble-dev.github.io/nimble-demos/reversible_jump/reversible_jump.html) (Writing a custom sampler)
 
 [Simulation from model: simulation from model](http://nimble-dev.github.io/nimble-demos/simulation_from_model/simulation_from_model.html)
 
@@ -29,9 +27,7 @@ Writing a custom sampler
 
 [RJMCMC variable selection: RJMCMC example](http://nimble-dev.github.io/nimble-demos/RJMCMC_variable_selection/RJMCMC_example.html)
 
-MCEM
-
-[pump MCEM: pump MCEM](http://nimble-dev.github.io/nimble-demos/pumpMCEM/pumpMCEM.html)
+[pump MCEM: pump MCEM](http://nimble-dev.github.io/nimble-demos/pumpMCEM/pumpMCEM.html) (MCEM)
 
 ### Models
 
