@@ -12,6 +12,8 @@ Demos for the [NIMBLE](http://r-nimble.org) project.
 
 [Customized mcmc: Nimble customizing mcmc](http://nimble-dev.github.io/nimble-demos/customized_mcmc/nimble_customizing_mcmc.html)
 
+[Item Response Theory Models](http://nimble-dev.github.io/nimble-demos/irt_models_example/IRT_example.html)
+
 [Logistic regression: Nimble logistic regression](http://nimble-dev.github.io/nimble-demos/logistic_regression/nimble_logistic_regression.html)
 
 [Reversible jump: Nimble reversible jump](http://nimble-dev.github.io/nimble-demos/reversible_jump/nimble_reversible_jump.html)
