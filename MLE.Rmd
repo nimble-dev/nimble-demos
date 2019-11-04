@@ -3,7 +3,7 @@
 We show here that maximum likelihood estimation can be easily done using NIMBLE for models without latent states. This is also possible for models with latent states, but we will need to use numerical integration,  the Laplace approximation, or some other techniques (e.g. MCEM).   
 
 ```{r}
-library(nimble)
+library(nimble, warn.conflicts = F)
 ```
 
 #### A simple Gaussian example

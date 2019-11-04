@@ -379,20 +379,13 @@ $(document).ready(function () {
 
 <div id="mcmc-for-logistic-regression-with-random-effects" class="section level1">
 <h1>MCMC for logistic regression with random effects</h1>
-<p>This example shows how to build and run MCMC for a generalized linear mixed model (GLMM), specifically a logistic regression model with random effects.</p>
+<p>This example shows how to build and run MCMC for a Generalized Linear Mixed Model (GLMM), specifically a logistic regression model with random effects.</p>
 <div id="model-creation" class="section level2">
 <h2>Model Creation</h2>
 <pre class="r"><code>## load the NIMBLE library
-library(nimble)</code></pre>
-<pre><code>## nimble version 0.8.0 is loaded.
-## For more information on NIMBLE and a User Manual,
-## please visit http://R-nimble.org.</code></pre>
-<pre><code>## 
-## Attaching package: 'nimble'</code></pre>
-<pre><code>## The following object is masked from 'package:stats':
-## 
-##     simulate</code></pre>
-<pre class="r"><code>## define the model
+library(nimble)
+
+## define the model
 code &lt;- nimbleCode({
     beta0 ~ dnorm(0, sd = 10000)
     beta1 ~ dnorm(0, sd = 10000)
@@ -427,16 +420,16 @@ glmmModel &lt;- nimbleModel(code = code, constants = constants, data = data,
 </div>
 <div id="default-mcmc-algorithm" class="section level2">
 <h2>Default MCMC Algorithm</h2>
-<p>Now we are ready to create the default MCMC algorithm from model object.</p>
+<p>Now we are ready to create the default MCMC algorithm from the model object.</p>
 <pre class="r"><code>glmmMCMC &lt;- buildMCMC(glmmModel)</code></pre>
 </div>
 <div id="compile-the-model-and-mcmc-algorithm" class="section level2">
 <h2>Compile the model and MCMC algorithm</h2>
 <pre class="r"><code>CglmmModel &lt;- compileNimble(glmmModel)</code></pre>
-<pre><code>## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compilation details.</code></pre>
+<pre><code>## compiling... this may take a minute. Use &#39;showCompilerOutput = TRUE&#39; to see C++ compilation details.</code></pre>
 <pre><code>## compilation finished.</code></pre>
 <pre class="r"><code>CglmmMCMC &lt;- compileNimble(glmmMCMC, project = glmmModel)</code></pre>
-<pre><code>## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compilation details.
+<pre><code>## compiling... this may take a minute. Use &#39;showCompilerOutput = TRUE&#39; to see C++ compilation details.
 ## compilation finished.</code></pre>
 </div>
 <div id="execute-mcmc-algorithm-and-extract-samples" class="section level2">
@@ -459,10 +452,10 @@ glmmModel &lt;- nimbleModel(code = code, constants = constants, data = data,
 ## model building finished.</code></pre>
 <p>Then we make an empty MCMC configuration and add some samplers of our choice to it:</p>
 <pre class="r"><code>spec &lt;- configureMCMC(glmmModel, nodes = NULL)
-spec$addSampler(type = 'slice', target = 'beta0')
-spec$addSampler(type = 'slice', target = 'beta1')
-spec$addSampler(type = 'RW', target = 'sigma_RE')
-spec$addSampler(type = 'RW_block', target = 'beta2[1:10]')</code></pre>
+spec$addSampler(type = &#39;slice&#39;, target = &#39;beta0&#39;)
+spec$addSampler(type = &#39;slice&#39;, target = &#39;beta1&#39;)
+spec$addSampler(type = &#39;RW&#39;, target = &#39;sigma_RE&#39;)
+spec$addSampler(type = &#39;RW_block&#39;, target = &#39;beta2[1:10]&#39;)</code></pre>
 <pre><code>## Note: Assigning an RW_block sampler to nodes with very different scales can result in low MCMC efficiency.  If all nodes assigned to RW_block are not on a similar scale, we recommend providing an informed value for the &quot;propCov&quot; control list argument, or using the AFSS sampler instead.</code></pre>
 <p>Then we build the MCMC from the configuration:</p>
 <pre class="r"><code>customGlmmMCMC &lt;- buildMCMC(spec)</code></pre>
@@ -470,10 +463,10 @@ spec$addSampler(type = 'RW_block', target = 'beta2[1:10]')</code></pre>
 <div id="compile-model-and-custom-mcmc-algorithm" class="section level2">
 <h2>Compile model and custom MCMC algorithm</h2>
 <pre class="r"><code>CglmmModel &lt;- compileNimble(glmmModel)</code></pre>
-<pre><code>## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compilation details.</code></pre>
+<pre><code>## compiling... this may take a minute. Use &#39;showCompilerOutput = TRUE&#39; to see C++ compilation details.</code></pre>
 <pre><code>## compilation finished.</code></pre>
 <pre class="r"><code>CglmmMCMC &lt;- compileNimble(customGlmmMCMC, project = glmmModel)</code></pre>
-<pre><code>## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compilation details.
+<pre><code>## compiling... this may take a minute. Use &#39;showCompilerOutput = TRUE&#39; to see C++ compilation details.
 ## compilation finished.</code></pre>
 </div>
 <div id="execute-custom-mcmc-algorithm-and-extract-samples" class="section level2">

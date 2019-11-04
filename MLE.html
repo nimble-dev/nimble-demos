@@ -380,15 +380,10 @@ $(document).ready(function () {
 <div id="maximum-likelihood-in-nimble" class="section level2">
 <h2>Maximum likelihood in NIMBLE</h2>
 <p>We show here that maximum likelihood estimation can be easily done using NIMBLE for models without latent states. This is also possible for models with latent states, but we will need to use numerical integration, the Laplace approximation, or some other techniques (e.g. MCEM).</p>
-<pre class="r"><code>library(nimble)</code></pre>
+<pre class="r"><code>library(nimble, warn.conflicts = F)</code></pre>
 <pre><code>## nimble version 0.9.0 is loaded.
 ## For more information on NIMBLE and a User Manual,
 ## please visit http://R-nimble.org.</code></pre>
-<pre><code>## 
-## Attaching package: 'nimble'</code></pre>
-<pre><code>## The following object is masked from 'package:stats':
-## 
-##     simulate</code></pre>
 <div id="a-simple-gaussian-example" class="section level4">
 <h4>A simple Gaussian example</h4>
 <p>First we define a simple Gaussian model and simulate some data for it.</p>
