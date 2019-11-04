@@ -1,8 +1,7 @@
 ---
 title: "NIMBLE example: Gaussian process spatial modeling"
-author: "Christopher Paciorek"
 date: "October 2019"
-output: pdf_document
+output: html_document
 ---
 
 As in the CAR example, we'll use data on hospital admissions due to respiratory disease in 2010 from the 134 Intermediate Geographies (IG) north of the river Clyde in the Greater Glasgow and Clyde health board. The data are available in the `CARBayesdata` package.
@@ -11,6 +10,8 @@ As in the CAR example, we'll use data on hospital admissions due to respiratory 
 First we'll define a user-defined function that calculates the covariance for a Gaussian process using an exponential covariance function.
 
 ```{r}
+library(nimble, warn.conflicts = TRUE)
+
 expcov <- nimbleFunction(     
    run = function(dists = double(2), rho = double(0), sigma = double(0)) {
       returnType(double(2))
