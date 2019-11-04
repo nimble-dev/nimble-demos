@@ -1,12 +1,14 @@
 
 ## Maximum likelihood in NIMBLE
-We show here that maximum likelihood estimation can be easily done using NIMBLE for models without latent states. This is also possible for models with latent states, but we will need to use numerical integration or the Laplace approximation or some other techniques (e.g. MCEM).   
+We show here that maximum likelihood estimation can be easily done using NIMBLE for models without latent states. This is also possible for models with latent states, but we will need to use numerical integration,  the Laplace approximation, or some other techniques (e.g. MCEM).   
 
 ```{r}
 library(nimble)
 ```
 
 #### A simple Gaussian example
+
+First we define a simple Gaussian model and simulate some data for it.
 
 ```{r}
 ## Model code
@@ -41,6 +43,10 @@ CgaussianModel <- compileNimble(gaussianModel)
 
 #### Find the MLEs of parameters mu and sigma
 
+We can take advantage of the R function `optim` to maximize the log probability of the model with regard to the parameters of interest.
+
+First, we will define a nimbleFunction that sets the values of nodes and returns the log likelihood of those nodes. This function is what `optim` will be optimizing.
+
 ```{r}
 ## Calculate the log-likelihood
 calcLoglike <- nimbleFunction(
@@ -52,7 +58,11 @@ calcLoglike <- nimbleFunction(
     returnType(double())
   }
 )
+```
 
+To obtain maximum likelihood estimates, we simply create an instance of the nimbleFunction and pass it to optim.
+
+```{r}
 ## Log-likelihood for the example
 wrt <- c("mu", "sigma")
 nodes <- gaussianModel$getDependencies(wrt, self = FALSE)
@@ -60,14 +70,13 @@ gaussianll <- calcLoglike(gaussianModel, wrt, nodes)
 Cgaussianll <- compileNimble(gaussianll, project = gaussianModel)
 
 ## Maximize the log-likelihood in R
-ll <- function(pars) Cgaussianll$run(pars)
-res <- optim(par = c(0, 1), fn = ll, control = list(fnscale = -1))
+res <- optim(par = c(0, 1), fn = Cgaussianll$run, control = list(fnscale = -1))
 
 ## MLEs
 res$par
 
 ## Analytic results for comparison
 c(mean(dat), sd(dat) * sqrt((N-1)/N))
-
- 
 ```
+
+Our estimate looks good!
