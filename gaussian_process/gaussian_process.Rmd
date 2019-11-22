@@ -10,7 +10,7 @@ As in the CAR example, we'll use data on hospital admissions due to respiratory 
 First we'll define a user-defined function that calculates the covariance for a Gaussian process using an exponential covariance function.
 
 ```{r}
-library(nimble, warn.conflicts = TRUE)
+library(nimble, warn.conflicts = FALSE)
 
 expcov <- nimbleFunction(     
    run = function(dists = double(2), rho = double(0), sigma = double(0)) {

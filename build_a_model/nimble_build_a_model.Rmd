@@ -8,7 +8,7 @@ NIMBLE supports most models written for BUGS or JAGS.  It also extends the BUGS 
 
 Let's pick a simple model from the classic WinBUGS examples: the dyes example. This is a simple normal hierarchical model. A description can be found [here](http://www.mrc-bsu.cam.ac.uk/wp-content/uploads/WinBUGS_Vol1.pdf).  A copy of the original is on our GitHub repository [here](https://github.com/nimble-dev/nimble/tree/devel/packages/nimble/inst/classic-bugs/vol1/dyes).  A modified version we will use is set up like this:
 ```{r}
-library(nimble)
+library(nimble, warn.conflicts = FALSE)
 
 dyesCode <- nimbleCode({
 # Model

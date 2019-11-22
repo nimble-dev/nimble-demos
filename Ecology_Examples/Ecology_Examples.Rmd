@@ -7,7 +7,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Nearly all examples from the "AHM" book, [*Applied Hierarchical Modeling in Ecology: Analysis of distribution, abundance and species richness in R and BUGS.  Volume I.* by Marc Kéry and J. Andrew Royle (2015. Academic Press)](https://www.elsevier.com/books/applied-hierarchical-modeling-in-ecology-analysis-of-distribution-abundance-and-species-richness-in-r-and-bugs/kery/978-0-12-801378-6), have been converted to `nimble` and can be found [here](https://github.com/nimble-training/AHMnimble).
+Nearly all examples from the "AHM" book, [*Applied Hierarchical Modeling in Ecology: Analysis of distribution, abundance and species richness in R and BUGS.  Volume I.* by Marc Kéry and J. Andrew Royle (2015. Academic Press)](https://www.elsevier.com/books/applied-hierarchical-modeling-in-ecology-analysis-of-distribution-abundance-and-species-richness-in-r-and-bugs/kery/978-0-12-801378-6), have been converted to `nimble` from `JAGS` and can be found [here](https://github.com/nimble-training/AHMnimble).
 
 Here are some links to specific examples organized by model type (See the book for more details):
 
