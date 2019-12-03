@@ -36,8 +36,8 @@ The BUGS code looks like this:
 
 We will load it this way to avoid showing a bunch of data here:
 
-```{r, warn.conflicts = TRUE}
-library(nimble)
+```{r}
+library(nimble, warn.conflicts = FALSE)
 bonesModel <- readBUGSmodel('bones', dir = getBUGSexampleDir('bones'))
 ```
 
