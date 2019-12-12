@@ -11,7 +11,7 @@ A description can be found [here](http://www.mrc-bsu.cam.ac.uk/wp-content/upload
 
 We could load the model using `readBUGSmodel()`, but instead we'll show it fully here:
 ```{r}
-library(nimble, warn.conflicts = F)
+library(nimble, warn.conflicts = FALSE)
 pumpCode <- nimbleCode({ 
 # Define relationships between nodes
   for (i in 1:N){
@@ -35,9 +35,9 @@ pumpInits <- list(alpha = 1, beta = 1,
                   theta = rep(0.1, pumpConsts$N))
 ```
 
-## Three ways to runMCMC
+## Three ways to run an MCMC
 
-NIMBLE provides three different workflows for running MCMC giving you different levels of control over how the algorithm runs. From least to most control, these are: the `nimbleMCMC()` function, the `runMCMC()` function, and the `mcmc$run()` MCMC object function.
+NIMBLE provides three different workflows for running an MCMC. These give you different levels of control over how the algorithm runs. From least to most control, these are: the `nimbleMCMC()` function, the `runMCMC()` function, and the `mcmc$run()` MCMC object function.
 
 In general, we recommend the `runMCMC()` path, although `nimbleMCMC()` is useful for very straightforward cases.
 
