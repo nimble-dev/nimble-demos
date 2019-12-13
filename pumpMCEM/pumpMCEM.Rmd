@@ -12,7 +12,7 @@ The Monte Carlo expectation maximization (MCEM) algorithm is a method for findin
 Here we use the pump model example from BUGS to illustrate how to implement the MCEM algorithm to find maximum likelihood estimates of parameters for statistical models with latent states.
 
 ```{r}
-library(nimble, warn.conflicts = F)
+library(nimble, warn.conflicts = FALSE)
 ```
 
 #### NIMBLE code for the pump example 
@@ -29,7 +29,9 @@ pumpCode <- nimbleCode({
 })
 ```
 
-#### Assign values to the constants in the model, provide data, initialize the random variables, and then create the model
+#### Set up the model
+
+Assign values to the constants in the model, provide data, initialize the random variables, and then create the model.
 
 ```{r}
 pumpConsts <- list(N = 10,

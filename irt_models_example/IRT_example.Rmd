@@ -1,6 +1,5 @@
 ---
 title: "Item Response Theory models"
-date: "November 2019"
 output: html_document
 bibliography: bibliography.bib
 ---

@@ -89,7 +89,7 @@ configureRJ(lmConf,
 ```
 
 
-Checking the assigned samplers, we can see that indicator parameters are assigned to an `RJ_indicator` sampler whose `targetNode` is the corresponding coefficient, while `beta` parameters are assigned to a `toggled` sampler, which is used only when its target parameter is included in the model.
+Checking the assigned samplers, we can see that indicator parameters are assigned to an `RJ_indicator` sampler whose `targetNode` is the corresponding coefficient, while `beta` parameters are assigned to a `RJ_toggled` sampler, which is used only when its target parameter is included in the model.
 
 ```{r }
 ## Check the assigned samplers
@@ -105,7 +105,7 @@ mcmcRJ <- buildMCMC(lmConf)
 cLmModel <- compileNimble(lmModel)
 CMCMCRJ <- compileNimble(mcmcRJ, project = lmModel)
 set.seed(100)
-system.time(samples_nimble <- runMCMC(CMCMCRJ, niter = 100000, nburnin = 10000, thin = 10))
+system.time(samplesRJ <- runMCMC(CMCMCRJ, niter = 100000, nburnin = 10000, thin = 10))
 ```
 
 ## Look at the results
@@ -114,8 +114,8 @@ system.time(samples_nimble <- runMCMC(CMCMCRJ, niter = 100000, nburnin = 10000, 
 For each variable we can look at the sampled values of the indicator and corresponding coefficient.
 
 ```{r, fig.align = "center"}
-plot(samples_nimble[,'z[5]'], pch = '.', main = "z[5] traceplot")
-plot(samples_nimble[,'beta[5]'], pch = '.', main = "beta[5] traceplot")
+plot(samplesRJ[,'z[5]'], pch = '.', main = "z[5] traceplot")
+plot(samplesRJ[,'beta[5]'], pch = '.', main = "beta[5] traceplot")
 ```
 
 ### Posterior inclusion probability, `psi`
@@ -123,7 +123,7 @@ plot(samples_nimble[,'beta[5]'], pch = '.', main = "beta[5] traceplot")
 Here is the posterior density of inclusion probability.
 
 ```{r}
-plot(density(samples_nimble[,'psi']), main = "Inclusion probability", xlab = "Probability", ylab = "Density")
+plot(density(samplesRJ[,'psi']), main = "Inclusion probability", xlab = "Probability", ylab = "Density")
 ```
 
 ### Individual inclusion probabilities
@@ -132,8 +132,8 @@ Here are the marginal probabilities of inclusion for each variable.
 
 ```{r}
 zNames <- lmModel$expandNodeNames('z')
-zCols <- which(colnames(samples_nimble) %in% zNames)
-posterior_inclusion_prob <- colMeans(samples_nimble[,zCols])
+zCols <- which(colnames(samplesRJ) %in% zNames)
+posterior_inclusion_prob <- colMeans(samplesRJ[,zCols])
 plot(1:length(true_betas), posterior_inclusion_prob,
   xaxt = 'none', 
 	xlab = "beta", ylab = "Inclusion probability", 
@@ -148,10 +148,10 @@ Finally we can look at the posterior probabilities for every model that was expl
 ```{r, message = F, warning = F}
 library(data.table)
 
-binary <- as.data.table((samples_nimble[, zCols] != 0)+ 0)
+binary <- as.data.table((samplesRJ[, zCols] != 0)+ 0)
 res <- binary[,.N, by=names(binary)]
 res <-res[order(N, decreasing = T)]
-res <- res[, prob := N/dim(samples_nimble)[1]]
+res <- res[, prob := N/dim(samplesRJ)[1]]
   
 res[1:5, ]
 
@@ -159,8 +159,8 @@ res[1:5, ]
 
 <!-- Alternative in base R
 
-nSamples <- dim(samples_nimble)[1]
-binary <- as.data.frame((samples_nimble[, zCols] != 0)+ 0)
+nSamples <- dim(samplesRJ)[1]
+binary <- as.data.frame((samplesRJ[, zCols] != 0)+ 0)
 res <- binary[,.N, by=names(binary)]
 dd <- table(do.call(paste, binary))
 (sort(dd, decreasing = T)/nSamples)[1:5]

@@ -1,7 +1,5 @@
 ---
 title: "Converting to NIMBLE from JAGS, OpenBUGS or WinBUGS"
-subtitle: "May 2018"
-author: "NIMBLE Development Team"
 output:
   html_document:
     self_contained: yes
@@ -18,7 +16,7 @@ library(methods) ## needed only when building documents outside of R
 library(nimble)
 ```
 
-NIMBLE is a hierarchical modeling package that uses nearly the same modeling language as the popular MCMC packages WinBUGS, OpenBUGS and JAGS.  NIMBLE makes the modeling language extensible &mdash; you can add distributions and functions &mdash; and also allows customization of MCMC or other algorithms that use models.  Here is a quick summary of steps to convert existing code from WinBUGS, OpenBUGS or JAGS to NIMBLE. For more information, see examples on [r-nimble.org](http://r-nimble.org) or the [NIMBLE User Manual](https://r-nimble.org/manuals/NimbleUserManual.pdf).
+NIMBLE is a hierarchical modeling package that uses nearly the same modeling language as the popular MCMC packages WinBUGS, OpenBUGS and JAGS.  NIMBLE makes the modeling language extensible &mdash; you can add distributions and functions &mdash; and also allows customization of MCMC or other algorithms that use models.  Here is a quick summary of steps to convert existing code from WinBUGS, OpenBUGS or JAGS to NIMBLE. For more information, see the [NIMBLE User Manual](https://r-nimble.org/manuals/NimbleUserManual.pdf).
 
 # Main steps for converting existing code
 

@@ -1,6 +1,5 @@
 ---
 title: "Four ways to set up linear predictors in a regression model"
-date: "October 2019"
 output: html_document
 ---
 

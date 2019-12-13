@@ -1,6 +1,5 @@
 ---
-title: "NIMBLE example: Gaussian process spatial modeling"
-date: "October 2019"
+title: "Gaussian process spatial modeling"
 output: html_document
 ---
 

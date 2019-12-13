@@ -6,7 +6,7 @@ This example shows how to build and run MCMC for a Generalized Linear Mixed Mode
 
 ```{r, warn.conflict = FALSE}
 ## load the NIMBLE library
-library(nimble)
+library(nimble, warn.conflicts = FALSE)
 
 ## define the model
 code <- nimbleCode({

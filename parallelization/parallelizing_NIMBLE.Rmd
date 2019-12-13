@@ -1,6 +1,5 @@
 ---
-title: "NIMBLE example: Parallelization with NIMBLE"
-date: "November 2019"
+title: "Parallelization with NIMBLE"
 output: html_document
 ---
 
@@ -10,7 +9,7 @@ Parallelization is a useful feature of multi-core processors that improves compu
 
 Due to NIMBLE's infrastructure and dependence on behind-the-scenes processing and automatic generation of code and objects, parallelizating NIMBLE code can be treacherous. Naive approaches such as building a single model and using an R library to call `mcmc$run()` are likely to fail, or worse, behave incorrectly without failing.
 
-Those concerns aside, parallelizing NIMBLE pipelines is possible and can be very convenient if done properly. The key consideration is to make sure 
+Those concerns aside, parallelizing NIMBLE pipelines is possible and can be very convenient if done properly. The key consideration is to ensure that all NIMBLE execution, including model building, is conducted inside the parallelized code.
 
 ### Parallelization in practice
 
@@ -42,7 +41,7 @@ data_list <- lapply(1:4, make_data_list)
 my_nc <- nimbleCode({
   a ~ dunif(0, 100)
   b ~ dnorm(0, 100)
-  
+
   for (i in 1:length_y) {
     y[i] ~ dgamma(shape = a, rate = b)
   }
