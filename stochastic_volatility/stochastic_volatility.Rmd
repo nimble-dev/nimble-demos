@@ -8,7 +8,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-library(nimble, warn.conflicts = F)
+library(nimble, warn.conflicts = FALSE)
 stochvol_installed <- require(stochvol, quietly = TRUE)
 ```
 

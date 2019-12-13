@@ -52,7 +52,7 @@ bonesMCMCconfiguration <- configureMCMC(bonesModel)
 bonesMCMCconfiguration$printSamplers()
 ```
 
-Now we can see that `theta[1]` through `theta[13]` have each been assigned adaptive random walk Metropolis-Hastings samplers. A smattering of entries in the grade matrix are missing. Those have no dependencies -- they are essentially posterior predictive nodes -- so they have been assigned end samplers.
+Now we can see that `theta[1]` through `theta[13]` have each been assigned adaptive random walk Metropolis-Hastings samplers. A smattering of entries in the grade matrix are missing. Those have no dependencies -- they are essentially posterior predictive nodes -- so they have been assigned samplers that simply sample from the predictive distribution.
 
 The MCMC configuration also has a set of nodes to include (or monitor) in the MCMC output, that can be accessed as in the following. 
 

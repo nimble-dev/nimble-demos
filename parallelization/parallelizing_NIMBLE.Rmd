@@ -1,6 +1,5 @@
 ---
-title: "NIMBLE example: Parallelization with NIMBLE"
-date: "November 2019"
+title: "Parallelization with NIMBLE"
 output: html_document
 ---
 
@@ -15,9 +14,9 @@ Those concerns aside, parallelizing NIMBLE pipelines is possible and can be very
 The key theory in understanding how to work with NIMBLE is to distinguish between [sockets and forks](https://www.r-bloggers.com/parallel-r-socket-or-fork/).
 
 * A **fork** approach creates separate threads that run independent processes that can depend on the same items. Forked threads can be thought of as operating in the same environment.
-* A **socket** approach creates entirely separate 
+* A **socket** approach creates entirely separate processes.
 
-Forking is often preferred to socketing, the latter of which introduces communication overhead that can slow things down. However, **socketing is the preffered approach for parallelizing in NIMBLE** because it creates separate environments in which NIMBLE objects, both visible and invisible, don't conflict.
+Forking is often preferred to socketing, the latter of which introduces communication overhead that can slow things down. However, **socketing is the preferred approach for parallelizing in NIMBLE** because it creates separate environments in which NIMBLE objects, both visible and invisible, don't conflict.
 
 ### Parallelization in practice
 
@@ -44,7 +43,7 @@ y <- rgamma(2000, shape = 2, scale = 2)
 clusterExport(cl = this_cluster, "y")
 
 chain_output <- clusterEvalQ(this_cluster, {
-  library(nimble, warn.conflicts = F)
+  library(nimble, warn.conflicts = FALSE)
   
   my_nc <- nimbleCode({
     a ~ dunif(0, 100)
