@@ -10,14 +10,7 @@ Parallelization is a useful feature of multi-core processors that improves compu
 
 Due to NIMBLE's infrastructure and dependence on behind-the-scenes processing and automatic generation of code and objects, parallelizating NIMBLE code can be treacherous. Naive approaches such as building a single model and using an R library to call `mcmc$run()` are likely to fail, or worse, behave incorrectly without failing.
 
-Those concerns aside, parallelizing NIMBLE pipelines is possible and can be very convenient if done properly.
-
-The key theory in understanding how to work with NIMBLE is to distinguish between [sockets and forks](https://www.r-bloggers.com/parallel-r-socket-or-fork/).
-
-* A **fork** approach creates separate threads that run independent processes that can depend on the same items. Forked threads can be thought of as operating in the same environment.
-* A **socket** approach creates entirely separate 
-
-Forking is often preferred to socketing, the latter of which introduces communication overhead that can slow things down. However, **socketing is the preffered approach for parallelizing in NIMBLE** because it creates separate environments in which NIMBLE objects, both visible and invisible, don't conflict.
+Those concerns aside, parallelizing NIMBLE pipelines is possible and can be very convenient if done properly. The key consideration is to make sure 
 
 ### Parallelization in practice
 
@@ -25,63 +18,77 @@ In this example, we'll use the library `parallel` to create sockets and run NIMB
 
 ```{r}
 library(doParallel)
+library(nimble, warn.conflicts = F)
 ```
 
-First I will create a cluster, specifying the number of cores I want my cluser to operate across.
+First I create a cluster, specifying the number of cores I want my cluser to operate across.
+Note that each socket is essentially a fresh R session and won't have anything I don't pass it, so I will load NIMBLE on each with `clusterEvalQ`.
 
 ```{r}
 this_cluster <- makeCluster(4)
+capture_output <- clusterEvalQ(this_cluster, library(nimble))
 ```
 
-Now, I simply execute desired code using `clusterEvalQ`. Anything that the target code produces is prepared in a list and returned by this function.
-
-Note that each socket is essentially a fresh R session. We have to prepare everything, including loading libraries, within `clusterEvalQ`. The function `clusterExport` allows you to load an object into the environment.
+I'll set up a situation where I want to run an MCMC on a model for 4 different simulated datsets.
 
 ```{r}
-# Simulte some data
-y <- rgamma(2000, shape = 2, scale = 2)
-# Load the data into each environment
-clusterExport(cl = this_cluster, "y")
+# Simulte some data. I need a list of lists, each will get provided as a data list
+make_data_list <- function(rate) {
+  return(list(y = rgamma(2000, 2, rate = rate)))
+}
+data_list <- lapply(1:4, make_data_list)
 
-chain_output <- clusterEvalQ(this_cluster, {
-  library(nimble, warn.conflicts = F)
+# Generate nimbleCode
+my_nc <- nimbleCode({
+  a ~ dunif(0, 100)
+  b ~ dnorm(0, 100)
   
-  my_nc <- nimbleCode({
-    a ~ dunif(0, 100)
-    b ~ dnorm(0, 100)
-    
-    for (i in 1:length_y) {
-      y[i] ~ dgamma(shape = a, scale = b)
-    }
-  })
-  
-  nimbleMCMC(my_nc,
-             constants = list(length_y = length(y)),
-             inits = list(a = 1, b = 1), 
-             data = list(y = y))
+  for (i in 1:length_y) {
+    y[i] ~ dgamma(shape = a, rate = b)
+  }
 })
-
-# It's important to close the connection when finished with computing
-stopCluster(this_cluster)
 ```
 
-We ran 4 independent MCMCs!
+Now, I execute desired code using `parLapply`, which is equivalent to lapply with each process running in parallel. Since it handles the whole process, from model building to MCMC, the NIMBLE function `nimbleMCMC` is quite useful for parallelization.
+
+I also execute the same code with lapply to give a time comparison.
+
+```{r}
+parallel.time <- system.time(
+  chain_output <- parLapply(cl = this_cluster, X = data_list, 
+                          fun = nimbleMCMC, 
+                          code = my_nc,
+                          constants = list(length_y = 2000),
+                          inits = list(a = 1, b = 1))
+)
+
+unparallel.time <- system.time(
+  suppressMessages(
+  chain_output_unpar <- lapply(X = data_list, 
+                          FUN = nimbleMCMC, 
+                          code = my_nc,
+                          constants = list(length_y = 2000),
+                          inits = list(a = 1, b = 1),
+                          progressBar = FALSE)
+  )
+)
+
+# It's good practice to close the connection when finished with computing
+stopCluster(this_cluster)
+
+unparallel.time
+parallel.time
+```
+
+We ran 4 independent MCMCs.
 
 ```{r}
 for (i in 1:4) {
   this_output <- chain_output[[i]]
   {
     plot(this_output[,"b"], type = "l")
-    abline(0, 2)
   }
 }
 ```
-
-
-If we want to do different things or chain-specific things, such as iterate over a list of inputs, we can use the function `parLapply`. Keeping in mind the importance of separate sockets, one can browse the many sources of online support for parallelization in R for further support.
-
-
-
-
 
 
