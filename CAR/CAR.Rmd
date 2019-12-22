@@ -1,6 +1,5 @@
 ---
-title: "NIMBLE example: Disease mapping with spatial CAR models"
-date: "October 2019"
+title: "Disease mapping with spatial CAR models"
 output: html_document
 ---
 
