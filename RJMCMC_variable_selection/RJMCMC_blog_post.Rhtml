@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Reversible Jump MCMC for Variable Selection in NIMBLE</title>
+</head>
+<body>
+<!--begin.rcode, echo=FALSE, results = FALSE
+  library(knitr)
+  opts_chunk$set(fig.width=6, fig.height=4)
+  library(methods) ## needed only when building documents outside of R
+  library(nimble, warn.conflicts = FALSE)
+  end.rcode-->
+
+<!--
+Build with knit('RJMCMC_blog_post.Rhtml').
+Then copy and paste into blog post.
+--> 
+
+<h1>Reversible Jump MCMC for variable selection in NIMBLE</h1>
+
+Prepared by Sally Paganin.
+
+<h2 id="reversible-jump-mcmc">Reversible Jump MCMC Overview</h2>
+<!-- What is reversible jump and why -->
+
+Reversible Jump MCMC (RJMCMC) is a general framework for MCMC simulation in which the dimension of the parameter space (i.e., the number of parameters) can vary between iterations of the Markov chain. It can be viewed as an extension of the Metropolis-Hastings algorithm onto more general state spaces. A common use case for RJMCMC is for variable selection in regression-style problems, where the dimension of the parameter space varies as variables are included or excluded from the regression specification.
+
+Recently we added an RJMCMC sampler for variable selection to NIMBLE, using a univariate normal distribution as proposal distribution. There are two ways to use RJMCMC variable selection in your model. If you know the prior probability for inclusion of a variable in the model, you can use that directly in the RJMCMC without modifying your model. If you need the prior probability for inclusion in the model to be a model node itself, such as if it will have a prior and be estimated, you will need to write the model with indicator variables. In this post we will illustrate the basic usage of NIMBLE RJMCMC in both situations.
+
+More information can be found in the <a href="https://r-nimble.org/documentation">NIMBLE User Manual</a> and via <tt>help(configureRJ)</tt>.
+
+<!-- Should we link at the example page too? and viceversa? -->
+
+<h2 id="linear-regression-example">Linear regression example</h2>
+
+In the following we consider a linear regression example in which we have 15 explanatory variables and 5 of those are real effects while the others have null effects.
+First we simulate some data.
+
+<!--begin.rcode simulate_data
+N <- 100
+p <- 15
+set.seed(1)
+X <- matrix(rnorm(N*p), nrow = N, ncol = p)
+true_betas <- c(c(0.1, 0.2, 0.3, 0.4, 0.5),
+                rep(0, 10))
+
+y <- rnorm(N, X%*%true_betas, sd = 1)
+
+summary(lm(y ~ X))
+end.rcode-->
+
+<h2 id="reversible-jump-with-indicator-variables">Reversible jump withindicator variables</h2>
+
+Next we set up the model. In this case we explicitly include indicator variables that include or exclude thecorresponding predictor variable. For this example we assume the indicator variables are exchangeable, and we include the inclusion probability in the inference.
+
+<!--begin.rcode nimble_model_indicator
+lmIndicatorCode <- nimbleCode({
+  sigma ~ dunif(0, 20)  ## uniform prior per Gelman (2006)
+  psi ~ dunif(0,1)    ## prior on inclusion probability
+  
+  for(i in 1:numVars) {
+    z[i] ~ dbern(psi) ## indicator variable for each coefficient
+    beta[i] ~ dnorm(0, sd = 100)  
+    zbeta[i] <- z[i] * beta[i]  ## indicator * beta
+  }
+  for(i in 1:N) {
+    pred.y[i] <- inprod(X[i, 1:numVars], zbeta[1:numVars])
+    y[i] ~ dnorm(pred.y[i], sd = sigma)
+  }
+})
+
+## Set up the model.
+lmIndicatorConstants <- list(N = 100, numVars = 15)
+lmIndicatorInits <- list(sigma = 1, psi = 0.5,  
+                         beta = rnorm(lmIndicatorConstants$numVars), 
+                         z = sample(0:1, lmIndicatorConstants$numVars, 0.5))
+
+lmIndicatorData  <- list(y = y, X = X)
+lmIndicatorModel <- nimbleModel(code = lmIndicatorCode, constants = lmIndicatorConstants,
+                                inits = lmIndicatorInits, data = lmIndicatorData)
+end.rcode-->
+
+The above model code can potentially be used to set up variable selection in NIMBLE without using RJMCMC, since the indicator variables can turn regression parameters off and on. However, in that case the MCMC sampling can be inefficient because a given regression parameter can wander widely in the paramter space when the corresponding variable is not in the model. This can make it difficult for the variable to be put back into the model, unless the prior for that variable is (perhaps artificially) made somewhat informative. Configuring RJMCMC sampling via our NIMBLE function <tt>configureRJ</tt> results in the MCMC not sampling the regression coefficients for variables for iterations where the variables are not in the model.
+
+<h3 id="configuring-rjmcmc">Configuring RJMCMC</h3>
+
+The RJMCMC sampler can be added to the MCMC configuration by calling the function <tt>configureRJ()</tt>. In the example considered we introduced <tt>z</tt> as indicator variables associated with the regression coefficients <tt>beta</tt>. We can pass these, respectively, to <tt>configureRJ</tt> using the arguments <tt>indicatorNodes</tt> and <tt>targetNodes</tt>. The <tt>control</tt> arguments allow one to specify the mean and the scale of the normal proposal distribution used when proposing to put a coefficient back into the model.
+
+<!--begin.rcode configure
+lmIndicatorConf <- configureMCMC(lmIndicatorModel)
+lmIndicatorConf$addMonitors('z')
+configureRJ(lmIndicatorConf,
+            targetNodes = 'beta',
+            indicatorNodes = 'z',
+            control = list(mean = 0, scale = .2))
+end.rcode-->
+
+Checking the assigned samplers we see that the indicator variables are each assigned an <tt>RJ_indicator</tt> sampler whose <tt>targetNode</tt> is the corresponding coefficient, while the <tt>beta</tt> parameters have a <tt>RJ_toggled</tt> sampler. The latter sampler is a modified version of the original sampler to the <tt>targetNode</tt> that is invoked only when the variable is currently in the model.
+
+<!--begin.rcode check
+## Check the assigned samplers
+lmIndicatorConf$printSamplers(c("z[1]", "beta[1]"))
+end.rcode-->
+
+<h3 id="build-and-run-the-rjmcmc">Build and run the RJMCMC</h3>
+
+<!--begin.rcode mcmcIndicatorRJ
+mcmcIndicatorRJ <- buildMCMC(lmIndicatorConf)
+
+cIndicatorModel <- compileNimble(lmIndicatorModel)
+CMCMCIndicatorRJ <- compileNimble(mcmcIndicatorRJ, project = lmIndicatorModel)
+set.seed(1)
+system.time(samplesIndicator <- runMCMC(CMCMCIndicatorRJ, niter = 10000, nburnin = 1000))
+end.rcode-->
+
+<h3 id="looking-at-the-results">Looking at the results</h3>
+
+We can look at the sampled values of the indicator and corresponding coefficient for some of the variables.
+
+<!--begin.rcode output, fig.height=6, fig.width=8
+par(mfrow = c(2, 2))
+plot(samplesIndicator[,'beta[3]'], pch = 16, cex = 0.4, main = "beta[3] traceplot")
+plot(samplesIndicator[,'z[3]'], pch = 16, cex = 0.4, main = "z[3] traceplot")
+plot(samplesIndicator[,'beta[5]'], pch = 16, cex = 0.4, main = "beta[5] traceplot")
+plot(samplesIndicator[,'z[5]'], pch = 16, cex = 0.4, main = "z[5] traceplot")
+end.rcode-->
+
+<h3 id="individual-inclusion-probabilities">Individual inclusion probabilities</h3>
+
+Now let's look at the inference on the variable selection problem. We see that the fourth and fifth predictors are almost always included (these are the ones with the largest true coefficient values), while the others, including some variables that are truly associated with the outcome but have smaller true coefficient values, are almost never included.
+
+<!--begin.rcode output2
+par(mfrow = c(1, 1))
+zCols <- grep("z\\[", colnames(samplesIndicator))
+posterior_inclusion_prob <- colMeans(samplesIndicator[, zCols])
+plot(1:length(true_betas), posterior_inclusion_prob,
+	xlab = "beta", ylab = "inclusion probability",
+	main = "Inclusion probabilities for each beta")
+end.rcode-->
+
+<h2 id="reversible-jump-without-indicator-variables">Reversible jump without indicator variables</h2>
+
+If the we assume that the inclusion probabilities for the coefficients are known, we can use the RJMCMC with model code written without indicator variables.
+
+<!--begin.rcode nimble_model_no_indicator
+lmNoIndicatorCode <- nimbleCode({
+  sigma ~ dunif(0, 20)
+
+  for(i in 1:numVars) {
+    beta[i] ~ dnorm(0, sd = 100)
+  }
+  for(i in 1:N) {
+    pred.y[i] <- inprod(X[i, 1:numVars], beta[1:numVars])
+    y[i] ~ dnorm(pred.y[i], sd = sigma)
+  }
+})
+
+## Define model constants, inits and data
+lmNoIndicatorConstants <- list(N = 100, numVars = 15)
+lmNoIndicatorInits <- list(sigma = 1, 
+                           beta = rnorm(lmNoIndicatorConstants$numVars))
+lmNoIndicatorData  <- list(y = y, X = X)
+
+lmNoIndicatorModel <- nimbleModel(code = lmNoIndicatorCode, 
+                                  constants = lmNoIndicatorConstants,
+                                  inits = lmNoIndicatorInits,
+                                  data = lmNoIndicatorData)
+end.rcode-->
+
+<h3 id="configuring-rjmcmc-with-no-indicator-variables">Configuring RJMCMC with no indicator variables</h3>
+
+Again, the RJMCMC sampler can be added to the MCMC configuration by calling the function <tt>configureRJ()</tt> for nodes specified in <tt>targetNodes</tt>, but sice there are no indicator variables we need to provide the prior inclusion probabilities. We use the <tt>priorProb</tt> argument, and we can provide either a vector of values or a common value.
+
+<!--begin.rcode configure_no_indicator
+lmNoIndicatorConf <- configureMCMC(lmNoIndicatorModel)
+configureRJ(lmNoIndicatorConf,
+            targetNodes = 'beta',
+            priorProb = 0.5,
+            control = list(mean = 0, scale = .2))
+end.rcode-->
+
+Since there are no indicator variables in this case, a <tt>RJ_fixed_prior</tt> sampler is assigned directly to each of coefficents along with the <tt>RJ_toggled</tt> sampler, which still uses the default sampler for the node, but only if the corresponding variable is in the model at a given iteration. In addition in this case one can set the coefficient to a value different from <span class="math inline">0</span> via the <tt>fixedValue</tt> argument in the <tt>control</tt> list.
+
+<!--begin.rcode check_no_indicator
+## Check the assigned samplers
+lmNoIndicatorConf$printSamplers(c("beta[1]"))
+end.rcode-->
+
+<h3 id="build-and-run-the-rjmcmc-1">Build and run the RJMCMC</h3>
+
+<!--begin.rcode mcmcNoIndicatorRJ
+mcmcNoIndicatorRJ <- buildMCMC(lmNoIndicatorConf)
+
+cNoIndicatorModel <- compileNimble(lmNoIndicatorModel)
+CMCMCNoIndicatorRJ <- compileNimble(mcmcNoIndicatorRJ, project = lmNoIndicatorModel)
+set.seed(100)
+system.time(samplesNoIndicator <- runMCMC(CMCMCNoIndicatorRJ, niter = 10000, nburnin = 1000))
+end.rcode-->
+
+
+<h3 id="looking-at-the-results-1">Looking at the results</h3>
+In this case we just look at one of the model coefficients.
+
+<!--begin.rcode check-no-indicator
+plot(samplesNoIndicator[,'beta[1]'], pch = 16, cex = 0.4, main = "beta[1] traceplot")
+end.rcode-->
+
+<h3 id="individual-inclusion-proportion">Individual inclusion proportion</h3>
+
+We can calculate the proportion of times each coefficient is included in the model.
+
+<!--begin.rcode inference-no-indicator
+betaCols <- grep("beta\\[", colnames(samplesNoIndicator))
+posterior_inclusion_proportions <- colMeans(apply(samplesNoIndicator[, betaCols],
+                                                  2, function(x) x != 0))
+posterior_inclusion_proportions
+end.rcode-->
