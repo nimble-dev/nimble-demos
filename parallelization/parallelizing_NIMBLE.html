@@ -426,17 +426,14 @@ run_MCMC_allcode &lt;- function(seed, data) {
 }</code></pre>
 <p>Now, I execute desired code using <code>parLapply</code>, which is equivalent to lapply with each process running in parallel. Since it handles the whole process, from model building to MCMC, the NIMBLE function <code>nimbleMCMC</code> is quite useful for parallelization.</p>
 <p>I also execute the same code with lapply to give a time comparison.</p>
-<pre class="r"><code>parallel.time &lt;- system.time(
-  chain_output &lt;- parLapply(cl = this_cluster, X = 1:4, 
-                            fun = run_MCMC_allcode, 
-                            data = myData)
-)
+<pre class="r"><code>chain_output &lt;- parLapply(cl = this_cluster, X = 1:4, 
+                          fun = run_MCMC_allcode, 
+                          data = myData)
 
-unparallel.time &lt;- system.time(
-  suppressMessages(
-  chain_output_unpar &lt;- lapply(1:4, run_MCMC_allcode, 
-                               data = myData)
-  )
+
+suppressMessages(
+chain_output_unpar &lt;- lapply(1:4, run_MCMC_allcode, 
+                             data = myData)
 )</code></pre>
 <pre><code>## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|
@@ -446,15 +443,8 @@ unparallel.time &lt;- system.time(
 ## |-------------------------------------------------------|
 ## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|</code></pre>
-<pre class="r"><code># It's good practice to close the connection when finished with computing
-stopCluster(this_cluster)
-
-unparallel.time</code></pre>
-<pre><code>##    user  system elapsed 
-## 104.979   5.439 122.762</code></pre>
-<pre class="r"><code>parallel.time</code></pre>
-<pre><code>##    user  system elapsed 
-##   0.011   0.007  94.203</code></pre>
+<pre class="r"><code># It's good practice to close the connection when you're done with it
+stopCluster(this_cluster)</code></pre>
 <p>We ran 4 independent MCMCs.</p>
 <pre class="r"><code>for (i in 1:4) {
   this_output &lt;- chain_output[[i]]

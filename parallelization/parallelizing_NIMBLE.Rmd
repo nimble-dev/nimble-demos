@@ -71,24 +71,20 @@ Now, I execute desired code using `parLapply`, which is equivalent to lapply wit
 I also execute the same code with lapply to give a time comparison.
 
 ```{r}
-parallel.time <- system.time(
-  chain_output <- parLapply(cl = this_cluster, X = 1:4, 
-                            fun = run_MCMC_allcode, 
-                            data = myData)
+
+chain_output <- parLapply(cl = this_cluster, X = 1:4, 
+                          fun = run_MCMC_allcode, 
+                          data = myData)
+
+
+suppressMessages(
+chain_output_unpar <- lapply(1:4, run_MCMC_allcode, 
+                             data = myData)
 )
 
-unparallel.time <- system.time(
-  suppressMessages(
-  chain_output_unpar <- lapply(1:4, run_MCMC_allcode, 
-                               data = myData)
-  )
-)
 
-# It's good practice to close the connection when finished with computing
+# It's good practice to close the connection when you're done with it
 stopCluster(this_cluster)
-
-unparallel.time
-parallel.time
 ```
 
 We ran 4 independent MCMCs.
