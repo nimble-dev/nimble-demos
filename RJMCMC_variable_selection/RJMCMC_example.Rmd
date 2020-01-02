@@ -17,7 +17,7 @@ More information can be found in the user manual and via `help(configureRJ)`.
 
 ## Linear regression example
 
-For simplicity we consider a linear regression example with $15$ explanatory variables, of which $5$ have real effects. The other 10 have null effects, i.e. the corresponding coefficient is equal to $0$.
+For simplicity we consider a linear regression example with 15 explanatory variables, of which five have real effects. The other 10 have null effects, i.e. the corresponding coefficient is equal to zero.
 
 ```{r load_nimble}
 library(nimble, warn.conflicts = FALSE)

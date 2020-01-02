@@ -25,7 +25,7 @@ Prepared by Sally Paganin.
 
 Reversible Jump MCMC (RJMCMC) is a general framework for MCMC simulation in which the dimension of the parameter space (i.e., the number of parameters) can vary between iterations of the Markov chain. It can be viewed as an extension of the Metropolis-Hastings algorithm onto more general state spaces. A common use case for RJMCMC is for variable selection in regression-style problems, where the dimension of the parameter space varies as variables are included or excluded from the regression specification.
 
-Recently we added an RJMCMC sampler for variable selection to NIMBLE, using a univariate normal distribution as proposal distribution. There are two ways to use RJMCMC variable selection in your model. If you know the prior probability for inclusion of a variable in the model, you can use that directly in the RJMCMC without modifying your model. If you need the prior probability for inclusion in the model to be a model node itself, such as if it will have a prior and be estimated, you will need to write the model with indicator variables. In this post we will illustrate the basic usage of NIMBLE RJMCMC in both situations.
+Recently we added an RJMCMC sampler for variable selection to NIMBLE, using a univariate normal distribution as proposal distribution. There are two ways to use RJMCMC variable selection in your model. If you know the prior probability for inclusion of a variable in the model, you can use that directly in the RJMCMC without modifying your model. If you need the prior probability for inclusion in the model to be a model node itself, i.e., if it will have a prior and be estimated, you will need to write the model with indicator variables. In this post we will illustrate the basic usage of NIMBLE RJMCMC in both situations.
 
 More information can be found in the <a href="https://r-nimble.org/documentation">NIMBLE User Manual</a> and via <tt>help(configureRJ)</tt>.
 
@@ -33,8 +33,7 @@ More information can be found in the <a href="https://r-nimble.org/documentation
 
 <h2 id="linear-regression-example">Linear regression example</h2>
 
-In the following we consider a linear regression example in which we have 15 explanatory variables and 5 of those are real effects while the others have null effects.
-First we simulate some data.
+In the following we consider a linear regression example in which we have 15 explanatory variables, and five of those are real effects while the others have no effect. First we simulate some data.
 
 <!--begin.rcode simulate_data
 N <- 100
@@ -49,9 +48,9 @@ y <- rnorm(N, X%*%true_betas, sd = 1)
 summary(lm(y ~ X))
 end.rcode-->
 
-<h2 id="reversible-jump-with-indicator-variables">Reversible jump withindicator variables</h2>
+<h2 id="reversible-jump-with-indicator-variables">Reversible jump with indicator variables</h2>
 
-Next we set up the model. In this case we explicitly include indicator variables that include or exclude thecorresponding predictor variable. For this example we assume the indicator variables are exchangeable, and we include the inclusion probability in the inference.
+Next we set up the model. In this case we explicitly include indicator variables that include or exclude the corresponding predictor variable. For this example we assume the indicator variables are exchangeable and we include the inclusion probability in the inference.
 
 <!--begin.rcode nimble_model_indicator
 lmIndicatorCode <- nimbleCode({
@@ -80,7 +79,7 @@ lmIndicatorModel <- nimbleModel(code = lmIndicatorCode, constants = lmIndicatorC
                                 inits = lmIndicatorInits, data = lmIndicatorData)
 end.rcode-->
 
-The above model code can potentially be used to set up variable selection in NIMBLE without using RJMCMC, since the indicator variables can turn regression parameters off and on. However, in that case the MCMC sampling can be inefficient because a given regression parameter can wander widely in the paramter space when the corresponding variable is not in the model. This can make it difficult for the variable to be put back into the model, unless the prior for that variable is (perhaps artificially) made somewhat informative. Configuring RJMCMC sampling via our NIMBLE function <tt>configureRJ</tt> results in the MCMC not sampling the regression coefficients for variables for iterations where the variables are not in the model.
+The above model code can potentially be used to set up variable selection in NIMBLE without using RJMCMC, since the indicator variables can turn the regression parameters off and on. However, in that case the MCMC sampling can be inefficient because a given regression parameter can wander widely in the parameter space when the corresponding variable is not in the model. This can make it difficult for the variable to be put back into the model, unless the prior for that variable is (perhaps artificially) made somewhat informative. Configuring RJMCMC sampling via our NIMBLE function <tt>configureRJ</tt> results in the MCMC not sampling the regression coefficients for variables for iterations where the variables are not in the model.
 
 <h3 id="configuring-rjmcmc">Configuring RJMCMC</h3>
 
@@ -140,7 +139,7 @@ end.rcode-->
 
 <h2 id="reversible-jump-without-indicator-variables">Reversible jump without indicator variables</h2>
 
-If the we assume that the inclusion probabilities for the coefficients are known, we can use the RJMCMC with model code written without indicator variables.
+If we assume that the inclusion probabilities for the coefficients are known, we can use the RJMCMC with model code written without indicator variables.
 
 <!--begin.rcode nimble_model_no_indicator
 lmNoIndicatorCode <- nimbleCode({
@@ -169,7 +168,7 @@ end.rcode-->
 
 <h3 id="configuring-rjmcmc-with-no-indicator-variables">Configuring RJMCMC with no indicator variables</h3>
 
-Again, the RJMCMC sampler can be added to the MCMC configuration by calling the function <tt>configureRJ()</tt> for nodes specified in <tt>targetNodes</tt>, but sice there are no indicator variables we need to provide the prior inclusion probabilities. We use the <tt>priorProb</tt> argument, and we can provide either a vector of values or a common value.
+Again, the RJMCMC sampler can be added to the MCMC configuration by calling the function <tt>configureRJ()</tt> for nodes specified in <tt>targetNodes</tt>, but since there are no indicator variables we need to provide the prior inclusion probabilities. We use the <tt>priorProb</tt> argument, and we can provide either a vector of values or a common value.
 
 <!--begin.rcode configure_no_indicator
 lmNoIndicatorConf <- configureMCMC(lmNoIndicatorModel)
@@ -179,7 +178,7 @@ configureRJ(lmNoIndicatorConf,
             control = list(mean = 0, scale = .2))
 end.rcode-->
 
-Since there are no indicator variables in this case, a <tt>RJ_fixed_prior</tt> sampler is assigned directly to each of coefficents along with the <tt>RJ_toggled</tt> sampler, which still uses the default sampler for the node, but only if the corresponding variable is in the model at a given iteration. In addition in this case one can set the coefficient to a value different from <span class="math inline">0</span> via the <tt>fixedValue</tt> argument in the <tt>control</tt> list.
+Since there are no indicator variables in this case, a <tt>RJ_fixed_prior</tt> sampler is assigned directly to each of coefficents along with the <tt>RJ_toggled</tt> sampler, which still uses the default sampler for the node, but only if the corresponding variable is in the model at a given iteration. In addition in this case one can set the coefficient to a value different from zero via the <tt>fixedValue</tt> argument in the <tt>control</tt> list.
 
 <!--begin.rcode check_no_indicator
 ## Check the assigned samplers
