@@ -13,11 +13,10 @@ Those concerns aside, parallelizing NIMBLE pipelines is possible and can be very
 
 ### Parallelization in practice
 
-In this example, we'll use the library `parallel` to create sockets and run NIMBLE code on each.
+In this example, we'll use the library `parallel` to run MCMC in parallel chains.
 
 ```{r}
-library(doParallel)
-library(nimble, warn.conflicts = F)
+library(parallel)
 ```
 
 First I create a cluster, specifying the number of cores I want my cluser to operate across.
@@ -25,27 +24,46 @@ Note that each socket is essentially a fresh R session and won't have anything I
 
 ```{r}
 this_cluster <- makeCluster(4)
-capture_output <- clusterEvalQ(this_cluster, library(nimble))
 ```
 
-I'll set up a situation where I want to run an MCMC on a model for 4 different simulated datsets.
+I'll set up a situation where I want to run 4 independent MCMC simulations.
+
+We will create the code to run in parallel as a function.
 
 ```{r}
-# Simulte some data. I need a list of lists, each will get provided as a data list
-make_data_list <- function(rate) {
-  return(list(y = rgamma(2000, 2, rate = rate)))
+set.seed(10120)
+# Simulte some data
+myData <- rgamma(1000, shape = 0.4, rate = 0.8)
+
+# Create a function with all the needed code
+run_MCMC_allcode <- function(seed, data) {
+  library(nimble)
+  set.seed(seed)
+  
+  myCode <- nimbleCode({
+    a ~ dunif(0, 100)
+    b ~ dnorm(0, 100)
+  
+    for (i in 1:length_y) {
+      y[i] ~ dgamma(shape = a, rate = b)
+    }
+  })
+  
+  myModel <- nimbleModel(code = myCode,
+                          data = list(y = data),
+                          constants = list(length_y = 1000),
+                          inits = list(a = 0.5, b = 0.5))
+  
+  CmyModel <- compileNimble(myModel)
+  
+  myMCMC <- buildMCMC(CmyModel)
+  CmyMCMC <- compileNimble(myMCMC)
+  
+  results <- runMCMC(CmyMCMC, niter = 10000)
+  
+  return(results)
 }
-data_list <- lapply(1:4, make_data_list)
 
-# Generate nimbleCode
-my_nc <- nimbleCode({
-  a ~ dunif(0, 100)
-  b ~ dnorm(0, 100)
-
-  for (i in 1:length_y) {
-    y[i] ~ dgamma(shape = a, rate = b)
-  }
-})
 ```
 
 Now, I execute desired code using `parLapply`, which is equivalent to lapply with each process running in parallel. Since it handles the whole process, from model building to MCMC, the NIMBLE function `nimbleMCMC` is quite useful for parallelization.
@@ -53,30 +71,20 @@ Now, I execute desired code using `parLapply`, which is equivalent to lapply wit
 I also execute the same code with lapply to give a time comparison.
 
 ```{r}
-parallel.time <- system.time(
-  chain_output <- parLapply(cl = this_cluster, X = data_list, 
-                          fun = nimbleMCMC, 
-                          code = my_nc,
-                          constants = list(length_y = 2000),
-                          inits = list(a = 1, b = 1))
+
+chain_output <- parLapply(cl = this_cluster, X = 1:4, 
+                          fun = run_MCMC_allcode, 
+                          data = myData)
+
+
+suppressMessages(
+chain_output_unpar <- lapply(1:4, run_MCMC_allcode, 
+                             data = myData)
 )
 
-unparallel.time <- system.time(
-  suppressMessages(
-  chain_output_unpar <- lapply(X = data_list, 
-                          FUN = nimbleMCMC, 
-                          code = my_nc,
-                          constants = list(length_y = 2000),
-                          inits = list(a = 1, b = 1),
-                          progressBar = FALSE)
-  )
-)
 
-# It's good practice to close the connection when finished with computing
+# It's good practice to close the connection when you're done with it
 stopCluster(this_cluster)
-
-unparallel.time
-parallel.time
 ```
 
 We ran 4 independent MCMCs.
