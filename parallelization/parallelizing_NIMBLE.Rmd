@@ -3,42 +3,43 @@ title: "Parallelization with NIMBLE"
 output: html_document
 ---
 
-### Approaches to parallelization
+### Overview
 
 Parallelization is a useful feature of multi-core processors that improves computation time by running multiple independent processes simultaneously.
 
-Due to NIMBLE's infrastructure and dependence on behind-the-scenes processing and automatic generation of code and objects, parallelizating NIMBLE code can be treacherous. Naive approaches such as building a single model and using an R library to call `mcmc$run()` are likely to fail, or worse, behave incorrectly without failing.
+Due to how NIMBLE builds models and algorithms and automatically generates C++ code, parallelizating NIMBLE code requires some care. Naive approaches such as building a single model using standard parallelization packages in R to parallelize an MCMC are likely to fail, or worse, behave incorrectly without failing.
 
-Those concerns aside, parallelizing NIMBLE pipelines is possible and can be very convenient if done properly. The key consideration is to ensure that all NIMBLE execution, including model building, is conducted inside the parallelized code.
+That said, parallelizing NIMBLE pipelines is possible and can be very convenient if done properly. The key consideration is to ensure that all NIMBLE execution, including model building, is conducted inside the parallelized code. This ensures that all models and algorithms are independent objects that don't interfere with each other.
+
+Note that we have work in progress to make parallelizing NIMBLE code easier and more powerful.
 
 ### Parallelization in practice
 
-In this example, we'll use the library `parallel` to run MCMC in parallel chains.
+In this example, we'll use basic functionality from the  `parallel` package to run MCMC in parallel chains.
 
 ```{r}
 library(parallel)
 ```
 
-First I create a cluster, specifying the number of cores I want my cluser to operate across.
-Note that each socket is essentially a fresh R session and won't have anything I don't pass it, so I will load NIMBLE on each with `clusterEvalQ`.
+First we create a cluster, specifying the number of cores we want the cluster to operate across.
+
 
 ```{r}
 this_cluster <- makeCluster(4)
 ```
 
-I'll set up a situation where I want to run 4 independent MCMC simulations.
+We'll set up a situation where we run four independent MCMC simulations.
 
-We will create the code to run in parallel as a function.
+The key is to create a function that includes all the modeling steps and run that function in parallel. Note that `myCode` could have been created outside the parallelized code, but all the other steps need to be done inside the parallelized code.
 
 ```{r}
 set.seed(10120)
-# Simulte some data
+# Simulate some data
 myData <- rgamma(1000, shape = 0.4, rate = 0.8)
 
 # Create a function with all the needed code
 run_MCMC_allcode <- function(seed, data) {
   library(nimble)
-  set.seed(seed)
   
   myCode <- nimbleCode({
     a ~ dunif(0, 100)
@@ -59,42 +60,31 @@ run_MCMC_allcode <- function(seed, data) {
   myMCMC <- buildMCMC(CmyModel)
   CmyMCMC <- compileNimble(myMCMC)
   
-  results <- runMCMC(CmyMCMC, niter = 10000)
+  results <- runMCMC(CmyMCMC, niter = 10000, setSeed = seed)
   
   return(results)
 }
 
 ```
 
-Now, I execute desired code using `parLapply`, which is equivalent to lapply with each process running in parallel. Since it handles the whole process, from model building to MCMC, the NIMBLE function `nimbleMCMC` is quite useful for parallelization.
-
-I also execute the same code with lapply to give a time comparison.
+Now, we execute the desired code using `parLapply`, which is equivalent to `lapply` with each process running in parallel. 
 
 ```{r}
-
 chain_output <- parLapply(cl = this_cluster, X = 1:4, 
                           fun = run_MCMC_allcode, 
                           data = myData)
 
-
-suppressMessages(
-chain_output_unpar <- lapply(1:4, run_MCMC_allcode, 
-                             data = myData)
-)
-
-
-# It's good practice to close the connection when you're done with it
+# It's good practice to close the cluster when you're done with it.
 stopCluster(this_cluster)
 ```
 
-We ran 4 independent MCMCs.
+We ran four independent MCMCs.
 
-```{r}
+```{r, fig.width=10, fig.height=6}
+par(mfrow = c(2,2))
 for (i in 1:4) {
   this_output <- chain_output[[i]]
-  {
-    plot(this_output[,"b"], type = "l")
-  }
+  plot(this_output[,"b"], type = "l", ylab = 'b')
 }
 ```
 
