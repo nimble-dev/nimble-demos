@@ -28,6 +28,8 @@ First we create a cluster, specifying the number of cores we want the cluster to
 this_cluster <- makeCluster(4)
 ```
 
+(Side note: do not use `makeForkCluster` when parallelizing NIMBLE code; it will not work. `makeCluster` sets up a PSOCK cluster, which will work.)
+
 We'll set up a situation where we run four independent MCMC simulations.
 
 The key is to create a function that includes all the modeling steps and run that function in parallel. Note that `myCode` could have been created outside the parallelized code, but all the other steps need to be done inside the parallelized code.

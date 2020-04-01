@@ -195,6 +195,7 @@ summary {
 <pre class="r"><code>library(parallel)</code></pre>
 <p>First we create a cluster, specifying the number of cores we want the cluster to operate across.</p>
 <pre class="r"><code>this_cluster &lt;- makeCluster(4)</code></pre>
+<p>(Side note: do not use <code>makeForkCluster</code> when parallelizing NIMBLE code; it will not work. <code>makeCluster</code> sets up a PSOCK cluster, which will work.)</p>
 <p>We’ll set up a situation where we run four independent MCMC simulations.</p>
 <p>The key is to create a function that includes all the modeling steps and run that function in parallel. Note that <code>myCode</code> could have been created outside the parallelized code, but all the other steps need to be done inside the parallelized code.</p>
 <pre class="r"><code>set.seed(10120)
