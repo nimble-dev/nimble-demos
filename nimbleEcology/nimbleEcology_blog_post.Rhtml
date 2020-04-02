@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>nimbleEcology: custom NIMBLE distributions for ecologists</title>
+</head>
+<body>
+
+<!--
+Build with knit('nimbleEcology_blog_post.Rhtml').
+Then copy and paste into blog post.
+--> 
+
+<h1>nimbleEcology: custom NIMBLE distributions for ecologists</h1>
+
+Prepared by Ben Goldstein.
+
+<h2 id="what-is-nE">What is nimbleEcology?</h2>
+
+<b>nimbleEcology</b> is an auxilliary nimble package for ecologists.
+
+nimbleEcology contains a set of distributions corresponding to some common ecological models. When the package is loaded, these distributions are registered to NIMBLE and can be used directly in models.
+
+<h2 id="why-nE">Why use nimbleEcology?</h2>
+
+ <ul>
+  <li><b>Easy to use</b>. Using a nimbleEcology distribution is easier than writing out probabilities or hierarchical model descriptions.</li>
+  <li><b>Minimize errors</b>. You don’t have to lose hours looking for the misplaced minus sign; the distributions are checked and tested.</li>
+  <li><b>Integrate over latent states</b>. nimbleEcology implementations integrate or sum likelihoods over latent states. This eliminates the need for sampling these latent variables, which in some cases can provide efficiency gains, and allows ML estimation methods with hierarchical models.</li>
+</ul> 
+
+
+<h2 id="how-nE">How to use</h2>
+
+nimbleEcology can be installed directly from CRAN as follows.
+
+<!--begin.rcode install, eval = F
+install.packages("nimbleEcology")
+end.rcode-->
+
+Once nimbleEcology is installed, load it using <code>library</code>. It will also load <code>nimble</code>.
+
+<!--begin.rcode load
+library(nimbleEcology)
+end.rcode-->
+
+Note the message indicating which distribution families have been loaded.
+
+<h2 id="which-dists">Which distributions are available?</h2>
+
+The following distributions are available in nimbleEcology.
+
+<ul>
+  <li> <code> dOcc </code> (occupancy model)
+  <li> <code> dDynOcc </code> (dynamic occupancy model)
+  <li> <code> dHMM </code> (hidden Markov model)
+  <li> <code> dDHMM </code> (dynamic hidden Markov model)
+  <li> <code> dCJS </code> (Cormack-Jolly-Seber or mark-recapture model)
+  <li> <code> dNmixture </code> (N-mixture model)
+  <li> <code> dYourNewDistribution </code> Do you have a custom distribution that would fit the package? Are we missing a distribution you need? Let us know! We actively encourage contributions through GitHub or direct communication.
+</ul>
+
+<h2 id="example-code">Example code</h2>
+
+The following code illustrates a NIMBLE model definition for an occupancy model using nimbleEcology. The model is specified, built, and used to simulate some data according to the occupancy distribution.
+
+<!--begin.rcode example-model
+library(nimbleEcology)
+
+occ_code <- nimbleCode({
+  psi ~ dunif(0, 1)
+  p ~ dunif(0, 1)
+  for (s in 1:nsite) {
+    x[s, 1:nvisit] ~ dOcc_s(probOcc = psi, probDetect = p, 
+                            len = nvisit)
+  }
+})
+
+occ_model <- nimbleModel(occ_code, 
+               constants = list(nsite = 10, nvisit = 5), 
+               inits = list(psi = 0.5, p = 0.5))
+
+set.seed(94)
+occ_model$simulate("x")
+occ_model$x
+end.rcode-->
+
+
+<h2 id="learn-more">How to learn more</h2>
+
+Once the package is installed, you can check out the package vignette with <code>vignette(“nimbleEcology”)</code>. 
+
+Documentation is available for each distribution family using the R syntax <code>?distribution</code>, for example
+
+<!--begin.rcode doc-example, eval = F
+?dHMM
+end.rcode-->
+
+For more detail on marginalization in these distributions, see the paper "One size does not fit all: Customizing MCMC methods for hierarchical models using NIMBLE" <a href="https://doi.org/10.1002/ece3.6053">(Ponisio et al. 2020)</a>.

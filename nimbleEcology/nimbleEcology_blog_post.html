@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style type="text/css">
+.inline {
+  background-color: #f7f7f7;
+  border:solid 1px #B0B0B0;
+}
+.error {
+	font-weight: bold;
+	color: #FF0000;
+}
+.warning {
+	font-weight: bold;
+}
+.message {
+	font-style: italic;
+}
+.source, .output, .warning, .error, .message {
+	padding: 0 1em;
+  border:solid 1px #F7F7F7;
+}
+.source {
+  background-color: #f5f5f5;
+}
+.left {
+  text-align: left;
+}
+.right {
+  text-align: right;
+}
+.center {
+  text-align: center;
+}
+.hl.num {
+  color: #AF0F91;
+}
+.hl.str {
+  color: #317ECC;
+}
+.hl.com {
+  color: #AD95AF;
+  font-style: italic;
+}
+.hl.opt {
+  color: #000000;
+}
+.hl.std {
+  color: #585858;
+}
+.hl.kwa {
+  color: #295F94;
+  font-weight: bold;
+}
+.hl.kwb {
+  color: #B05A65;
+}
+.hl.kwc {
+  color: #55aa55;
+}
+.hl.kwd {
+  color: #BC5A65;
+  font-weight: bold;
+}
+</style>
+  <title>nimbleEcology: custom NIMBLE distributions for ecologists</title>
+</head>
+<body>
+
+<!--
+Build with knit('nimbleEcology_blog_post.Rhtml').
+Then copy and paste into blog post.
+--> 
+
+<h1>nimbleEcology: custom NIMBLE distributions for ecologists</h1>
+
+Prepared by Ben Goldstein.
+
+<h2 id="what-is-nE">What is nimbleEcology?</h2>
+
+<b>nimbleEcology</b> is an auxilliary nimble package for ecologists.
+
+nimbleEcology contains a set of distributions corresponding to some common ecological models. When the package is loaded, these distributions are registered to NIMBLE and can be used directly in models.
+
+<h2 id="why-nE">Why use nimbleEcology?</h2>
+
+ <ul>
+  <li><b>Easy to use</b>. Using a nimbleEcology distribution is easier than writing out probabilities or hierarchical model descriptions.</li>
+  <li><b>Minimize errors</b>. You don’t have to lose hours looking for the misplaced minus sign; the distributions are checked and tested.</li>
+  <li><b>Integrate over latent states</b>. nimbleEcology implementations integrate or sum likelihoods over latent states. This eliminates the need for sampling these latent variables, which in some cases can provide efficiency gains, and allows ML estimation methods with hierarchical models.</li>
+</ul> 
+
+
+<h2 id="how-nE">How to use</h2>
+
+nimbleEcology can be installed directly from CRAN as follows.
+
+<div class="chunk" id="install"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">install.packages</span><span class="hl std">(</span><span class="hl str">&quot;nimbleEcology&quot;</span><span class="hl std">)</span>
+</pre></div>
+</div></div>
+
+Once nimbleEcology is installed, load it using <code>library</code>. It will also load <code>nimble</code>.
+
+<div class="chunk" id="load"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl std">(nimbleEcology)</span>
+</pre></div>
+</div></div>
+
+Note the message indicating which distribution families have been loaded.
+
+<h2 id="which-dists">Which distributions are available?</h2>
+
+The following distributions are available in nimbleEcology.
+
+<ul>
+  <li> <code> dOcc </code> (occupancy model)
+  <li> <code> dDynOcc </code> (dynamic occupancy model)
+  <li> <code> dHMM </code> (hidden Markov model)
+  <li> <code> dDHMM </code> (dynamic hidden Markov model)
+  <li> <code> dCJS </code> (Cormack-Jolly-Seber or mark-recapture model)
+  <li> <code> dNmixture </code> (N-mixture model)
+  <li> <code> dYourNewDistribution </code> Do you have a custom distribution that would fit the package? Are we missing a distribution you need? Let us know! We actively encourage contributions through GitHub or direct communication.
+</ul>
+
+<h2 id="example-code">Example code</h2>
+
+The following code illustrates a NIMBLE model definition for an occupancy model using nimbleEcology. The model is specified, built, and used to simulate some data according to the occupancy distribution.
+
+<div class="chunk" id="example-model"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl std">(nimbleEcology)</span>
+
+<span class="hl std">occ_code</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">nimbleCode</span><span class="hl std">({</span>
+  <span class="hl std">psi</span> <span class="hl opt">~</span> <span class="hl kwd">dunif</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">)</span>
+  <span class="hl std">p</span> <span class="hl opt">~</span> <span class="hl kwd">dunif</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">1</span><span class="hl std">)</span>
+  <span class="hl kwa">for</span> <span class="hl std">(s</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">nsite) {</span>
+    <span class="hl std">x[s,</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">nvisit]</span> <span class="hl opt">~</span> <span class="hl kwd">dOcc_s</span><span class="hl std">(</span><span class="hl kwc">probOcc</span> <span class="hl std">= psi,</span> <span class="hl kwc">probDetect</span> <span class="hl std">= p,</span>
+                            <span class="hl kwc">len</span> <span class="hl std">= nvisit)</span>
+  <span class="hl std">}</span>
+<span class="hl std">})</span>
+
+<span class="hl std">occ_model</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">nimbleModel</span><span class="hl std">(occ_code,</span>
+               <span class="hl kwc">constants</span> <span class="hl std">=</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">nsite</span> <span class="hl std">=</span> <span class="hl num">10</span><span class="hl std">,</span> <span class="hl kwc">nvisit</span> <span class="hl std">=</span> <span class="hl num">5</span><span class="hl std">),</span>
+               <span class="hl kwc">inits</span> <span class="hl std">=</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">psi</span> <span class="hl std">=</span> <span class="hl num">0.5</span><span class="hl std">,</span> <span class="hl kwc">p</span> <span class="hl std">=</span> <span class="hl num">0.5</span><span class="hl std">))</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## defining model...
+</pre></div>
+<div class="message"><pre class="knitr r">## building model...
+</pre></div>
+<div class="message"><pre class="knitr r">## setting data and initial values...
+</pre></div>
+<div class="message"><pre class="knitr r">## running calculate on model (any error reports that follow may simply reflect missing values in model variables) ... 
+## checking model sizes and dimensions... This model is not fully initialized. This is not an error. To see which variables are not initialized, use model$initializeInfo(). For more information on model initialization, see help(modelInitialization).
+## model building finished.
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">set.seed</span><span class="hl std">(</span><span class="hl num">94</span><span class="hl std">)</span>
+<span class="hl std">occ_model</span><span class="hl opt">$</span><span class="hl kwd">simulate</span><span class="hl std">(</span><span class="hl str">&quot;x&quot;</span><span class="hl std">)</span>
+<span class="hl std">occ_model</span><span class="hl opt">$</span><span class="hl std">x</span>
+</pre></div>
+<div class="output"><pre class="knitr r">##       [,1] [,2] [,3] [,4] [,5]
+##  [1,]    0    0    0    0    0
+##  [2,]    0    0    0    0    0
+##  [3,]    0    0    0    0    0
+##  [4,]    0    0    0    0    0
+##  [5,]    1    1    1    0    1
+##  [6,]    0    0    0    1    0
+##  [7,]    0    0    0    0    0
+##  [8,]    0    0    0    0    1
+##  [9,]    1    1    1    0    0
+## [10,]    0    1    0    0    0
+</pre></div>
+</div></div>
+
+
+<h2 id="learn-more">How to learn more</h2>
+
+Once the package is installed, you can check out the package vignette with <code>vignette(“nimbleEcology”)</code>. 
+
+Documentation is available for each distribution family using the R syntax <code>?distribution</code>, for example
+
+<div class="chunk" id="doc-example"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl opt">?</span><span class="hl std">dHMM</span>
+</pre></div>
+</div></div>
+
+For more detail on marginalization in these distributions, see the paper "One size does not fit all: Customizing MCMC methods for hierarchical models using NIMBLE" <a href="https://doi.org/10.1002/ece3.6053">(Ponisio et al. 2020)</a>.
