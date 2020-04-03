@@ -86,7 +86,7 @@ A brief note on this:
 
 ### Register dZIP with NIMBLE
 
-Now we are ready to tell NIMBLE about our new distribution:
+In earlier versions of NIMBLE we required that custom distributions be registered. This step is no longer necessary. Now, use of a distribution in a model will trigger automatic registration. However, you may still choose to use the `registerDistributions` function first. This will tell NIMBLE about your function.
 
 ```{r}
 registerDistributions(list(
