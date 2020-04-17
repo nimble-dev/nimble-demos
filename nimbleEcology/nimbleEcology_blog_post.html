@@ -82,7 +82,11 @@ Prepared by Ben Goldstein.
 
 nimbleEcology contains a set of distributions corresponding to some common ecological models. When the package is loaded, these distributions are registered to NIMBLE and can be used directly in models.
 
+nimbleEcology contains distributions often used in modeling abundance, occupancy and capture-recapture studies.
+
 <h2 id="why-nE">Why use nimbleEcology?</h2>
+
+Ecological models for abundance, occupancy and capture-recapture often involve many discrete latent states. Writing such models can be error-prone and in some cases can lead to slow MCMC mixing. We've put together a collection of distributions in nimble to make writing these models easier
 
  <ul>
   <li><b>Easy to use</b>. Using a nimbleEcology distribution is easier than writing out probabilities or hierarchical model descriptions.</li>
@@ -102,6 +106,23 @@ nimbleEcology can be installed directly from CRAN as follows.
 Once nimbleEcology is installed, load it using <code>library</code>. It will also load <code>nimble</code>.
 
 <div class="chunk" id="load"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl std">(nimbleEcology)</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## Loading required package: nimble
+</pre></div>
+<div class="message"><pre class="knitr r">## nimble version 0.9.0 is loaded.
+## For more information on NIMBLE and a User Manual,
+## please visit http://R-nimble.org.
+</pre></div>
+<div class="message"><pre class="knitr r">## 
+## Attaching package: 'nimble'
+</pre></div>
+<div class="message"><pre class="knitr r">## The following object is masked from 'package:stats':
+## 
+##     simulate
+</pre></div>
+<div class="message"><pre class="knitr r">## Loading nimbleEcology. 
+## Registering the following user-defined functions: 
+## dOcc, dDynOcc, dCJS, dHMM, dDHMM, dNmixture
 </pre></div>
 </div></div>
 
