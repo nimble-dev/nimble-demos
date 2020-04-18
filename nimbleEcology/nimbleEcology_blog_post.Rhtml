@@ -16,7 +16,7 @@ Prepared by Ben Goldstein.
 
 <h2 id="what-is-nE">What is nimbleEcology?</h2>
 
-<b>nimbleEcology</b> is an auxixliary nimble package for ecologists.
+<b>nimbleEcology</b> is an auxiliary nimble package for ecologists.
 
 nimbleEcology contains a set of distributions corresponding to some common ecological models. When the package is loaded, these distributions are registered to NIMBLE and can be used directly in models.
 
@@ -41,7 +41,7 @@ nimbleEcology can be installed directly from CRAN as follows.
 install.packages("nimbleEcology")
 end.rcode-->
 
-Once nimbleEcology is installed, load it using <code>library</code>. It will also load <code>nimble</code>.
+Once nimbleEcology is installed, load it using <tt>library</tt>. It will also load <tt>nimble</tt>.
 
 <!--begin.rcode load
 library(nimbleEcology)
@@ -54,13 +54,13 @@ Note the message indicating which distribution families have been loaded.
 The following distributions are available in nimbleEcology.
 
 <ul>
-  <li> <code> dOcc </code> (occupancy model)
-  <li> <code> dDynOcc </code> (dynamic occupancy model)
-  <li> <code> dHMM </code> (hidden Markov model)
-  <li> <code> dDHMM </code> (dynamic hidden Markov model)
-  <li> <code> dCJS </code> (Cormack-Jolly-Seber or mark-recapture model)
-  <li> <code> dNmixture </code> (N-mixture model)
-  <li> <code> dYourNewDistribution </code> Do you have a custom distribution that would fit the package? Are we missing a distribution you need? Let us know! We actively encourage contributions through GitHub or direct communication.
+  <li> <tt> dOcc </tt> (occupancy model)
+  <li> <tt> dDynOcc </tt> (dynamic occupancy model)
+  <li> <tt> dHMM </tt> (hidden Markov model)
+  <li> <tt> dDHMM </tt> (dynamic hidden Markov model)
+  <li> <tt> dCJS </tt> (Cormack-Jolly-Seber or mark-recapture model)
+  <li> <tt> dNmixture </tt> (N-mixture model)
+  <li> <tt> dYourNewDistribution </tt> Do you have a custom distribution that would fit the package? Are we missing a distribution you need? Let us know! We actively encourage contributions through GitHub or direct communication.
 </ul>
 
 <h2 id="example-code">Example code</h2>
@@ -91,9 +91,9 @@ end.rcode-->
 
 <h2 id="learn-more">How to learn more</h2>
 
-Once the package is installed, you can check out the package vignette with <code>vignette(“nimbleEcology”)</code>. 
+Once the package is installed, you can check out the package vignette with <tt>vignette(“nimbleEcology”)</tt>. 
 
-Documentation is available for each distribution family using the R syntax <code>?distribution</code>, for example
+Documentation is available for each distribution family using the R syntax <tt>?distribution</tt>, for example
 
 <!--begin.rcode doc-example, eval = F
 ?dHMM

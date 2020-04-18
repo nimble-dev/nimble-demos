@@ -103,13 +103,13 @@ nimbleEcology can be installed directly from CRAN as follows.
 </pre></div>
 </div></div>
 
-Once nimbleEcology is installed, load it using <code>library</code>. It will also load <code>nimble</code>.
+Once nimbleEcology is installed, load it using <tt>library</tt>. It will also load <tt>nimble</tt>.
 
 <div class="chunk" id="load"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl std">(nimbleEcology)</span>
 </pre></div>
 <div class="message"><pre class="knitr r">## Loading required package: nimble
 </pre></div>
-<div class="message"><pre class="knitr r">## nimble version 0.9.0 is loaded.
+<div class="message"><pre class="knitr r">## nimble version 0.10.0 is loaded.
 ## For more information on NIMBLE and a User Manual,
 ## please visit http://R-nimble.org.
 </pre></div>
@@ -122,7 +122,7 @@ Once nimbleEcology is installed, load it using <code>library</code>. It will als
 </pre></div>
 <div class="message"><pre class="knitr r">## Loading nimbleEcology. 
 ## Registering the following user-defined functions: 
-## dOcc, dDynOcc, dCJS, dHMM, dDHMM, dNmixture
+## dOcc, dDynOcc, dCJS, dHMM, dDHMM
 </pre></div>
 </div></div>
 
@@ -133,13 +133,13 @@ Note the message indicating which distribution families have been loaded.
 The following distributions are available in nimbleEcology.
 
 <ul>
-  <li> <code> dOcc </code> (occupancy model)
-  <li> <code> dDynOcc </code> (dynamic occupancy model)
-  <li> <code> dHMM </code> (hidden Markov model)
-  <li> <code> dDHMM </code> (dynamic hidden Markov model)
-  <li> <code> dCJS </code> (Cormack-Jolly-Seber or mark-recapture model)
-  <li> <code> dNmixture </code> (N-mixture model)
-  <li> <code> dYourNewDistribution </code> Do you have a custom distribution that would fit the package? Are we missing a distribution you need? Let us know! We actively encourage contributions through GitHub or direct communication.
+  <li> <tt> dOcc </tt> (occupancy model)
+  <li> <tt> dDynOcc </tt> (dynamic occupancy model)
+  <li> <tt> dHMM </tt> (hidden Markov model)
+  <li> <tt> dDHMM </tt> (dynamic hidden Markov model)
+  <li> <tt> dCJS </tt> (Cormack-Jolly-Seber or mark-recapture model)
+  <li> <tt> dNmixture </tt> (N-mixture model)
+  <li> <tt> dYourNewDistribution </tt> Do you have a custom distribution that would fit the package? Are we missing a distribution you need? Let us know! We actively encourage contributions through GitHub or direct communication.
 </ul>
 
 <h2 id="example-code">Example code</h2>
@@ -192,9 +192,9 @@ The following code illustrates a NIMBLE model definition for an occupancy model 
 
 <h2 id="learn-more">How to learn more</h2>
 
-Once the package is installed, you can check out the package vignette with <code>vignette(“nimbleEcology”)</code>. 
+Once the package is installed, you can check out the package vignette with <tt>vignette(“nimbleEcology”)</tt>. 
 
-Documentation is available for each distribution family using the R syntax <code>?distribution</code>, for example
+Documentation is available for each distribution family using the R syntax <tt>?distribution</tt>, for example
 
 <div class="chunk" id="doc-example"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl opt">?</span><span class="hl std">dHMM</span>
 </pre></div>
