@@ -194,7 +194,7 @@ summary {
 <h2>1PL model</h2>
 <p>The one-parameter logistic model (1PL) assumes the presence of one parameter, <span class="math inline">\(\beta_i\)</span>, for each item <span class="math inline">\(i = 1, \ldots, I\)</span> encoding the <em>difficulty</em> of the item. We choose a non-informative normal prior <span class="math inline">\(\mathcal{N}(0, 100)\)</span> for the difficulty parameters, and a uniform distribution for abilities variance.</p>
 <pre class="r"><code>library(nimble, warn.conflicts = FALSE)</code></pre>
-<pre><code>## nimble version 0.9.0 is loaded.
+<pre><code>## nimble version 0.9.1 is loaded.
 ## For more information on NIMBLE and a User Manual,
 ## please visit http://R-nimble.org.</code></pre>
 <pre class="r"><code>code1PL &lt;- nimbleCode({  
@@ -235,9 +235,15 @@ model1PL &lt;- nimbleModel(code1PL, constants, data, inits)</code></pre>
 ## compilation finished.</code></pre>
 <div id="building-and-running-an-mcmc-to-fit-the-model" class="section level3">
 <h3>Building and running an MCMC to fit the model</h3>
-<pre class="r"><code>conf1PL &lt;- configureMCMC(model1PL, monitors = monitors)
-
-model1PLMCMC &lt;- buildMCMC(conf1PL)
+<pre class="r"><code>conf1PL &lt;- configureMCMC(model1PL, monitors = monitors)</code></pre>
+<pre><code>## ===== Monitors =====
+## thin = 1: beta, eta, sd_eta
+## ===== Samplers =====
+## RW sampler (1006)
+##   - beta[]  (5 elements)
+##   - sd_eta
+##   - eta[]  (1000 elements)</code></pre>
+<pre class="r"><code>model1PLMCMC &lt;- buildMCMC(conf1PL)
 cModel1PLMCMC &lt;- compileNimble(model1PLMCMC, project = model1PL)</code></pre>
 <pre><code>## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compilation details.</code></pre>
 <pre><code>## compilation finished.</code></pre>
@@ -247,7 +253,7 @@ cModel1PLMCMC &lt;- compileNimble(model1PLMCMC, project = model1PL)</code></pre>
 <pre><code>## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|</code></pre>
 <pre><code>##    user  system elapsed 
-##  46.913   0.092  47.011</code></pre>
+##  45.087   0.080  45.170</code></pre>
 </div>
 <div id="checking-the-results" class="section level3">
 <h3>Checking the results</h3>
@@ -338,9 +344,15 @@ model2PL &lt;- nimbleModel(code2PL, constants, data, inits)</code></pre>
 <pre class="r"><code>cModel2PL &lt;- compileNimble(model2PL)</code></pre>
 <pre><code>## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compilation details.</code></pre>
 <pre><code>## compilation finished.</code></pre>
-<pre class="r"><code>conf2PL &lt;- configureMCMC(model2PL, monitors = monitors)
-
-model2PLMCMC &lt;- buildMCMC(conf2PL)
+<pre class="r"><code>conf2PL &lt;- configureMCMC(model2PL, monitors = monitors)</code></pre>
+<pre><code>## ===== Monitors =====
+## thin = 1: beta, lambda, eta
+## ===== Samplers =====
+## RW sampler (1010)
+##   - beta[]  (5 elements)
+##   - lambda[]  (5 elements)
+##   - eta[]  (1000 elements)</code></pre>
+<pre class="r"><code>model2PLMCMC &lt;- buildMCMC(conf2PL)
 cModel2PLMCMC &lt;- compileNimble(model2PLMCMC, project = model2PL)</code></pre>
 <pre><code>## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compilation details.
 ## compilation finished.</code></pre>
@@ -349,7 +361,7 @@ cModel2PLMCMC &lt;- compileNimble(model2PLMCMC, project = model2PL)</code></pre>
 <pre><code>## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|</code></pre>
 <pre><code>##    user  system elapsed 
-##  60.410   0.056  60.470</code></pre>
+##  56.787   0.072  56.860</code></pre>
 </div>
 <div id="checking-the-results-1" class="section level3">
 <h3>Checking the results</h3>

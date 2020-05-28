@@ -188,7 +188,7 @@ summary {
 <h2>Model Creation</h2>
 <pre class="r"><code>## load the NIMBLE library
 library(nimble, warn.conflicts = FALSE)</code></pre>
-<pre><code>## nimble version 0.9.0 is loaded.
+<pre><code>## nimble version 0.9.1 is loaded.
 ## For more information on NIMBLE and a User Manual,
 ## please visit http://R-nimble.org.</code></pre>
 <pre class="r"><code>## define the model
@@ -228,6 +228,14 @@ glmmModel &lt;- nimbleModel(code = code, constants = constants, data = data,
 <h2>Default MCMC Algorithm</h2>
 <p>Now we are ready to create the default MCMC algorithm from the model object.</p>
 <pre class="r"><code>glmmMCMC &lt;- buildMCMC(glmmModel)</code></pre>
+<pre><code>## ===== Monitors =====
+## thin = 1: beta0, beta1, sigma_RE
+## ===== Samplers =====
+## RW sampler (13)
+##   - beta0
+##   - beta1
+##   - sigma_RE
+##   - beta2[]  (10 elements)</code></pre>
 </div>
 <div id="compile-the-model-and-mcmc-algorithm" class="section level2">
 <h2>Compile the model and MCMC algorithm</h2>
@@ -257,8 +265,11 @@ glmmModel &lt;- nimbleModel(code = code, constants = constants, data = data,
 ## checking model sizes and dimensions... This model is not fully initialized. This is not an error. To see which variables are not initialized, use model$initializeInfo(). For more information on model initialization, see help(modelInitialization).
 ## model building finished.</code></pre>
 <p>Then we make an empty MCMC configuration and add some samplers of our choice to it:</p>
-<pre class="r"><code>spec &lt;- configureMCMC(glmmModel, nodes = NULL)
-spec$addSampler(type = 'slice', target = 'beta0')
+<pre class="r"><code>spec &lt;- configureMCMC(glmmModel, nodes = NULL)</code></pre>
+<pre><code>## ===== Monitors =====
+## thin = 1: beta0, beta1, sigma_RE
+## ===== Samplers =====</code></pre>
+<pre class="r"><code>spec$addSampler(type = 'slice', target = 'beta0')
 spec$addSampler(type = 'slice', target = 'beta1')
 spec$addSampler(type = 'RW', target = 'sigma_RE')
 spec$addSampler(type = 'RW_block', target = 'beta2[1:10]')</code></pre>

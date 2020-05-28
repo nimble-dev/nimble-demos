@@ -195,7 +195,7 @@ y &lt;- rnorm(n, X %*% true_betas, sigma)</code></pre>
 <h2>Manual specification</h2>
 <p>With a small number of predictors (also know as covariates, independent variables, or explanatory variables), one can simply ‘manually’ add each covariate. Here we’ll just use the first two predictors.</p>
 <pre class="r"><code>library(nimble, warn.conflicts = FALSE)</code></pre>
-<pre><code>## nimble version 0.9.0 is loaded.
+<pre><code>## nimble version 0.9.1 is loaded.
 ## For more information on NIMBLE and a User Manual,
 ## please visit http://R-nimble.org.</code></pre>
 <pre class="r"><code>code &lt;- nimbleCode({
@@ -222,8 +222,17 @@ model &lt;- nimbleModel(code, constants = constants, data = data, inits = inits)
 <pre><code>## running calculate on model (any error reports that follow may simply reflect missing values in model variables) ... 
 ## checking model sizes and dimensions...
 ## model building finished.</code></pre>
-<pre class="r"><code>mcmcConf &lt;- configureMCMC(model) # assign default samplers to nodes
-mcmcConf$printSamplers() # look at default sampler assignments</code></pre>
+<pre class="r"><code>mcmcConf &lt;- configureMCMC(model) # assign default samplers to nodes</code></pre>
+<pre><code>## ===== Monitors =====
+## thin = 1: beta0, beta1, beta2, sigma
+## ===== Samplers =====
+## RW sampler (1)
+##   - sigma
+## conjugate sampler (3)
+##   - beta0
+##   - beta1
+##   - beta2</code></pre>
+<pre class="r"><code>mcmcConf$printSamplers() # look at default sampler assignments</code></pre>
 <pre><code>## [1] conjugate_dnorm_dnorm sampler: beta0
 ## [2] conjugate_dnorm_dnorm sampler: beta1
 ## [3] conjugate_dnorm_dnorm sampler: beta2
@@ -256,8 +265,16 @@ model &lt;- nimbleModel(code, constants = constants, data = data, inits = inits)
 <pre><code>## running calculate on model (any error reports that follow may simply reflect missing values in model variables) ... 
 ## checking model sizes and dimensions...
 ## model building finished.</code></pre>
-<pre class="r"><code>mcmcConf &lt;- configureMCMC(model)
-mcmcConf$printSamplers() ## Look at sampler assignments in this case.</code></pre>
+<pre class="r"><code>mcmcConf &lt;- configureMCMC(model)</code></pre>
+<pre><code>## ===== Monitors =====
+## thin = 1: beta0, beta, sigma
+## ===== Samplers =====
+## RW sampler (1)
+##   - sigma
+## conjugate sampler (16)
+##   - beta0
+##   - beta[]  (15 elements)</code></pre>
+<pre class="r"><code>mcmcConf$printSamplers() ## Look at sampler assignments in this case.</code></pre>
 <pre><code>## [1]  conjugate_dnorm_dnorm sampler: beta0
 ## [2]  conjugate_dnorm_dnorm sampler: beta[1]
 ## [3]  conjugate_dnorm_dnorm sampler: beta[2]
@@ -303,8 +320,17 @@ model &lt;- nimbleModel(code, constants = constants, data = data, inits = inits)
 <pre><code>## running calculate on model (any error reports that follow may simply reflect missing values in model variables) ... 
 ## checking model sizes and dimensions...
 ## model building finished.</code></pre>
-<pre class="r"><code>mcmcConf &lt;- configureMCMC(model)
-mcmcConf$printSamplers()</code></pre>
+<pre class="r"><code>mcmcConf &lt;- configureMCMC(model)</code></pre>
+<pre><code>## ===== Monitors =====
+## thin = 1: beta0, sigma, beta
+## ===== Samplers =====
+## RW_block sampler (1)
+##   - beta[1:15] 
+## RW sampler (1)
+##   - sigma
+## conjugate sampler (1)
+##   - beta0</code></pre>
+<pre class="r"><code>mcmcConf$printSamplers()</code></pre>
 <pre><code>## [1] conjugate_dnorm_dnorm sampler: beta0
 ## [2] RW sampler: sigma
 ## [3] RW_block sampler: beta[1:15]</code></pre>
@@ -331,8 +357,17 @@ model &lt;- nimbleModel(code, constants = constants, data = data, inits = inits)
 <pre><code>## running calculate on model (any error reports that follow may simply reflect missing values in model variables) ... 
 ## checking model sizes and dimensions...
 ## model building finished.</code></pre>
-<pre class="r"><code>mcmcConf &lt;- configureMCMC(model)
-mcmcConf$printSamplers()</code></pre>
+<pre class="r"><code>mcmcConf &lt;- configureMCMC(model)</code></pre>
+<pre><code>## ===== Monitors =====
+## thin = 1: beta0, sigma, beta
+## ===== Samplers =====
+## RW_block sampler (1)
+##   - beta[1:15] 
+## RW sampler (1)
+##   - sigma
+## conjugate sampler (1)
+##   - beta0</code></pre>
+<pre class="r"><code>mcmcConf$printSamplers()</code></pre>
 <pre><code>## [1] conjugate_dnorm_dnorm sampler: beta0
 ## [2] RW sampler: sigma
 ## [3] RW_block sampler: beta[1:15]</code></pre>
@@ -368,7 +403,7 @@ data &lt;- list(y = y)
 inits &lt;- list(beta0 = mean(y), beta = rep(0, p), sigma = 0.5)
 model &lt;- nimbleModel(code, constants = constants, data = data, inits = inits)</code></pre>
 <pre><code>## defining model...</code></pre>
-<pre><code>## Registering the following user-provided distributions: dnorm_vec .
+<pre><code>## Registering the following user-provided distributions: dnorm_vec
 ## NIMBLE has registered dnorm_vec as a distribution based on its use in BUGS code. Note that if you make changes to the nimbleFunctions for the distribution, you must call 'deregisterDistributions' before using the distribution in BUGS code for those changes to take effect.</code></pre>
 <pre><code>## Adding x, zeros, omega as data for building model.</code></pre>
 <pre><code>## building model...</code></pre>
@@ -376,8 +411,16 @@ model &lt;- nimbleModel(code, constants = constants, data = data, inits = inits)
 <pre><code>## running calculate on model (any error reports that follow may simply reflect missing values in model variables) ... 
 ## checking model sizes and dimensions...
 ## model building finished.</code></pre>
-<pre class="r"><code>mcmcConf &lt;- configureMCMC(model)
-mcmcConf$printSamplers() ## Look at sampler assignments</code></pre>
+<pre class="r"><code>mcmcConf &lt;- configureMCMC(model)</code></pre>
+<pre><code>## ===== Monitors =====
+## thin = 1: beta0, sigma, beta
+## ===== Samplers =====
+## RW_block sampler (1)
+##   - beta[1:15] 
+## RW sampler (2)
+##   - beta0
+##   - sigma</code></pre>
+<pre class="r"><code>mcmcConf$printSamplers() ## Look at sampler assignments</code></pre>
 <pre><code>## [1] RW sampler: beta0
 ## [2] RW sampler: sigma
 ## [3] RW_block sampler: beta[1:15]</code></pre>

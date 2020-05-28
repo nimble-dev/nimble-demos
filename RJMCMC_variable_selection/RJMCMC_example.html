@@ -187,9 +187,9 @@ summary {
 <p>More information can be found in the user manual and via <code>help(configureRJ)</code>.</p>
 <div id="linear-regression-example" class="section level2">
 <h2>Linear regression example</h2>
-<p>For simplicity we consider a linear regression example with 15 explanatory variables, of which five have real effects. The other 10 have null effects, i.e., the corresponding coefficient is equal to zero.</p>
+<p>For simplicity we consider a linear regression example with 15 explanatory variables, of which five have real effects. The other 10 have null effects, i.e. the corresponding coefficient is equal to zero.</p>
 <pre class="r"><code>library(nimble, warn.conflicts = FALSE)</code></pre>
-<pre><code>## nimble version 0.9.0 is loaded.
+<pre><code>## nimble version 0.9.1 is loaded.
 ## For more information on NIMBLE and a User Manual,
 ## please visit http://R-nimble.org.</code></pre>
 <pre class="r"><code>lmCode &lt;- nimbleCode({
@@ -284,8 +284,18 @@ summary(lm(lmModel$y ~ lmModel$X))
 <div id="configuring-rjmcmc" class="section level2">
 <h2>Configuring RJMCMC</h2>
 <p>The RJCMCM sampler can be added to the MCMC configuration by calling the function <code>configureRJ()</code>. In this example, <code>z</code> are indicator variables associated with the coefficients <code>beta</code>. We pass them to <code>configureRJ</code> using the arguments <code>indicatorNodes</code> and <code>targetNodes</code>. The <code>control</code> argument allows us to specify the mean and the scale of the normal proposal distribution.</p>
-<pre class="r"><code>lmConf &lt;- configureMCMC(lmModel)
-lmConf$addMonitors('z')</code></pre>
+<pre class="r"><code>lmConf &lt;- configureMCMC(lmModel)</code></pre>
+<pre><code>## ===== Monitors =====
+## thin = 1: sigma, psi, beta
+## ===== Samplers =====
+## RW sampler (2)
+##   - sigma
+##   - psi
+## conjugate sampler (15)
+##   - beta[]  (15 elements)
+## binary sampler (15)
+##   - z[]  (15 elements)</code></pre>
+<pre class="r"><code>lmConf$addMonitors('z')</code></pre>
 <pre><code>## thin = 1: sigma, psi, beta, z</code></pre>
 <pre class="r"><code>configureRJ(lmConf,
             targetNodes = 'beta',
@@ -314,7 +324,7 @@ system.time(samplesRJ &lt;- runMCMC(CMCMCRJ, niter = 100000, nburnin = 10000, th
 <pre><code>## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|</code></pre>
 <pre><code>##    user  system elapsed 
-##  27.410   0.000  27.411</code></pre>
+##  26.275   0.000  26.276</code></pre>
 </div>
 <div id="look-at-the-results" class="section level2">
 <h2>Look at the results</h2>

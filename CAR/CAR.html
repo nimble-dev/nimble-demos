@@ -186,7 +186,7 @@ summary {
 <p>Here we’ll use an intrinsic CAR (ICAR) model for disease mapping. We’ll illustrate with data on hospital admissions due to respiratory disease in 2010 from the 134 Intermediate Geographies (IG) north of the river Clyde in the Greater Glasgow and Clyde health board. The data are available in the <code>CARBayesdata</code> package and can be transformed into the neighborhood information needed by NIMBLE using functions from the <code>spdep</code> package. In particular, we need to provide vectors indicating which regions are neighbors of which other regions (<code>adj</code>), the weights for each pair of neighbors (<code>weights</code>), and the number of neighbors for each region (<code>num</code>).</p>
 <p>As usual, the mean of the Poisson counts includes an offset for the expected count. We’ll also include a covariate, the percentage of people defined to be income deprived in each spatial region.</p>
 <pre class="r"><code>library(nimble, warn.conflicts = FALSE)</code></pre>
-<pre><code>## nimble version 0.9.0 is loaded.
+<pre><code>## nimble version 0.9.1 is loaded.
 ## For more information on NIMBLE and a User Manual,
 ## please visit http://R-nimble.org.</code></pre>
 <pre class="r"><code>library(CARBayesdata, quietly = TRUE)
@@ -300,8 +300,16 @@ model &lt;- nimbleModel(code, constants = constants, data = data, inits = inits)
 <pre class="r"><code>cModel &lt;- compileNimble(model)</code></pre>
 <pre><code>## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compilation details.
 ## compilation finished.</code></pre>
-<pre class="r"><code>conf &lt;- configureMCMC(model, monitors = c('beta', 'sigma', 's'))
-conf$printSamplers()</code></pre>
+<pre class="r"><code>conf &lt;- configureMCMC(model, monitors = c('beta', 'sigma', 's'))</code></pre>
+<pre><code>## ===== Monitors =====
+## thin = 1: beta, sigma, s
+## ===== Samplers =====
+## RW sampler (2)
+##   - beta
+##   - sigma
+## CAR_normal sampler (1)
+##   - s[1:134]</code></pre>
+<pre class="r"><code>conf$printSamplers()</code></pre>
 <pre><code>## [1] RW sampler: beta
 ## [2] RW sampler: sigma
 ## [3] CAR_normal sampler: s[1:134]</code></pre>

@@ -183,7 +183,7 @@ summary {
 
 
 <pre class="r"><code>library(nimble, warn.conflicts = FALSE)</code></pre>
-<pre><code>## nimble version 0.9.0 is loaded.
+<pre><code>## nimble version 0.9.1 is loaded.
 ## For more information on NIMBLE and a User Manual,
 ## please visit http://R-nimble.org.</code></pre>
 <pre class="r"><code>stochvol_installed &lt;- require(stochvol, quietly = TRUE)</code></pre>
@@ -253,7 +253,7 @@ y &lt;- logret(exrates$USD[exrates$date &gt; '2010-01-01'], demean = TRUE)</code
                              inits = list(mu = -10, phiStar = .99,
                                           logsigma2 = log(.004)))</code></pre>
 <pre><code>## defining model...</code></pre>
-<pre><code>## Registering the following user-provided distributions: dgammalog .
+<pre><code>## Registering the following user-provided distributions: dgammalog
 ## NIMBLE has registered dgammalog as a distribution based on its use in BUGS code. Note that if you make changes to the nimbleFunctions for the distribution, you must call 'deregisterDistributions' before using the distribution in BUGS code for those changes to take effect.</code></pre>
 <pre><code>## building model...</code></pre>
 <pre><code>## setting data and initial values...</code></pre>
