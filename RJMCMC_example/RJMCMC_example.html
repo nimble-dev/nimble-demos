@@ -189,7 +189,7 @@ summary {
 <h2>Linear regression example</h2>
 <p>For simplicity we consider a linear regression example with 15 explanatory variables, of which five have real effects. The other 10 have null effects, i.e. the corresponding coefficient is equal to zero.</p>
 <pre class="r"><code>library(nimble, warn.conflicts = FALSE)</code></pre>
-<pre><code>## nimble version 0.9.1 is loaded.
+<pre><code>## nimble version 0.10.0 is loaded.
 ## For more information on NIMBLE and a User Manual,
 ## please visit http://R-nimble.org.</code></pre>
 <pre class="r"><code>lmCode &lt;- nimbleCode({
@@ -319,12 +319,11 @@ cLmModel &lt;- compileNimble(lmModel)</code></pre>
 ## compilation finished.</code></pre>
 <pre class="r"><code>set.seed(100)
 system.time(samplesRJ &lt;- runMCMC(CMCMCRJ, niter = 100000, nburnin = 10000, thin = 10))</code></pre>
-<pre><code>## runMCMC's handling of nburnin changed in nimble version 0.6-11. Previously, nburnin samples were discarded *post-thinning*.  Now nburnin samples are discarded *pre-thinning*.  The number of samples returned will be floor((niter-nburnin)/thin).</code></pre>
 <pre><code>## running chain 1...</code></pre>
 <pre><code>## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|</code></pre>
 <pre><code>##    user  system elapsed 
-##  26.275   0.000  26.276</code></pre>
+##  26.100   0.008  26.109</code></pre>
 </div>
 <div id="look-at-the-results" class="section level2">
 <h2>Look at the results</h2>

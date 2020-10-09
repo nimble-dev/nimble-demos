@@ -185,7 +185,7 @@ summary {
 <p>The Monte Carlo expectation maximization (MCEM) algorithm is a method for finding maximum likelihoods in models with latent or missing information. MCEM uses Monte Carlo integration methods to simplify and evaluate potentially high-dimensional integrals.</p>
 <p>Here we use the pump model example from BUGS to illustrate how to implement the MCEM algorithm to find maximum likelihood estimates of parameters for statistical models with latent states.</p>
 <pre class="r"><code>library(nimble, warn.conflicts = FALSE)</code></pre>
-<pre><code>## nimble version 0.9.1 is loaded.
+<pre><code>## nimble version 0.10.0 is loaded.
 ## For more information on NIMBLE and a User Manual,
 ## please visit http://R-nimble.org.</code></pre>
 <div id="nimble-code-for-the-pump-example" class="section level4">
@@ -247,7 +247,7 @@ pumpMCEM &lt;- buildMCEM(model = pump, latentNodes = &quot;theta[1:10]&quot;, bo
 ## Current number of MCMC iterations: 1000.
 ## Parameter Estimates: 
 ##     alpha      beta 
-## 0.6613417 0.8995974 
+## 0.6624831 0.8861545 
 ## Convergence Criterion: 1.001.
 ## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|
@@ -255,42 +255,24 @@ pumpMCEM &lt;- buildMCEM(model = pump, latentNodes = &quot;theta[1:10]&quot;, bo
 ## Current number of MCMC iterations: 1000.
 ## Parameter Estimates: 
 ##     alpha      beta 
-## 0.7902948 1.1619091 
-## Convergence Criterion: 0.07919921.
+## 0.7859298 1.1577438 
+## Convergence Criterion: 0.07734699.
 ## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|
 ## Iteration Number: 3.
 ## Current number of MCMC iterations: 1000.
 ## Parameter Estimates: 
 ##     alpha      beta 
-## 0.8051429 1.2144972 
-## Convergence Criterion: 0.005446973.
+## 0.8122431 1.2179138 
+## Convergence Criterion: 0.006231585.
 ## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|
 ## Iteration Number: 4.
 ## Current number of MCMC iterations: 1000.
 ## Parameter Estimates: 
-##     alpha      beta 
-## 0.8262563 1.2665262 
-## Convergence Criterion: 0.004463941.
-## |-------------|-------------|-------------|-------------|
-## |-------------------------------------------------------|
-## Monte Carlo error too big: increasing MCMC sample size.
-## |-------------|-------------|-------------|-------------|
-## |-------------------------------------------------------|
-## Monte Carlo error too big: increasing MCMC sample size.
-## |-------------|-------------|-------------|-------------|
-## |-------------------------------------------------------|
-## Monte Carlo error too big: increasing MCMC sample size.
-## |-------------|-------------|-------------|-------------|
-## |-------------------------------------------------------|
-## Monte Carlo error too big: increasing MCMC sample size.
-## |-------------|-------------|-------------|-------------|
-## |-------------------------------------------------------|
-## Monte Carlo error too big: increasing MCMC sample size.
-## |-------------|-------------|-------------|-------------|
-## |-------------------------------------------------------|
-## Monte Carlo error too big: increasing MCMC sample size.
+##    alpha     beta 
+## 0.821993 1.273168 
+## Convergence Criterion: 0.005576734.
 ## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|
 ## Monte Carlo error too big: increasing MCMC sample size.
@@ -300,14 +282,14 @@ pumpMCEM &lt;- buildMCEM(model = pump, latentNodes = &quot;theta[1:10]&quot;, bo
 ## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|
 ## Iteration Number: 5.
-## Current number of MCMC iterations: 13319.
+## Current number of MCMC iterations: 1625.
 ## Parameter Estimates: 
 ##     alpha      beta 
-## 0.8238984 1.2625372 
-## Convergence Criterion: 8.287816e-05.</code></pre>
+## 0.8271324 1.2738229 
+## Convergence Criterion: 0.0005737241.</code></pre>
 <pre class="r"><code>pumpMLE</code></pre>
 <pre><code>##     alpha      beta 
-## 0.8238984 1.2625372</code></pre>
+## 0.8271324 1.2738229</code></pre>
 </div>
 
 

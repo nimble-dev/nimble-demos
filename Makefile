@@ -15,7 +15,7 @@ all: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
 9: MLE/MLE.html
 10: Partial_Pooling/PartialPooling.html
 11: pumpMCEM/pumpMCEM.html
-12: RJMCMC_variable_selection/RJMCMC_example.html
+12: RJMCMC_example/RJMCMC_example.html
 13: simulation_from_model/simulation_from_model.html
 14: stochastic_volatility/stochastic_volatility.html
 15: zero_inflated_poisson/zero_inflated_poisson.html
