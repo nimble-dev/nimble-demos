@@ -1,0 +1,183 @@
+---
+title: "Bayesian Nonparametrics in NIMBLE: logitudinal study"
+author: "Claudia Wehrhahn, Chris Paciorek, and the NIMBLE Development Team"
+bibliography: refs.bib
+output:
+  html_document:
+    code_folding: show
+  pdf_document: default
+link-citations: yes
+subtitle: January 2020
+biblio-style: apalike
+---
+
+```{r setup, include=FALSE} 
+library(methods) ## needed only when building documents outside of R
+library(nimble)
+library(fields)  ## to draw heat maps
+```
+
+NIMBLE is a hierarchical modeling package that uses nearly the same language for model specification as the popular MCMC packages WinBUGS, OpenBUGS and JAGS, while making the modeling language extensible -- you can add distributions and functions -- and also allowing customization of the algorithms used to estimate the parameters of the model.
+
+NIMBLE supports Markov chain Monte Carlo (MCMC) inference of Bayesian nonparametric (BNP) mixture models. Specifically, starting with version 0.6-11, NIMBLE provides functionality for fitting models involving Dirichlet process priors using either the Chinese Restaurant Process (CRP), or a truncated stick-breaking (SB) representation of the Dirichlet process prior. Starting with version XXX released in XXX(year), functionality related to the use of the CRP prior has been extended to handle general multivariate models.  
+
+The most popular multivariate model is the multivariate normal distribution. In general, multivariate extensions of well known univariate distribution, such as Bernoulli, Poisson, Gamma, etc,  are not straigthforward. For example, for multivariate count data, a multivariate Poisson distribution might appear to be a good fit, yet its definition is not trivial, inference is cumbersome, and the model lacks flexibility to deal with overdispersion. See [@inouye_17] for a review on multivariate distributions for count data based on the Poisson distribution.
+
+In this blog, we illustrate NIMBLE's BNP capabilities for modeling multivariate discrete data. In previous posts, we showed how to use nonparametric mixture models with different kernels for density estimation and how build generalized linear mixed effects models that avoid the assumption of normally-distributed random effects. In this post, we show how to model multivariate count data from a logitudinal study under a nonparametric framework. The modeling approach is simple and introduces correlation in the measurements within subjects.
+
+For more detailed information on NIMBLE and Bayesian nonparametrics in NIMBLE, see the  [NIMBLE User Manual](https://r-nimble.org/documentation).
+
+## BNP Analysis of Epileptic Seizure Count Data
+
+We illustrate the use of nonparametric multivariate mixture models for modeling counts of epileptic seizures from a longitudinal study of progabide drug as an adjuvant antiepileptic chemotherapy. The data, originally reported in [@leppik_85],  arises from a clinical trial of 59 epileptics.  At four clinic visits, subjects reported the number of seizures ocurring over succesive two-weeks periods. Additional data includes the baseline seizure count and the age of the patient. Patients were randomized to receive either the progabide drug or a placebo, in adition to standard chemotherpy.
+
+```{r, longitudinalStudy-bnp}
+load("/Users/cwehrhah/Desktop/AbelLegisladores/modeloPoisson/seizures.rda")
+# load('https://rawgit.com/nimble-dev/nimble-demos/master/intro_bnp/seizures.rda')
+names(seizures)  
+attach(seizures)
+head(seizures)
+```
+
+### Model formulation
+
+We model the joint distribution of the baseline number of seizures and each two-week period counts as a Dirichlet Process mixture of productos of Poisson distributions model. Let $\boldsymbol{y}_i=(y_{i, 1}, ..., y_{i,5})$, where $y_{i,j}$ denotes the seizures count of patient $i$ measured at visit $j$, for $i=1, ..., 59$, and $j=1, ..., 5$. The model takes the form
+
+$$
+\boldsymbol{y}_i \mid \boldsymbol{\lambda}_{i} \sim \prod_{j=1}^5Poisson(\lambda_{i, j}), 
+\quad\quad
+\boldsymbol{\lambda}_{i} \mid G \sim G,
+\quad\quad
+G \sim DP(\alpha, H),
+$$
+where $\boldsymbol{\lambda}_{i}=(\lambda_{i,1}, ...\lambda_{i,5})$ and $H$ corresponds to a product of Gamma distributions. 
+
+This specification introduces dependency within subjects as well as clustering among subjects with the number of clusters being inferred from the data. In order to specify the model in NIMBLE, first we translate the information in $seize$ into a matrix and then we write the nimble code. In the data set, the count at visit $0$ represents the baseline seizures count and at visits $1$ through $4$ describe seizures counts at the four consecutive hospital visits. 
+
+NIMBLE's specification of this model is given by
+```{r, longitudinalStudy-bnp-CRP}
+n <- 59
+J <- 5
+data <- list(y = matrix(seize, ncol=J, nrow=n, byrow=TRUE))
+constants <- list(n = n, J = J)
+
+code = nimbleCode({
+  for(i in 1:n) {
+    for(j in 1:J) {
+      y[i, j] ~ dpois(lambda[xi[i], j]) 
+    }
+  }
+  for(i in 1:n) {
+    for(j in 1:J) {
+      lambda[i, j] ~ dgamma(shape = 1, rate = 0.1)
+    }
+  }
+  xi[1:n] ~ dCRP(conc = alpha, size = n)
+  alpha ~ dgamma(shape = 1, rate = 1)
+})
+
+```
+
+### Running the MCMC
+
+The following code sets up the data and constants, initializes the parameters, defines the model object, and builds and runs the MCMC algorithm. Because the specification is in terms of a Chinese restaurant process, the default sampler selected by NIMBLE is a collapsed Gibbs sampler. More specifically, because the baseline distribution $H$ is conjugate to the product of Poisson kernels, Algorithm 2 from [@neal_2000] is used.
+```{r, longitudinalStudy-bnp-mcmc}
+set.seed(1)
+inits <- list(xi = 1:n, alpha = 1,
+             lambda = matrix(rgamma(J*n, shape = 1, rate = 0.1), ncol = J, nrow = n))
+model <- nimbleModel(code, data=data, inits = inits, constants = constants, dimensions = list(lambda = c(n, J)))
+cmodel <- compileNimble(model)
+conf <- configureMCMC(model, monitors = c('xi','lambda', 'alpha'), print = TRUE)
+mcmc <- buildMCMC(conf)
+cmcmc <- compileNimble(mcmc, project = model)
+samples <- runMCMC(cmcmc,  niter=55000, nburnin = 5000, thin=10)
+
+```
+
+We can extract posterior samples for some parameters of interest. The following are trace plots of the posterior samples for the concentration parameter, $\alpha$, and the number of clusters. 
+```{r, longitudinalStudy-bnp-output}
+xiSam <- samples[, grep('xi', colnames(samples))] 
+nGroups <- apply(xiSam, 1, function(x)  length(unique(x)))
+concSam <- samples[, grep('alpha', colnames(samples))] 
+
+par(mfrow=c(1, 2))
+ts.plot(concSam, xlab = "Iteration", ylab = expression(alpha), main = expression(paste('Traceplot for ', alpha)))
+ts.plot(nGroups,  xlab = "Iteration", ylab = "Number of components", main = "Number of clusters")
+```
+
+We can compute the posterior predictive distributions for a new observation $\tilde{\boldsymbol{y}}$, $p(\tilde{\boldsymbol{y}}\mid \boldsymbol{y}_1, ..., \boldsymbol{y}_n)$, which in turn allows us to obtain marginals, bivariate, conditionals, or any other density estimate of interest. As an illustration, we compute the bivariate posterior predictive distribution for the number of seizures at baseline and at the 4th hospital visit. To this aim, first we compute posterior samples of the random measure $G$, then we compute the posterior predictive marginal distributions of the seizures count at baseline and at the 4th visit, and finally compute the bivariate as the outer product of the marginals.  
+
+```{r, longitudinalStudy-bnp-bivariate}
+# samples from the random measure
+samplesG <- getSamplesDPmeasure(cmcmc) 
+
+ygrid <- 0:300
+ngrid <- length(ygrid)
+niter <- length(samplesG)
+marginals <- list() # t=0 and t=4
+
+# marginals of seizure counts at baseline and 4th visit
+ii <- 1
+for(t in c(1,5)) {
+  marginals[[ii]] <- matrix(0, ncol = ngrid, nrow = niter)  
+  for(iter in 1:niter) {
+    w <- samplesG[[iter]][, 1]
+    lam <- samplesG[[iter]][, 1+t]
+    marginals[[ii]][iter, ] <- sapply(ygrid, function(x) sum(w*dpois(x, lam)))
+  }
+  ii <- ii + 1
+}
+
+# bivariate of seizure counts at baseline and 4th visit
+bivariate <- matrix(0, ncol = ngrid, nrow = ngrid)
+for(iter in  1:niter) {
+  bivariate <- bivariate + c(marginals[[1]][iter, ]) %*% t(c(marginals[[2]][iter, ]))
+}
+bivariate <- bivariate / niter
+```
+
+The posterior predictive bivariate distribution can be plotted in a heatmap as follows
+```{r, longitudinalStudy-bnp-bivariate-heatmap}
+collist = colorRampPalette(c('white', 'grey', 'black'))
+image.plot(ygrid[1:100], ygrid[1:100], bivariate[1:100, 1:100] , col = collist(6),
+           xlab = 'Baseline', ylab = '4th visit',  axes = TRUE)
+```
+
+In order to describe the posterior clustering structure of the individuals in the study we report a heat map of the posterior probability of two subjects belonging to the same cluster. To do this, 
+first we compute the posterior pairwise clustering matrix that describes the probability of two individuals belonging to the same cluster, then we reorder the observations and finaly plot the associated heatmap.
+
+```{r, longitudinalStudy-bnp-pairwise}
+pair.matrix <- matrix(0, nrow = n, ncol = n)
+for(iter in 1:niter) { 
+  for (i in 1:(n-1)) { 
+    for(j in (i+1):n) {
+      if(xiSam[iter, i] == xiSam[iter, j]) {
+        pair.matrix[i, j] = pair.matrix[i, j] + 1
+      }
+    }
+  }
+}
+pair.matrix <- pair.matrix + t(pair.matrix) # to complete lower diagonal
+pair.matrix <- pair.matrix / niter
+
+newOrder <- c(1, 35, 13, 16, 32, 33,  2, 29, 39, 26, 28, 52, 17, 15, 23,  8, 31,
+              38,  9, 46, 45, 11, 49, 44, 50, 41, 54, 21,  3, 40, 47, 48, 12,
+              6, 14,  7, 18, 22, 30, 55, 19, 34, 56, 57,  4,  5, 58, 10, 43, 25,
+              59, 20, 27, 24, 36, 37, 42, 51, 53)
+
+reorder.pair.matrix  = pair.matrix[newOrder, newOrder]
+image.plot(1:n, 1:n, reorder.pair.matrix , col = collist(6),
+           xlab = 'Patient', ylab = 'Patient',  axes = FALSE)
+axis(1, at = 1:n, labels = FALSE, tck = -.02)
+axis(2, at = 1:n, labels = FALSE, tck = -.02)
+axis(3, at = 1:n, tck = 0, labels = FALSE)
+axis(4, at = 1:n, tck = 0, labels = FALSE)
+```
+
+# More information and future development
+
+Please see our [User Manual](https://r-nimble.org/html_manual/cha-welcome-nimble.html)
+
+We're in the midst of improvements to the existing BNP functionality as well as adding additional Bayesian nonparametric models, such as hierarchical Dirichlet processes and Pitman-Yor processes, so please add yourself to our [announcement](https://groups.google.com/forum/#!forum/nimble-announce) or [user support/discussion](https://groups.google.com/forum/#!forum/nimble-users) Google groups. 
+
+
