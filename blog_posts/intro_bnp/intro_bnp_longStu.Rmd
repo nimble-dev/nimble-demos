@@ -32,8 +32,7 @@ For more detailed information on NIMBLE and Bayesian nonparametrics in NIMBLE, s
 We illustrate the use of nonparametric multivariate mixture models for modeling counts of epileptic seizures from a longitudinal study of progabide drug as an adjuvant antiepileptic chemotherapy. The data, originally reported in [@leppik_85],  arises from a clinical trial of 59 epileptics.  At four clinic visits, subjects reported the number of seizures ocurring over succesive two-weeks periods. Additional data includes the baseline seizure count and the age of the patient. Patients were randomized to receive either the progabide drug or a placebo, in adition to standard chemotherpy.
 
 ```{r, longitudinalStudy-bnp}
-load("/Users/cwehrhah/Desktop/AbelLegisladores/modeloPoisson/seizures.rda")
-# load('https://rawgit.com/nimble-dev/nimble-demos/master/intro_bnp/seizures.rda')
+load('https://rawgit.com/nimble-dev/nimble-demos/master/intro_bnp/seizures.rda')
 names(seizures)  
 attach(seizures)
 head(seizures)
