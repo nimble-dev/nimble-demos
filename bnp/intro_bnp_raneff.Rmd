@@ -1,6 +1,8 @@
 <h1> Bayesian nonparametrics in NIMBLE: Nonparametric random effects </h1>
 
-<p> NIMBLE provides functionality for fitting models involving Dirichlet process priors using either the Chinese Restaurant Process (CRP) or a truncated stick-breaking (SB) representation of the Dirichlet process prior. Here we will take a parametric generalized linear mixed model and show how to switch to a nonparametric representation of the random effects that avoids the assumption of normally-distributed random effects.</p>
+<p> NIMBLE provides functionality for fitting models involving Dirichlet process priors using either the Chinese Restaurant Process (CRP) or a truncated stick-breaking (SB) representation of the Dirichlet process prior.
+
+Here we will take a parametric generalized linear mixed model and show how to switch to a nonparametric representation of the random effects that avoids the assumption of normally-distributed random effects.</p>
 
 <h2> Parametric meta analysis of Avandia myocardial infarctions (MIs)</h2>
 
