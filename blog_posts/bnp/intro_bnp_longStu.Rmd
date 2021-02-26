@@ -104,28 +104,47 @@ ts.plot(concSam, xlab = "Iteration", ylab = expression(alpha), main = expression
 ts.plot(nGroups,  xlab = "Iteration", ylab = "Number of components", main = "Number of clusters")
 ```
 
-We can compute the posterior predictive distributions for a new observation $\tilde{\boldsymbol{y}}$, $p(\tilde{\boldsymbol{y}}\mid \boldsymbol{y}_1, ..., \boldsymbol{y}_n)$, which in turn allows us to obtain marginals, bivariate, conditionals, or any other density estimate of interest. As an illustration, we compute the bivariate posterior predictive distribution for the number of seizures at baseline and at the 4th hospital visit. To this aim, first we compute posterior samples of the random measure $G$, then we compute the posterior predictive marginal distributions of the seizures count at baseline and at the 4th visit, and finally compute the bivariate as the outer product of the marginals.  
+We can compute the posterior predictive distributions for a new observation $\tilde{\boldsymbol{y}}$, $p(\tilde{\boldsymbol{y}}\mid \boldsymbol{y}_1, ..., \boldsymbol{y}_n)$, which in turn allows us to obtain marginals, bivariate, conditionals, or any other density estimate of interest. As an illustration, we compute the bivariate posterior predictive distribution for the number of seizures at baseline and at the 4th hospital visit. This is done in two steps. First, we compute posterior samples of the random measure $G$, which can be done using the getSamplesDPmeasure() function.  Based on the MCMC's output getSamplesDPmeasure returns a list of matrices, each of them corresponding to a single posterior sample from $G$, using its stick-breaking (SB) representation. The first colum of each of these matrices contains the weights of the SB representation of $G$ while the rest of the columns contain the atoms of the SB representation of $G$, here $(\lambda_1, \lambda_2, ..., \lambda_5)$. Second, we compute the posterior predictive bivariate distribution of the seizures count at baseline and at the 4th visit, based on the posterior samples of $G$. We use a compiled nimble function, called bivariate, to speed up the computations of the posterior predictive bivariates.   
 
 ```{r, longitudinalStudy-bnp-bivariate}
 # samples from the random measure
 samplesG <- getSamplesDPmeasure(cmcmc) 
 
-ygrid <- 0:80
-ngrid <- length(ygrid)
 niter <- length(samplesG)
-
 weightsIndex <- grep('weights', colnames(samplesG[[1]])) 
 lamIndex <- grep('lambda', colnames(samplesG[[1]])) 
+ygrid <- 0:80
+
+# function used to compute bivariate posterior predictive
+bivariateFun = nimbleFunction(
+  run=function(w = double(1), 
+               lam1 = double(1),
+               lam5 = double(1),
+               ytilde = double(1))
+  {
+    returnType(double(2))
+    
+    ngrid <- length(ytilde)
+    out <- matrix(0, ncol = ngrid, nrow = ngrid)
+  
+    for(i in 1:ngrid) {
+      for(j in 1:ngrid) {
+        out[i, j] <- sum(w * dpois(ytilde[i], lam1) * dpois(ytilde[j], lam5))
+      }
+    }
+    
+    return(out)
+  }
+) 
+cbivariateFun <- compileNimble(bivariateFun)
 
 # computing bivariate posterior predictive of seizure counts are baseline and 4th visit
-bivariate <- matrix(0, ncol = ngrid, nrow = ngrid)
+bivariate <- matrix(0, ncol = length(ygrid), nrow = length(ygrid))
 for(iter in 1:niter) {
   weights <- samplesG[[iter]][, weightsIndex] # posterior weights
   lamBaseline <- samplesG[[iter]][, lamIndex[1]] # posterior rate of baseline
   lamVisit4 <- samplesG[[iter]][, lamIndex[5]] # posterior rate at 4th visit
-  for(igrid in 1:ngrid) {
-    bivariate[igrid, ] <- bivariate[igrid, ] + sapply(ygrid, function(x) sum(weights * dpois(ygrid[igrid], lamBaseline) * dpois(x, lamVisit4)))
-  }
+  bivariate <- bivariate + cbivariateFun(weights, lamBaseline, lamVisit4, ygrid)
 }
 bivariate <- bivariate / niter
 ```
@@ -161,7 +180,7 @@ newOrder <- c(1, 35, 13, 16, 32, 33,  2, 29, 39, 26, 28, 52, 17, 15, 23,  8, 31,
 
 reorder.pair.matrix  = pair.matrix[newOrder, newOrder]
 image.plot(1:n, 1:n, reorder.pair.matrix , col = collist(6),
-           xlab = 'Patient', ylab = 'Patient',  axes = FALSE)
+           xlab = 'Patient', ylab = 'Patient',  axes = TRUE)
 axis(1, at = 1:n, labels = FALSE, tck = -.02)
 axis(2, at = 1:n, labels = FALSE, tck = -.02)
 axis(3, at = 1:n, tck = 0, labels = FALSE)
