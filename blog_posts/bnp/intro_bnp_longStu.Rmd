@@ -23,7 +23,7 @@ NIMBLE supports Markov chain Monte Carlo (MCMC) inference of Bayesian nonparamet
 
 The most popular multivariate model is the multivariate normal distribution. In general, multivariate extensions of well known univariate distribution, such as Bernoulli, Poisson, Gamma, etc,  are not straigthforward. For example, for multivariate count data, a multivariate Poisson distribution might appear to be a good fit, yet its definition is not trivial, inference is cumbersome, and the model lacks flexibility to deal with overdispersion. See [@inouye_17] for a review on multivariate distributions for count data based on the Poisson distribution.
 
-In this blog, we illustrate NIMBLE's BNP capabilities for modeling multivariate discrete data. In previous posts, we showed how to use nonparametric mixture models with different kernels for density estimation and how build generalized linear mixed effects models that avoid the assumption of normally-distributed random effects. In this post, we show how to model multivariate count data from a logitudinal study under a nonparametric framework. The modeling approach is simple and introduces correlation in the measurements within subjects.
+In this blog, we illustrate NIMBLE's BNP capabilities for modeling multivariate discrete data. In previous posts, we showed how to use nonparametric mixture models with different kernels for density estimation and how to build generalized linear mixed effects models that avoid the assumption of normally-distributed random effects. In this post, we show how to model multivariate count data from a logitudinal study under a nonparametric framework. The modeling approach is simple and introduces correlation in the measurements within subjects.
 
 For more detailed information on NIMBLE and Bayesian nonparametrics in NIMBLE, see the  [NIMBLE User Manual](https://r-nimble.org/documentation).
 
@@ -40,7 +40,7 @@ head(seizures)
 
 ### Model formulation
 
-We model the joint distribution of the baseline number of seizures and each two-week period counts as a Dirichlet Process mixture of productos of Poisson distributions model. Let $\boldsymbol{y}_i=(y_{i, 1}, ..., y_{i,5})$, where $y_{i,j}$ denotes the seizures count of patient $i$ measured at visit $j$, for $i=1, ..., 59$, and $j=1, ..., 5$. The model takes the form
+We model the joint distribution of the baseline number of seizures and each two-week period counts as a Dirichlet Process mixture (DPM) of productos of Poisson distributions model. Let $\boldsymbol{y}_i=(y_{i, 1}, ..., y_{i,5})$, where $y_{i,j}$ denotes the seizures count of patient $i$ measured at visit $j$, for $i=1, ..., 59$, and $j=1, ..., 5$. The model takes the form
 
 $$
 \boldsymbol{y}_i \mid \boldsymbol{\lambda}_{i} \sim \prod_{j=1}^5Poisson(\lambda_{i, j}), 
@@ -51,7 +51,7 @@ G \sim DP(\alpha, H),
 $$
 where $\boldsymbol{\lambda}_{i}=(\lambda_{i,1}, ...\lambda_{i,5})$ and $H$ corresponds to a product of Gamma distributions. 
 
-This specification introduces dependency within subjects as well as clustering among subjects with the number of clusters being inferred from the data. In order to specify the model in NIMBLE, first we translate the information in $seize$ into a matrix and then we write the nimble code. In the data set, the count at visit $0$ represents the baseline seizures count and at visits $1$ through $4$ describe seizures counts at the four consecutive hospital visits. 
+Although we use a product of Poisson distributions as the kernel in the DPM, which would suggest independence of the repeated seizure count measurements, this specification actually induces a dependency  within subjects when there is a clustering structure, feature that is inferred from the data. In order to specify the model in NIMBLE, first we translate the information in $seize$ into a matrix and then we write the nimble code. In the data set, the count at visit $0$ represents the baseline seizures count and at visits $1$ through $4$ describe seizures counts at the four consecutive hospital visits. 
 
 NIMBLE's specification of this model is given by
 ```{r, longitudinalStudy-bnp-CRP}
@@ -113,7 +113,7 @@ samplesG <- getSamplesDPmeasure(cmcmc)
 niter <- length(samplesG)
 weightsIndex <- grep('weights', colnames(samplesG[[1]])) 
 lamIndex <- grep('lambda', colnames(samplesG[[1]])) 
-ygrid <- 0:80
+ygrid <- 0:45
 
 # function used to compute bivariate posterior predictive
 bivariateFun = nimbleFunction(
@@ -149,15 +149,14 @@ for(iter in 1:niter) {
 bivariate <- bivariate / niter
 ```
 
-The posterior predictive bivariate distribution can be plotted in a heatmap as follows
+The following code creates a heatmap of the posterior predictive bivariate distribution of the number of seizures at baseline and at the 4th hospital visit, showing that there is a positive correlation between these two measurements. 
 ```{r, longitudinalStudy-bnp-bivariate-heatmap}
 collist = colorRampPalette(c('white', 'grey', 'black'))
 image.plot(ygrid, ygrid, bivariate, col = collist(6),
            xlab = 'Baseline', ylab = '4th visit',  axes = TRUE)
 ```
 
-In order to describe the posterior clustering structure of the individuals in the study we report a heat map of the posterior probability of two subjects belonging to the same cluster. To do this, 
-first we compute the posterior pairwise clustering matrix that describes the probability of two individuals belonging to the same cluster, then we reorder the observations and finaly plot the associated heatmap.
+In order to describe the uncertainty in the posterior clustering structure of the individuals in the study we report a heat map of the posterior probability of two subjects belonging to the same cluster. To do this, first we compute the posterior pairwise clustering matrix that describes the probability of two individuals belonging to the same cluster, then we reorder the observations and finaly plot the associated heatmap.
 
 ```{r, longitudinalStudy-bnp-pairwise}
 pair.matrix <- matrix(0, nrow = n, ncol = n)
