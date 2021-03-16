@@ -51,7 +51,7 @@ G \sim DP(\alpha, H),
 $$
 where $\boldsymbol{\lambda}_{i}=(\lambda_{i,1}, ...\lambda_{i,5})$ and $H$ corresponds to a product of Gamma distributions. 
 
-Although we use a product of Poisson distributions as the kernel in the DPM, which would suggest independence of the repeated seizure count measurements, this specification actually induces a dependency  within subjects when there is a clustering structure, feature that is inferred from the data. In order to specify the model in NIMBLE, first we translate the information in $seize$ into a matrix and then we write the nimble code. In the data set, the count at visit $0$ represents the baseline seizures count and at visits $1$ through $4$ describe seizures counts at the four consecutive hospital visits. 
+Our specification uses a product of Poisson distributions as the kernel in the DPM which, at first sight, would suggest independence of the repeated seizure count measurements.  However, because we are mixing over the parameters, this specification in fact induces dependency within subjects, with the strength of the dependency being inferred from the data. In order to specify the model in NIMBLE, first we translate the information in $seize$ into a matrix and then we write the nimble code. In the data set, the count at visit $0$ represents the baseline seizures count and at visits $1$ through $4$ describe seizures counts at the four consecutive hospital visits. 
 
 NIMBLE's specification of this model is given by
 ```{r, longitudinalStudy-bnp-CRP}
