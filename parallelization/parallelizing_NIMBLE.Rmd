@@ -71,6 +71,8 @@ run_MCMC_allcode <- function(seed, data) {
 
 Now, we execute the desired code using `parLapply`, which is equivalent to `lapply` with each process running in parallel. 
 
+Alternatively, we could use `foreach` with the *doParallel* backend (via `registerDoParallel`, which uses `makeCluster` by default under the hood) to invoke `run_MCMC_allcode` in parallel.
+
 ```{r}
 chain_output <- parLapply(cl = this_cluster, X = 1:4, 
                           fun = run_MCMC_allcode, 
