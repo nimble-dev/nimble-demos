@@ -285,6 +285,8 @@ ts.plot(nGroups,  xlab = &quot;Iteration&quot;, ylab = &quot;Number of component
 samplesG &lt;- getSamplesDPmeasure(cmcmc) </code></pre>
 <pre><code>## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compilation details.</code></pre>
 <pre><code>## compilation finished.</code></pre>
+<pre><code>## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|</code></pre>
 <pre class="r"><code>niter &lt;- length(samplesG)
 weightsIndex &lt;- grep('weights', colnames(samplesG[[1]])) 
 lambdaIndex &lt;- grep('lambda', colnames(samplesG[[1]])) 

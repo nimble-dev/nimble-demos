@@ -230,6 +230,7 @@ run_MCMC_allcode &lt;- function(seed, data) {
   return(results)
 }</code></pre>
 <p>Now, we execute the desired code using <code>parLapply</code>, which is equivalent to <code>lapply</code> with each process running in parallel.</p>
+<p>Alternatively, we could use <code>foreach</code> with the <em>doParallel</em> backend (via <code>registerDoParallel</code>, which uses <code>makeCluster</code> by default under the hood) to invoke <code>run_MCMC_allcode</code> in parallel.</p>
 <pre class="r"><code>chain_output &lt;- parLapply(cl = this_cluster, X = 1:4, 
                           fun = run_MCMC_allcode, 
                           data = myData)

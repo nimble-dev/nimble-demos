@@ -22,3 +22,5 @@ all: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18
 16: parallelization/parallelizing_NIMBLE.html
 17: bnp/intro_bnp_density.html
 18: bnp/intro_bnp_raneff.html
+19: bnp/bnp_multivariate.html
+20: converting_to_nimble/converting_to_nimble.html

@@ -186,7 +186,7 @@ summary {
 <p>Here we’ll use an intrinsic CAR (ICAR) model for disease mapping. We’ll illustrate with data on hospital admissions due to respiratory disease in 2010 from the 134 Intermediate Geographies (IG) north of the river Clyde in the Greater Glasgow and Clyde health board. The data are available in the <code>CARBayesdata</code> package and can be transformed into the neighborhood information needed by NIMBLE using functions from the <code>spdep</code> package. In particular, we need to provide vectors indicating which regions are neighbors of which other regions (<code>adj</code>), the weights for each pair of neighbors (<code>weights</code>), and the number of neighbors for each region (<code>num</code>).</p>
 <p>As usual, the mean of the Poisson counts includes an offset for the expected count. We’ll also include a covariate, the percentage of people defined to be income deprived in each spatial region.</p>
 <pre class="r"><code>library(nimble, warn.conflicts = FALSE)</code></pre>
-<pre><code>## nimble version 0.10.1 is loaded.
+<pre><code>## nimble version 0.11.0 is loaded.
 ## For more information on NIMBLE and a User Manual,
 ## please visit http://R-nimble.org.</code></pre>
 <pre class="r"><code>library(CARBayesdata, quietly = TRUE)

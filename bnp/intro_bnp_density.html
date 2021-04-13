@@ -357,6 +357,8 @@ Generating samples from the mixing distribution
 <pre class="r"><code>samplesG &lt;- getSamplesDPmeasure(cmcmc) </code></pre>
 <pre><code>## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compilation details.</code></pre>
 <pre><code>## compilation finished.</code></pre>
+<pre><code>## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|</code></pre>
 <p>The following code computes posterior samples of <span class="math inline">\(P(\tilde{y} &gt; 70)\)</span> using the posterior samples from the random measure <span class="math inline">\(G\)</span>. Note that these samples are computed based on the transformed model and a value larger than 70 corresponds to a value larger than 0.03557236 on the above defined grid.</p>
 <pre class="r"><code>weightIndex &lt;- grep('weight', colnames(samplesG[[1]]))
 muTildeIndex &lt;- grep('muTilde', colnames(samplesG[[1]]))
@@ -429,7 +431,7 @@ rModel &lt;- nimbleModel(code, data = data, inits = inits, constants = consts)</
 ## CRP sampler (1)
 ##   - xi[1:272]</code></pre>
 <pre class="r"><code>mcmc &lt;- buildMCMC(conf)</code></pre>
-<pre><code>## Warning in samplerFunction(model = model, mvSaved = mvSaved, target = target, : sampler_CRP: The number of clusters based on the cluster parameters is less than the number of potential clusters. The MCMC is not strictly valid if it ever proposes more components than cluster parameters exist; NIMBLE will warn you if this occurs.</code></pre>
+<pre><code>## Warning: sampler_CRP: The number of clusters based on the cluster parameters is less than the number of potential clusters. The MCMC is not strictly valid if it ever proposes more components than cluster parameters exist; NIMBLE will warn you if this occurs.</code></pre>
 <pre class="r"><code>cmcmc &lt;- compileNimble(mcmc, project = rModel)</code></pre>
 <pre><code>## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compilation details.
 ## compilation finished.</code></pre>
@@ -451,6 +453,8 @@ Generating samples from the mixing distribution
 <pre class="r"><code>samplesG &lt;- getSamplesDPmeasure(cmcmc) </code></pre>
 <pre><code>## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compilation details.</code></pre>
 <pre><code>## compilation finished.</code></pre>
+<pre><code>## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|</code></pre>
 <p>We use these samples to create an estimate of the density of the data along with a pointwise 95% credible band:</p>
 <pre class="r"><code>grid &lt;- seq(40, 100, len = 200)
 
