@@ -249,8 +249,8 @@ for (i in 1:4) {
 <p>Note that NIMBLE generally expects user-defined distributions, functions, and samplers to be defined in the global environment. As discussed above, for parallelization, it is important to do all the model and MCMC building and compilation inside a function. Therefore, in order to achieve this but still have the user-defined elements in the global environment we recommend using <code>assign</code> to copy them into the global environment from within your function.</p>
 <p>After defining your distribution, function, or sampler inside your overall function, here is how you can do that:</p>
 <pre class="r"><code>## for a user-defined function
-assign('dfoo', doo, envir = .GlobalEnv)
-assign('rfoo', roo, envir = .GlobalEnv)
+assign('dfoo', dfoo, envir = .GlobalEnv)
+assign('rfoo', rfoo, envir = .GlobalEnv)
 ## for a user-defined distribution
 assign('myfun', myfun, envir = .GlobalEnv)
 ## for a user-defined sampler

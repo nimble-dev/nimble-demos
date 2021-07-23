@@ -98,8 +98,8 @@ After defining your distribution, function, or sampler inside your overall funct
 
 ```{r, eval=FALSE}
 ## for a user-defined function
-assign('dfoo', doo, envir = .GlobalEnv)
-assign('rfoo', roo, envir = .GlobalEnv)
+assign('dfoo', dfoo, envir = .GlobalEnv)
+assign('rfoo', rfoo, envir = .GlobalEnv)
 ## for a user-defined distribution
 assign('myfun', myfun, envir = .GlobalEnv)
 ## for a user-defined sampler
