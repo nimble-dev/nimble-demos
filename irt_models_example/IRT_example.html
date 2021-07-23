@@ -194,7 +194,7 @@ summary {
 <h2>1PL model</h2>
 <p>The one-parameter logistic model (1PL) assumes the presence of one parameter, <span class="math inline">\(\beta_i\)</span>, for each item <span class="math inline">\(i = 1, \ldots, I\)</span> encoding the <em>difficulty</em> of the item. We choose a non-informative normal prior <span class="math inline">\(\mathcal{N}(0, 100)\)</span> for the difficulty parameters, and a uniform distribution for abilities variance.</p>
 <pre class="r"><code>library(nimble, warn.conflicts = FALSE)</code></pre>
-<pre><code>## nimble version 0.9.1 is loaded.
+<pre><code>## nimble version 0.11.0 is loaded.
 ## For more information on NIMBLE and a User Manual,
 ## please visit http://R-nimble.org.</code></pre>
 <pre class="r"><code>code1PL &lt;- nimbleCode({  
@@ -253,7 +253,7 @@ cModel1PLMCMC &lt;- compileNimble(model1PLMCMC, project = model1PL)</code></pre>
 <pre><code>## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|</code></pre>
 <pre><code>##    user  system elapsed 
-##  45.087   0.080  45.170</code></pre>
+##  38.108   0.092  38.200</code></pre>
 </div>
 <div id="checking-the-results" class="section level3">
 <h3>Checking the results</h3>
@@ -361,7 +361,7 @@ cModel2PLMCMC &lt;- compileNimble(model2PLMCMC, project = model2PL)</code></pre>
 <pre><code>## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|</code></pre>
 <pre><code>##    user  system elapsed 
-##  56.787   0.072  56.860</code></pre>
+##  48.261   0.092  48.355</code></pre>
 </div>
 <div id="checking-the-results-1" class="section level3">
 <h3>Checking the results</h3>

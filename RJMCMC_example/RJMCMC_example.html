@@ -189,7 +189,7 @@ summary {
 <h2>Linear regression example</h2>
 <p>For simplicity we consider a linear regression example with 15 explanatory variables, of which five have real effects. The other 10 have null effects, i.e. the corresponding coefficient is equal to zero.</p>
 <pre class="r"><code>library(nimble, warn.conflicts = FALSE)</code></pre>
-<pre><code>## nimble version 0.9.1 is loaded.
+<pre><code>## nimble version 0.11.0 is loaded.
 ## For more information on NIMBLE and a User Manual,
 ## please visit http://R-nimble.org.</code></pre>
 <pre class="r"><code>lmCode &lt;- nimbleCode({
@@ -304,8 +304,8 @@ summary(lm(lmModel$y ~ lmModel$X))
 <p>Checking the assigned samplers, we can see that indicator parameters are assigned to an <code>RJ_indicator</code> sampler whose <code>targetNode</code> is the corresponding coefficient, while <code>beta</code> parameters are assigned to a <code>RJ_toggled</code> sampler, which is used only when its target parameter is included in the model.</p>
 <pre class="r"><code>## Check the assigned samplers
 lmConf$printSamplers(c(&quot;z[1]&quot;, &quot;beta[1]&quot;))</code></pre>
-<pre><code>## [3] RJ_indicator sampler: z[1],  mean: 0,  scale: 0.2,  targetNode: beta[1]
-## [4] RJ_toggled sampler: beta[1],  samplerType: conjugate_dnorm_dnorm</code></pre>
+<pre><code>## [3] RJ_indicator sampler: z[1],  mean: 0,  scale: 0.20000000000000001,  targetNode: beta[1]
+## [4] RJ_toggled sampler: beta[1],  samplerType: conjugate_dnorm_dnorm_linear</code></pre>
 </div>
 <div id="build-and-run-the-rjmcmc" class="section level2">
 <h2>Build and run the RJMCMC</h2>
@@ -319,12 +319,11 @@ cLmModel &lt;- compileNimble(lmModel)</code></pre>
 ## compilation finished.</code></pre>
 <pre class="r"><code>set.seed(100)
 system.time(samplesRJ &lt;- runMCMC(CMCMCRJ, niter = 100000, nburnin = 10000, thin = 10))</code></pre>
-<pre><code>## runMCMC's handling of nburnin changed in nimble version 0.6-11. Previously, nburnin samples were discarded *post-thinning*.  Now nburnin samples are discarded *pre-thinning*.  The number of samples returned will be floor((niter-nburnin)/thin).</code></pre>
 <pre><code>## running chain 1...</code></pre>
 <pre><code>## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|</code></pre>
 <pre><code>##    user  system elapsed 
-##  26.275   0.000  26.276</code></pre>
+##  26.239   0.000  26.240</code></pre>
 </div>
 <div id="look-at-the-results" class="section level2">
 <h2>Look at the results</h2>

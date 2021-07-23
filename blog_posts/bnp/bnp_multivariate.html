@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style type="text/css">
+.inline {
+  background-color: #f7f7f7;
+  border:solid 1px #B0B0B0;
+}
+.error {
+	font-weight: bold;
+	color: #FF0000;
+}
+.warning {
+	font-weight: bold;
+}
+.message {
+	font-style: italic;
+}
+.source, .output, .warning, .error, .message {
+	padding: 0 1em;
+  border:solid 1px #F7F7F7;
+}
+.source {
+  background-color: #f5f5f5;
+}
+.left {
+  text-align: left;
+}
+.right {
+  text-align: right;
+}
+.center {
+  text-align: center;
+}
+.hl.num {
+  color: #AF0F91;
+}
+.hl.str {
+  color: #317ECC;
+}
+.hl.com {
+  color: #AD95AF;
+  font-style: italic;
+}
+.hl.opt {
+  color: #000000;
+}
+.hl.std {
+  color: #585858;
+}
+.hl.kwa {
+  color: #295F94;
+  font-weight: bold;
+}
+.hl.kwb {
+  color: #B05A65;
+}
+.hl.kwc {
+  color: #55aa55;
+}
+.hl.kwd {
+  color: #BC5A65;
+  font-weight: bold;
+}
+</style>
+  <title>Bayesian Nonparametric Models in NIMBLE: General Multivariate Models</title>
+</head>
+<body>
+
+
+<!--
+Build with knit('bnp_multivariate.Rhtml').
+Then copy and paste into blog post.
+--> 
+
+(Prepared by Claudia Wehrhahn)
+
+<h2> Overview </h2>
+
+NIMBLE is a hierarchical modeling package that uses nearly the same language for model specification as the popular MCMC packages WinBUGS, OpenBUGS and JAGS, while making the modeling language extensible -- you can add distributions and functions -- and also allowing customization of the algorithms used to estimate the parameters of the model.
+
+NIMBLE supports Markov chain Monte Carlo (MCMC) inference for Bayesian nonparametric (BNP) mixture models. Specifically, NIMBLE provides functionality for fitting models involving Dirichlet process priors using either the Chinese Restaurant Process (CRP) or a truncated stick-breaking (SB) representation.
+
+In version 0.10.1, we've extended NIMBLE to be able to handle more general multivariate models when using the CRP prior. In particular, one can now easily use the CRP prior when multiple observations (or multiple latent variables) are being jointly clustered. For example, in a longitudinal study, one may want to cluster at the individual level, i.e., to jointly cluster all of the observations for each of the individuals in the study. (Formerly this was only possible in NIMBLE by specifying the observations for each individual as coming from a single multivariate distribution.)
+
+This allows one to specify a multivariate mixture kernel as the product of univariate ones. This is particularly useful when working with discrete data. In general, multivariate extensions of well-known univariate discrete distributions, such as the Bernoulli, Poisson and Gamma, are not straightforward. For example, for multivariate count data, a multivariate Poisson distribution might appear to be a good fit, yet its definition is not trivial, inference is cumbersome, and the model lacks flexibility to deal with overdispersion. See Inouye et al. (2017) for a review on multivariate distributions for count data based on the Poisson distribution.
+
+In this post, we illustrate NIMBLE's new extended BNP capabilities by modelling multivariate discrete data. Specifically, we show how to model multivariate count data from a longitudinal study under a nonparametric framework. The modeling approach is simple and introduces correlation in the measurements within subjects.
+
+For more detailed information on NIMBLE and Bayesian nonparametrics in NIMBLE, see the <a href="https://r-nimble.org/documentation">User Manual</a>.
+
+<h2>BNP analysis of epileptic seizure count data</h2>
+
+We illustrate the use of nonparametric multivariate mixture models for modeling counts of epileptic seizures from a longitudinal study of the drug progabide as an adjuvant antiepileptic chemotherapy. The data, originally reported in Leppik et al. (1985),  arise from a clinical trial of 59 people with epilepsy.  At four clinic visits, subjects reported the number of seizures occurring over successive two-week periods. Additional data include the baseline seizure count and the age of the patient. Patients were randomized to receive either progabide or a placebo, in addition to standard chemotherapy.
+
+<div class="chunk" id="longitudinalStudy-bnp"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">load</span><span class="hl std">(</span><span class="hl kwd">url</span><span class="hl std">(</span><span class="hl str">&quot;https://r-nimble.org/nimbleExamples/seizures.Rda&quot;</span><span class="hl std">))</span>
+<span class="hl kwd">names</span><span class="hl std">(seizures)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## [1] &quot;id&quot;    &quot;seize&quot; &quot;visit&quot; &quot;trt&quot;   &quot;age&quot;
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">head</span><span class="hl std">(seizures)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">##    id seize visit trt age
+## 1 101    76     0   1  18
+## 2 101    11     1   1  18
+## 3 101    14     2   1  18
+## 4 101     9     3   1  18
+## 5 101     8     4   1  18
+## 6 102    38     0   1  32
+</pre></div>
+</div></div>
+
+<h3>Model formulation</h3>
+
+We model the joint distribution of the baseline number of seizures and the counts from each of the two-week periods as a Dirichlet Process mixture (DPM) of products of Poisson distributions. Let [latex]\boldsymbol{y}_i=(y_{i, 1}, \ldots, y_{i,5})[/latex], where [latex]y_{i,j}[/latex] denotes the seizure count for patient [latex]i[/latex] measured at visit [latex]j[/latex], for [latex]i=1, \ldots, 59[/latex], and [latex]j=1, \ldots, 5[/latex]. The value for [latex]j=1[/latex] is the baseline count. The model takes the form
+
+[latex]
+\boldsymbol{y}_i \mid \boldsymbol{\lambda}_{i} \sim \prod_{j=1}^5 \mbox{Poisson}(\lambda_{i, j}), 
+\quad\quad
+\boldsymbol{\lambda}_{i} \mid G \sim G,
+\quad\quad
+G \sim DP(\alpha, H),
+[/latex]
+where [latex]\boldsymbol{\lambda}_{i}=(\lambda_{i,1}, \ldots\lambda_{i,5})[/latex] and [latex]H[/latex] corresponds to a product of Gamma distributions. 
+
+Our specification uses a product of Poisson distributions as the kernel in the DPM which, at first sight, would suggest independence of the repeated seizure count measurements.  However, because we are mixing over the parameters, this specification in fact induces dependence within subjects, with the strength of the dependence being inferred from the data. In order to specify the model in NIMBLE, first we translate the information in <tt>seize</tt> into a matrix and then we write the NIMBLE code. 
+
+We specify this model in NIMBLE with the following code in R. The vector <tt>xi</tt> contains the latent cluster IDs, one for each patient.
+
+<div class="chunk" id="longitudinalStudy-bnp-CRP"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">n</span> <span class="hl kwb">&lt;-</span> <span class="hl num">59</span>
+<span class="hl std">J</span> <span class="hl kwb">&lt;-</span> <span class="hl num">5</span>
+<span class="hl std">data</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">y</span> <span class="hl std">=</span> <span class="hl kwd">matrix</span><span class="hl std">(seizures</span><span class="hl opt">$</span><span class="hl std">seize,</span> <span class="hl kwc">ncol</span> <span class="hl std">= J,</span> <span class="hl kwc">nrow</span> <span class="hl std">= n,</span> <span class="hl kwc">byrow</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">))</span>
+<span class="hl std">constants</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">n</span> <span class="hl std">= n,</span> <span class="hl kwc">J</span> <span class="hl std">= J)</span>
+
+<span class="hl std">code</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">nimbleCode</span><span class="hl std">({</span>
+  <span class="hl kwa">for</span><span class="hl std">(i</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">n) {</span>
+    <span class="hl kwa">for</span><span class="hl std">(j</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">J) {</span>
+      <span class="hl std">y[i, j]</span> <span class="hl opt">~</span> <span class="hl kwd">dpois</span><span class="hl std">(lambda[xi[i], j])</span>
+    <span class="hl std">}</span>
+  <span class="hl std">}</span>
+  <span class="hl kwa">for</span><span class="hl std">(i</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">n) {</span>
+    <span class="hl kwa">for</span><span class="hl std">(j</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">J) {</span>
+      <span class="hl std">lambda[i, j]</span> <span class="hl opt">~</span> <span class="hl kwd">dgamma</span><span class="hl std">(</span><span class="hl kwc">shape</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwc">rate</span> <span class="hl std">=</span> <span class="hl num">0.1</span><span class="hl std">)</span>
+    <span class="hl std">}</span>
+  <span class="hl std">}</span>
+  <span class="hl std">xi[</span><span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">n]</span> <span class="hl opt">~</span> <span class="hl kwd">dCRP</span><span class="hl std">(</span><span class="hl kwc">conc</span> <span class="hl std">= alpha,</span> <span class="hl kwc">size</span> <span class="hl std">= n)</span>
+  <span class="hl std">alpha</span> <span class="hl opt">~</span> <span class="hl kwd">dgamma</span><span class="hl std">(</span><span class="hl kwc">shape</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwc">rate</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">)</span>
+<span class="hl std">})</span>
+</pre></div>
+</div></div>
+
+<h3>Running the MCMC</h3>
+
+The following code sets up the data and constants, initializes the parameters, defines the model object, and builds and runs the MCMC algorithm. For speed, the MCMC runs using compiled C++ code, hence the calls to <tt>compileNimble</tt> to create compiled versions of the model and the MCMC algorithm.
+
+Because the specification is in terms of a Chinese restaurant process, the default sampler selected by NIMBLE is a collapsed Gibbs sampler. More specifically, because the baseline distribution [latex]H[/latex] is conjugate to the product of Poisson kernels, Algorithm 2 from Neal (2000) is used.
+
+<div class="chunk" id="longitudinalStudy-bnp-mcmc"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">set.seed</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">)</span>
+<span class="hl std">inits</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">xi</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">n,</span> <span class="hl kwc">alpha</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span>
+             <span class="hl kwc">lambda</span> <span class="hl std">=</span> <span class="hl kwd">matrix</span><span class="hl std">(</span><span class="hl kwd">rgamma</span><span class="hl std">(J</span><span class="hl opt">*</span><span class="hl std">n,</span> <span class="hl kwc">shape</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwc">rate</span> <span class="hl std">=</span> <span class="hl num">0.1</span><span class="hl std">),</span> <span class="hl kwc">ncol</span> <span class="hl std">= J,</span> <span class="hl kwc">nrow</span> <span class="hl std">= n))</span>
+<span class="hl std">model</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">nimbleModel</span><span class="hl std">(code,</span> <span class="hl kwc">data</span><span class="hl std">=data,</span> <span class="hl kwc">inits</span> <span class="hl std">= inits,</span> <span class="hl kwc">constants</span> <span class="hl std">= constants,</span> <span class="hl kwc">dimensions</span> <span class="hl std">=</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">lambda</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(n, J)))</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## defining model...
+</pre></div>
+<div class="message"><pre class="knitr r">## building model...
+</pre></div>
+<div class="message"><pre class="knitr r">## setting data and initial values...
+</pre></div>
+<div class="message"><pre class="knitr r">## running calculate on model (any error reports that follow may simply reflect missing values in model variables) ... 
+## checking model sizes and dimensions...
+## model building finished.
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl std">cmodel</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">compileNimble</span><span class="hl std">(model)</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compilation details.
+## compilation finished.
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl std">conf</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">configureMCMC</span><span class="hl std">(model,</span> <span class="hl kwc">monitors</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl str">'xi'</span><span class="hl std">,</span><span class="hl str">'lambda'</span><span class="hl std">,</span> <span class="hl str">'alpha'</span><span class="hl std">),</span> <span class="hl kwc">print</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## ===== Monitors =====
+## thin = 1: xi, lambda, alpha
+## ===== Samplers =====
+## CRP_concentration sampler (1)
+##   - alpha
+## CRP_cluster_wrapper sampler (295)
+##   - lambda[]  (295 elements)
+## CRP sampler (1)
+##   - xi[1:59]
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl std">mcmc</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">buildMCMC</span><span class="hl std">(conf)</span>
+<span class="hl std">cmcmc</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">compileNimble</span><span class="hl std">(mcmc,</span> <span class="hl kwc">project</span> <span class="hl std">= model)</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compilation details.
+## compilation finished.
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl std">samples</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">runMCMC</span><span class="hl std">(cmcmc,</span>  <span class="hl kwc">niter</span><span class="hl std">=</span><span class="hl num">55000</span><span class="hl std">,</span> <span class="hl kwc">nburnin</span> <span class="hl std">=</span> <span class="hl num">5000</span><span class="hl std">,</span> <span class="hl kwc">thin</span><span class="hl std">=</span><span class="hl num">10</span><span class="hl std">)</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## running chain 1...
+</pre></div>
+<div class="output"><pre class="knitr r">## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|
+</pre></div>
+</div></div>
+
+We can extract posterior samples for some parameters of interest. The following are trace plots of the posterior samples for the concentration parameter, [latex]\alpha[/latex], and the number of clusters. 
+
+<div class="chunk" id="longitudinalStudy-bnp-output"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">xiSamples</span> <span class="hl kwb">&lt;-</span> <span class="hl std">samples[,</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'xi'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samples))]</span>    <span class="hl com"># samples of cluster IDs</span>
+<span class="hl std">nGroups</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">apply</span><span class="hl std">(xiSamples,</span> <span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">x</span><span class="hl std">)</span>  <span class="hl kwd">length</span><span class="hl std">(</span><span class="hl kwd">unique</span><span class="hl std">(x)))</span>
+<span class="hl std">concSamples</span> <span class="hl kwb">&lt;-</span> <span class="hl std">samples[,</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'alpha'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samples))]</span>
+
+<span class="hl kwd">par</span><span class="hl std">(</span><span class="hl kwc">mfrow</span><span class="hl std">=</span><span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">2</span><span class="hl std">))</span>
+<span class="hl kwd">ts.plot</span><span class="hl std">(concSamples,</span> <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">&quot;Iteration&quot;</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(alpha),</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl kwd">expression</span><span class="hl std">(</span><span class="hl kwd">paste</span><span class="hl std">(</span><span class="hl str">'Traceplot for '</span><span class="hl std">, alpha)))</span>
+<span class="hl kwd">ts.plot</span><span class="hl std">(nGroups,</span>  <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">&quot;Iteration&quot;</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl str">&quot;Number of components&quot;</span><span class="hl std">,</span> <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">&quot;Number of clusters&quot;</span><span class="hl std">)</span>
+</pre></div>
+</div><div class="rimage default"><img src="https://r-nimble.org/wp-content/uploads/2021/03/longitudinalStudy-bnp-output-1.png" title="plot of chunk longitudinalStudy-bnp-output" alt="plot of chunk longitudinalStudy-bnp-output" class="plot" /></div></div>
+
+<h3>Assessing the posterior</h3>
+
+We can compute the posterior predictive distribution for a new observation [latex]\tilde{\boldsymbol{y}}[/latex], [latex]p(\tilde{\boldsymbol{y}}\mid \boldsymbol{y}_1, \ldots, \boldsymbol{y}_n)[/latex], which in turn allows us to obtain univariate or multivariate marginals or conditionals, or any other density estimate of interest. As an illustration, we compute the bivariate posterior predictive distribution for the number of seizures at baseline and at the 4th hospital visit. This is done in two steps. First, we compute posterior samples of the random measure [latex]G[/latex], which can be done using the <tt>getSamplesDPmeasure()</tt> function.  Based on the MCMC output, <tt>getSamplesDPmeasure()</tt> returns a list of matrices, each of them corresponding to a single posterior sample from [latex]G[/latex], using its stick-breaking (SB) representation. The first column of each of these matrices contains the weights of the SB representation of [latex]G[/latex] while the rest of the columns contain the atoms of the SB representation of [latex]G[/latex], here [latex](\lambda_1, \lambda_2, \ldots, \lambda_5)[/latex]. Second, we compute the bivariate posterior predictive distribution of the seizure counts at baseline and at the fourth visit, based on the posterior samples of [latex]G[/latex]. We use a compiled nimble function, called 'bivariate', to speed up the computations of the bivariate posterior predictive density.   
+
+<div class="chunk" id="longitudinalStudy-bnp-bivariate"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com"># samples from the random measure</span>
+<span class="hl std">samplesG</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">getSamplesDPmeasure</span><span class="hl std">(cmcmc)</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compilation details.
+</pre></div>
+<div class="message"><pre class="knitr r">## compilation finished.
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl std">niter</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">length</span><span class="hl std">(samplesG)</span>
+<span class="hl std">weightsIndex</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'weights'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samplesG[[</span><span class="hl num">1</span><span class="hl std">]]))</span>
+<span class="hl std">lambdaIndex</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">grep</span><span class="hl std">(</span><span class="hl str">'lambda'</span><span class="hl std">,</span> <span class="hl kwd">colnames</span><span class="hl std">(samplesG[[</span><span class="hl num">1</span><span class="hl std">]]))</span>
+<span class="hl std">ygrid</span> <span class="hl kwb">&lt;-</span> <span class="hl num">0</span><span class="hl opt">:</span><span class="hl num">45</span>
+
+<span class="hl com"># function used to compute bivariate posterior predictive</span>
+<span class="hl std">bivariateFun</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">nimbleFunction</span><span class="hl std">(</span>
+  <span class="hl kwc">run</span> <span class="hl std">=</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">w</span> <span class="hl std">=</span> <span class="hl kwd">double</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">),</span>
+               <span class="hl kwc">lambda1</span> <span class="hl std">=</span> <span class="hl kwd">double</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">),</span>
+               <span class="hl kwc">lambda5</span> <span class="hl std">=</span> <span class="hl kwd">double</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">),</span>
+               <span class="hl kwc">ytilde</span> <span class="hl std">=</span> <span class="hl kwd">double</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">)) {</span>
+    <span class="hl kwd">returnType</span><span class="hl std">(</span><span class="hl kwd">double</span><span class="hl std">(</span><span class="hl num">2</span><span class="hl std">))</span>
+
+    <span class="hl std">ngrid</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">length</span><span class="hl std">(ytilde)</span>
+    <span class="hl std">out</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">matrix</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl kwc">ncol</span> <span class="hl std">= ngrid,</span> <span class="hl kwc">nrow</span> <span class="hl std">= ngrid)</span>
+
+    <span class="hl kwa">for</span><span class="hl std">(i</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">ngrid) {</span>
+      <span class="hl kwa">for</span><span class="hl std">(j</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">ngrid) {</span>
+        <span class="hl std">out[i, j]</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">sum</span><span class="hl std">(w</span> <span class="hl opt">*</span> <span class="hl kwd">dpois</span><span class="hl std">(ytilde[i], lambda1)</span> <span class="hl opt">*</span> <span class="hl kwd">dpois</span><span class="hl std">(ytilde[j], lambda5))</span>
+      <span class="hl std">}</span>
+    <span class="hl std">}</span>
+
+    <span class="hl kwd">return</span><span class="hl std">(out)</span>
+  <span class="hl std">}</span>
+<span class="hl std">)</span>
+<span class="hl std">cbivariateFun</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">compileNimble</span><span class="hl std">(bivariateFun)</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compilation details.
+## compilation finished.
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl com"># computing bivariate posterior predictive of seizure counts are baseline and fourth visit</span>
+<span class="hl std">bivariate</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">matrix</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl kwc">ncol</span> <span class="hl std">=</span> <span class="hl kwd">length</span><span class="hl std">(ygrid),</span> <span class="hl kwc">nrow</span> <span class="hl std">=</span> <span class="hl kwd">length</span><span class="hl std">(ygrid))</span>
+<span class="hl kwa">for</span><span class="hl std">(iter</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">niter) {</span>
+  <span class="hl std">weights</span> <span class="hl kwb">&lt;-</span> <span class="hl std">samplesG[[iter]][, weightsIndex]</span> <span class="hl com"># posterior weights</span>
+  <span class="hl std">lambdaBaseline</span> <span class="hl kwb">&lt;-</span> <span class="hl std">samplesG[[iter]][, lambdaIndex[</span><span class="hl num">1</span><span class="hl std">]]</span> <span class="hl com"># posterior rate of baseline</span>
+  <span class="hl std">lambdaVisit4</span> <span class="hl kwb">&lt;-</span> <span class="hl std">samplesG[[iter]][, lambdaIndex[</span><span class="hl num">5</span><span class="hl std">]]</span> <span class="hl com"># posterior rate at fourth visit</span>
+  <span class="hl std">bivariate</span> <span class="hl kwb">&lt;-</span> <span class="hl std">bivariate</span> <span class="hl opt">+</span> <span class="hl kwd">cbivariateFun</span><span class="hl std">(weights, lambdaBaseline, lambdaVisit4, ygrid)</span>
+<span class="hl std">}</span>
+<span class="hl std">bivariate</span> <span class="hl kwb">&lt;-</span> <span class="hl std">bivariate</span> <span class="hl opt">/</span> <span class="hl std">niter</span>
+</pre></div>
+</div></div>
+
+The following code creates a heatmap of the posterior predictive bivariate distribution of the number of seizures at baseline and at the fourth hospital visit, showing that there is a positive correlation between these two measurements. 
+<div class="chunk" id="longitudinalStudy-bnp-bivariate-heatmap"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">collist</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">colorRampPalette</span><span class="hl std">(</span><span class="hl kwd">c</span><span class="hl std">(</span><span class="hl str">'white'</span><span class="hl std">,</span> <span class="hl str">'grey'</span><span class="hl std">,</span> <span class="hl str">'black'</span><span class="hl std">))</span>
+<span class="hl kwd">image.plot</span><span class="hl std">(ygrid, ygrid, bivariate,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl kwd">collist</span><span class="hl std">(</span><span class="hl num">6</span><span class="hl std">),</span>
+           <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'Baseline'</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl str">'4th visit'</span><span class="hl std">,</span> <span class="hl kwc">ylim</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl num">15</span><span class="hl std">),</span> <span class="hl kwc">axes</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
+</pre></div>
+</div><div class="rimage default"><img src="https://r-nimble.org/wp-content/uploads/2021/03/longitudinalStudy-bnp-bivariate-heatmap-1.png" title="plot of chunk longitudinalStudy-bnp-bivariate-heatmap" alt="plot of chunk longitudinalStudy-bnp-bivariate-heatmap" class="plot" /></div></div>
+
+In order to describe the uncertainty in the posterior clustering structure of the individuals in the study, we present a heat map of the posterior probability of two subjects belonging to the same cluster. To do this, first we compute the posterior pairwise clustering matrix that describes the probability of two individuals belonging to the same cluster, then we reorder the observations and finally plot the associated heatmap.
+
+<div class="chunk" id="longitudinalStudy-bnp-pairwise"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">pairMatrix</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">apply</span><span class="hl std">(xiSamples,</span> <span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">focal</span><span class="hl std">) {</span>
+                                   <span class="hl kwd">colSums</span><span class="hl std">(focal</span> <span class="hl opt">==</span> <span class="hl std">xiSamples)</span>
+                                  <span class="hl std">})</span>
+<span class="hl std">pairMatrix</span> <span class="hl kwb">&lt;-</span> <span class="hl std">pairMatrix</span> <span class="hl opt">/</span> <span class="hl std">niter</span>
+
+
+<span class="hl std">newOrder</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl num">35</span><span class="hl std">,</span> <span class="hl num">13</span><span class="hl std">,</span> <span class="hl num">16</span><span class="hl std">,</span> <span class="hl num">32</span><span class="hl std">,</span> <span class="hl num">33</span><span class="hl std">,</span>  <span class="hl num">2</span><span class="hl std">,</span> <span class="hl num">29</span><span class="hl std">,</span> <span class="hl num">39</span><span class="hl std">,</span> <span class="hl num">26</span><span class="hl std">,</span> <span class="hl num">28</span><span class="hl std">,</span> <span class="hl num">52</span><span class="hl std">,</span> <span class="hl num">17</span><span class="hl std">,</span> <span class="hl num">15</span><span class="hl std">,</span> <span class="hl num">23</span><span class="hl std">,</span>  <span class="hl num">8</span><span class="hl std">,</span> <span class="hl num">31</span><span class="hl std">,</span>
+              <span class="hl num">38</span><span class="hl std">,</span>  <span class="hl num">9</span><span class="hl std">,</span> <span class="hl num">46</span><span class="hl std">,</span> <span class="hl num">45</span><span class="hl std">,</span> <span class="hl num">11</span><span class="hl std">,</span> <span class="hl num">49</span><span class="hl std">,</span> <span class="hl num">44</span><span class="hl std">,</span> <span class="hl num">50</span><span class="hl std">,</span> <span class="hl num">41</span><span class="hl std">,</span> <span class="hl num">54</span><span class="hl std">,</span> <span class="hl num">21</span><span class="hl std">,</span>  <span class="hl num">3</span><span class="hl std">,</span> <span class="hl num">40</span><span class="hl std">,</span> <span class="hl num">47</span><span class="hl std">,</span> <span class="hl num">48</span><span class="hl std">,</span> <span class="hl num">12</span><span class="hl std">,</span>
+              <span class="hl num">6</span><span class="hl std">,</span> <span class="hl num">14</span><span class="hl std">,</span>  <span class="hl num">7</span><span class="hl std">,</span> <span class="hl num">18</span><span class="hl std">,</span> <span class="hl num">22</span><span class="hl std">,</span> <span class="hl num">30</span><span class="hl std">,</span> <span class="hl num">55</span><span class="hl std">,</span> <span class="hl num">19</span><span class="hl std">,</span> <span class="hl num">34</span><span class="hl std">,</span> <span class="hl num">56</span><span class="hl std">,</span> <span class="hl num">57</span><span class="hl std">,</span>  <span class="hl num">4</span><span class="hl std">,</span>  <span class="hl num">5</span><span class="hl std">,</span> <span class="hl num">58</span><span class="hl std">,</span> <span class="hl num">10</span><span class="hl std">,</span> <span class="hl num">43</span><span class="hl std">,</span> <span class="hl num">25</span><span class="hl std">,</span>
+              <span class="hl num">59</span><span class="hl std">,</span> <span class="hl num">20</span><span class="hl std">,</span> <span class="hl num">27</span><span class="hl std">,</span> <span class="hl num">24</span><span class="hl std">,</span> <span class="hl num">36</span><span class="hl std">,</span> <span class="hl num">37</span><span class="hl std">,</span> <span class="hl num">42</span><span class="hl std">,</span> <span class="hl num">51</span><span class="hl std">,</span> <span class="hl num">53</span><span class="hl std">)</span>
+
+<span class="hl std">reordered_pairMatrix</span> <span class="hl kwb">&lt;-</span> <span class="hl std">pairMatrix[newOrder, newOrder]</span>
+<span class="hl kwd">image.plot</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">n,</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">n, reordered_pairMatrix ,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl kwd">collist</span><span class="hl std">(</span><span class="hl num">6</span><span class="hl std">),</span>
+           <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">'Patient'</span><span class="hl std">,</span> <span class="hl kwc">ylab</span> <span class="hl std">=</span> <span class="hl str">'Patient'</span><span class="hl std">,</span>  <span class="hl kwc">axes</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
+<span class="hl kwd">axis</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">,</span> <span class="hl kwc">at</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">n,</span> <span class="hl kwc">labels</span> <span class="hl std">=</span> <span class="hl num">FALSE</span><span class="hl std">,</span> <span class="hl kwc">tck</span> <span class="hl std">=</span> <span class="hl opt">-</span><span class="hl num">.02</span><span class="hl std">)</span>
+<span class="hl kwd">axis</span><span class="hl std">(</span><span class="hl num">2</span><span class="hl std">,</span> <span class="hl kwc">at</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">n,</span> <span class="hl kwc">labels</span> <span class="hl std">=</span> <span class="hl num">FALSE</span><span class="hl std">,</span> <span class="hl kwc">tck</span> <span class="hl std">=</span> <span class="hl opt">-</span><span class="hl num">.02</span><span class="hl std">)</span>
+<span class="hl kwd">axis</span><span class="hl std">(</span><span class="hl num">3</span><span class="hl std">,</span> <span class="hl kwc">at</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">n,</span> <span class="hl kwc">tck</span> <span class="hl std">=</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl kwc">labels</span> <span class="hl std">=</span> <span class="hl num">FALSE</span><span class="hl std">)</span>
+<span class="hl kwd">axis</span><span class="hl std">(</span><span class="hl num">4</span><span class="hl std">,</span> <span class="hl kwc">at</span> <span class="hl std">=</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">n,</span> <span class="hl kwc">tck</span> <span class="hl std">=</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl kwc">labels</span> <span class="hl std">=</span> <span class="hl num">FALSE</span><span class="hl std">)</span>
+</pre></div>
+</div><div class="rimage default"><img src="https://r-nimble.org/wp-content/uploads/2021/03/longitudinalStudy-bnp-pairwise-1.png" title="plot of chunk longitudinalStudy-bnp-pairwise" alt="plot of chunk longitudinalStudy-bnp-pairwise" class="plot" /></div></div>
+
+
+<h2>References</h2>
+
+<p>Inouye, D.I., E. Yang, G.I. Allen, and P. Ravikumar. 2017. A Review of Multivariate Distributions for Count Data Derived from the Poisson Distribution. Wiley Interdisciplinary Reviews: Computational Statistics 9: e1398.</p>
+
+<p>Leppik, I., F. Dreifuss, T. Bowman, N. Santilli, M. Jacobs, C. Crosby, J. Cloyd, et al. 1985. A Double-Blind Crossover Evaluation of Progabide in Partial Seizures: 3: 15 Pm8. Neurology 35.</p>
+
+<p>Neal, R. 2000. Markov chain sampling methods for Dirichlet process mixture models. Journal of Computational and Graphical Statistics 9: 249–65.</p>
