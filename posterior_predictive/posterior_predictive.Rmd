@@ -1,10 +1,10 @@
 # Posterior predictive sampling
 
-Once one has samples from an MCMC, one often wants to do some post hoc manipulation of the samples. A important example is posterior predictive sampling, which is needed for posterior predictive checking.
+Once one has samples from an MCMC, one often wants to do some post hoc manipulation of the samples. An important example is posterior predictive sampling, which is needed for posterior predictive checking.
 
 With posterior predictive sampling, we need to simulate new data values, once for each posterior sample. These samples can then be compared with the actual data as a model check.
 
-In this example, we'll follow the posterior predictive checking done in the Gelman et al. Bayesian Data Analysis book, using Newcomb's speed of light measurements.
+In this example, we'll follow the posterior predictive checking done in the Gelman et al. Bayesian Data Analysis book, using Newcomb's speed of light measurements (Section 6.3).
 
 ## Posterior predictive sampling using a loop in R
 
@@ -113,7 +113,7 @@ The approach above could be slow, even with a compiled model, because the loop i
 
 Let's set up a nimbleFunction. In the setup code, we'll manipulate the nodes and variables, similarly to the code above. In the run code, we'll loop through the samples and simulate, also similarly.
 
-Remember that all querying of the model structure needs to happen in the setup code. We also need to pass in the MCMC object so that we can determine at setup time the names of the variables we are copying from the posterior samples into the model.
+Remember that all querying of the model structure needs to happen in the setup code. We also need to pass the MCMC object to the nimble function, so that we can determine at setup time the names of the variables we are copying from the posterior samples into the model.
 
 The run code takes the actual samples as the input argument, so the nimbleFunction will work regardless of how long the MCMC was run for.
 
