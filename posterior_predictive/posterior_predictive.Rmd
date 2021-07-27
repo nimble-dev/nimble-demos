@@ -32,13 +32,21 @@ inits <- list(mu = 0, sigma = 5)
 constants <- list(n = length(data$y))
 
 model <- nimbleModel(code = code, data = data, constants = constants, inits = inits)
+```
 
+Next we'll create some vectors of node names that will be useful for our manipulations.
+
+```{r}
 ## Ensure we have the nodes needed to simulate new datasets
 dataNodes <- model$getNodeNames(dataOnly = TRUE)
 parentNodes <- model$getParents(dataNodes, stochOnly = TRUE)  # `getParents` is new in nimble 0.11.0
 ## Ensure we have both data nodes and deterministic intermediates (e.g., lifted nodes)
 simNodes <- model$getDependencies(parentNodes, self = FALSE)
+```
 
+Now run the MCMC.
+
+```{r}
 cmodel 	<- compileNimble(model)
 mcmc    <- buildMCMC(model, monitors = parentNodes)
 cmcmc   <- compileNimble(mcmc, project = model)
@@ -71,24 +79,19 @@ That's fine, but we needed to manually insert values for the different variables
 ```{r}
 ppSamples <- matrix(0, nrow = nSamp, ncol =
           length(model$expandNodeNames(dataNodes, returnScalarComponents = TRUE)))
-
-## Determine ordering of variables in `mvSamples` modelValues and therefore in `samples`:
-vars <- cmcmc$mvSamples$getVarNames()
-
-## Quick check of variable ordering so we know `values()` is given things in the right order.
-## This should generally be the case, but best to check.
-vars
-colnames(samples)
+postNames <- colnames(samples)
 
 set.seed(1)
 system.time({
 for(i in seq_len(nSamp)) {
-    values(cmodel, vars) <- samples[i, ]  # assign 'flattened' values
+    values(cmodel, postNames) <- samples[i, ]  # assign 'flattened' values
     cmodel$simulate(simNodes, includeData = TRUE)
     ppSamples[i, ] <- values(cmodel, dataNodes)
 }
 })
 ```
+
+Side note: For large models, it might be faster to use the variable names as the second argument to `values()` rather than the names of all the elements of the variables. If one chooses to do this, it's important to check that the ordering of variables in the 'flattened' values in `samples` is the same as the ordering of variables in the second argument to `values` so that the first line of the for loop assigns the values from `samples` correctly into the model. 
 
 ### Doing the posterior predictive check
 
@@ -143,12 +146,17 @@ ppSamplerNF <- nimbleFunction(
 
 ### Using the nimbleFunction  
 
-```{r}
-colnames(samples)  ## again, to check ordering of vars is same in 'vars' and in 'samples'
+We'll create the instance of the nimbleFunction for this model and MCMC.
+Then we run the compiled nimbleFunction.
 
+```{r}
 ## Create the sampler for this model and this MCMC.
 ppSampler <- ppSamplerNF(model, mcmc)
 cppSampler <- compileNimble(ppSampler, project = model)
+
+## Check ordering of variables is same in 'vars' and in 'samples'.
+colnames(samples)  
+identical(colnames(samples), model$expandNodeNames(mcmc$mvSamples$getVarNames()))
 
 set.seed(1)
 system.time(ppSamples_via_nf <- cppSampler$run(samples))
@@ -156,7 +164,7 @@ system.time(ppSamples_via_nf <- cppSampler$run(samples))
 identical(ppSamples, ppSamples_via_nf)
 ```
 
-So we get exactly the same results (note the use of `set.seed`) but much faster.
+So we get exactly the same results (note the use of `set.seed` to ensure this) but much faster.
 
 Here the speed doesn't really matter but for more samples and larger models it often will, even after accounting for the time spent to compile the nimbleFunction.
 
