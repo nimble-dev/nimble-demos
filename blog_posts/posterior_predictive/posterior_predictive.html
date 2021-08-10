@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style type="text/css">
+.inline {
+  background-color: #f7f7f7;
+  border:solid 1px #B0B0B0;
+}
+.error {
+	font-weight: bold;
+	color: #FF0000;
+}
+.warning {
+	font-weight: bold;
+}
+.message {
+	font-style: italic;
+}
+.source, .output, .warning, .error, .message {
+	padding: 0 1em;
+  border:solid 1px #F7F7F7;
+}
+.source {
+  background-color: #f5f5f5;
+}
+.left {
+  text-align: left;
+}
+.right {
+  text-align: right;
+}
+.center {
+  text-align: center;
+}
+.hl.num {
+  color: #AF0F91;
+}
+.hl.str {
+  color: #317ECC;
+}
+.hl.com {
+  color: #AD95AF;
+  font-style: italic;
+}
+.hl.opt {
+  color: #000000;
+}
+.hl.std {
+  color: #585858;
+}
+.hl.kwa {
+  color: #295F94;
+  font-weight: bold;
+}
+.hl.kwb {
+  color: #B05A65;
+}
+.hl.kwc {
+  color: #55aa55;
+}
+.hl.kwd {
+  color: #BC5A65;
+  font-weight: bold;
+}
+</style>
+  <title>Using NIMBLE in a neat way</title>
+</head>
+<body>
+
+
+
+
+<h1>Posterior predictive sampling and other post-MCMC use of samples in NIMBLE</h1>
+
+<p>(Prepared by Chris Paciorek and Sally Paganin.)</p>
+
+<p>Once one has samples from an MCMC, one often wants to do some post hoc manipulation of the samples. An important example is posterior predictive sampling, which is needed for posterior predictive checking.</p>
+
+<p>With posterior predictive sampling, we need to simulate new data values, once for each posterior sample. These samples can then be compared with the actual data as a model check.</p>
+
+<p>In this example, we'll follow the posterior predictive checking done in the Gelman et al. Bayesian Data Analysis book, using Newcomb's speed of light measurements (Section 6.3).</p>
+
+<h2>Posterior predictive sampling using a loop in R</h2>
+
+Simon Newcomb made 66 measurements of the speed of light, which one might model using a normal distribution. One question discussed in Gelman et al. is whether the lowest measurements, which look like outliers, could have reasonably come from a normal distribution.
+
+<h3>Setup</h3>
+
+We set up the nimble model. 
+
+<div class="chunk" id="unnamed-chunk-2"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl std">(nimble,</span> <span class="hl kwc">warn.conflicts</span> <span class="hl std">=</span> <span class="hl num">FALSE</span><span class="hl std">)</span>
+
+<span class="hl std">code</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">nimbleCode</span><span class="hl std">({</span>
+    <span class="hl com">## noninformative priors</span>
+    <span class="hl std">mu</span> <span class="hl opt">~</span> <span class="hl kwd">dflat</span><span class="hl std">()</span>
+    <span class="hl std">sigma</span> <span class="hl opt">~</span> <span class="hl kwd">dhalfflat</span><span class="hl std">()</span>
+    <span class="hl com">## likelihood</span>
+    <span class="hl kwa">for</span><span class="hl std">(i</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">n) {</span>
+        <span class="hl std">y[i]</span> <span class="hl opt">~</span> <span class="hl kwd">dnorm</span><span class="hl std">(mu,</span> <span class="hl kwc">sd</span> <span class="hl std">= sigma)</span>
+    <span class="hl std">}</span>
+<span class="hl std">})</span>
+
+<span class="hl std">data</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">y</span> <span class="hl std">= MASS</span><span class="hl opt">::</span><span class="hl std">newcomb)</span>
+<span class="hl std">inits</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">mu</span> <span class="hl std">=</span> <span class="hl num">0</span><span class="hl std">,</span> <span class="hl kwc">sigma</span> <span class="hl std">=</span> <span class="hl num">5</span><span class="hl std">)</span>
+<span class="hl std">constants</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">list</span><span class="hl std">(</span><span class="hl kwc">n</span> <span class="hl std">=</span> <span class="hl kwd">length</span><span class="hl std">(data</span><span class="hl opt">$</span><span class="hl std">y))</span>
+
+<span class="hl std">model</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">nimbleModel</span><span class="hl std">(</span><span class="hl kwc">code</span> <span class="hl std">= code,</span> <span class="hl kwc">data</span> <span class="hl std">= data,</span> <span class="hl kwc">constants</span> <span class="hl std">= constants,</span> <span class="hl kwc">inits</span> <span class="hl std">= inits)</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## defining model...
+</pre></div>
+<div class="message"><pre class="knitr r">## building model...
+</pre></div>
+<div class="message"><pre class="knitr r">## setting data and initial values...
+</pre></div>
+<div class="message"><pre class="knitr r">## running calculate on model (any error reports that follow may simply reflect missing values in model variables) ... 
+## checking model sizes and dimensions...
+## model building finished.
+</pre></div>
+</div></div>
+
+Next we'll create some vectors of node names that will be useful for our manipulations.
+
+<div class="chunk" id="unnamed-chunk-3"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com">## Ensure we have the nodes needed to simulate new datasets</span>
+<span class="hl std">dataNodes</span> <span class="hl kwb">&lt;-</span> <span class="hl std">model</span><span class="hl opt">$</span><span class="hl kwd">getNodeNames</span><span class="hl std">(</span><span class="hl kwc">dataOnly</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
+<span class="hl std">parentNodes</span> <span class="hl kwb">&lt;-</span> <span class="hl std">model</span><span class="hl opt">$</span><span class="hl kwd">getParents</span><span class="hl std">(dataNodes,</span> <span class="hl kwc">stochOnly</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>  <span class="hl com"># `getParents` is new in nimble 0.11.0</span>
+<span class="hl com">## Ensure we have both data nodes and deterministic intermediates (e.g., lifted nodes)</span>
+<span class="hl std">simNodes</span> <span class="hl kwb">&lt;-</span> <span class="hl std">model</span><span class="hl opt">$</span><span class="hl kwd">getDependencies</span><span class="hl std">(parentNodes,</span> <span class="hl kwc">self</span> <span class="hl std">=</span> <span class="hl num">FALSE</span><span class="hl std">)</span>
+</pre></div>
+</div></div>
+
+Now run the MCMC.
+
+<div class="chunk" id="unnamed-chunk-4"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">cmodel</span>  <span class="hl kwb">&lt;-</span> <span class="hl kwd">compileNimble</span><span class="hl std">(model)</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compilation details.
+</pre></div>
+<div class="message"><pre class="knitr r">## compilation finished.
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl std">mcmc</span>    <span class="hl kwb">&lt;-</span> <span class="hl kwd">buildMCMC</span><span class="hl std">(model,</span> <span class="hl kwc">monitors</span> <span class="hl std">= parentNodes)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## ===== Monitors =====
+## thin = 1: mu, sigma
+## ===== Samplers =====
+## conjugate sampler (2)
+##   - mu
+##   - sigma
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl std">cmcmc</span>   <span class="hl kwb">&lt;-</span> <span class="hl kwd">compileNimble</span><span class="hl std">(mcmc,</span> <span class="hl kwc">project</span> <span class="hl std">= model)</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compilation details.
+## compilation finished.
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl std">samples</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">runMCMC</span><span class="hl std">(cmcmc,</span> <span class="hl kwc">niter</span> <span class="hl std">=</span> <span class="hl num">1000</span><span class="hl std">,</span> <span class="hl kwc">nburnin</span> <span class="hl std">=</span> <span class="hl num">500</span><span class="hl std">)</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## running chain 1...
+</pre></div>
+<div class="output"><pre class="knitr r">## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|
+</pre></div>
+</div></div>
+
+<h3>Posterior predictive sampling by direct variable assignment</h3>
+
+We'll loop over the samples and use the compiled model (uncompiled would be ok too, but slower) to simulate new datasets.
+
+<div class="chunk" id="unnamed-chunk-5"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">nSamp</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">nrow</span><span class="hl std">(samples)</span>
+<span class="hl std">n</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">length</span><span class="hl std">(data</span><span class="hl opt">$</span><span class="hl std">y)</span>
+<span class="hl std">ppSamples</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">matrix</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">, nSamp, n)</span>
+
+<span class="hl kwd">set.seed</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">)</span>
+<span class="hl kwa">for</span><span class="hl std">(i</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">nSamp){</span>
+  <span class="hl std">cmodel[[</span><span class="hl str">&quot;mu&quot;</span><span class="hl std">]]</span> <span class="hl kwb">&lt;-</span> <span class="hl std">samples[i,</span> <span class="hl str">&quot;mu&quot;</span><span class="hl std">]</span>             <span class="hl com">## or cmodel$mu &lt;- samples[i, &quot;mu&quot;]</span>
+  <span class="hl std">cmodel[[</span><span class="hl str">&quot;sigma&quot;</span><span class="hl std">]]</span> <span class="hl kwb">&lt;-</span> <span class="hl std">samples[i,</span> <span class="hl str">&quot;sigma&quot;</span><span class="hl std">]</span>
+  <span class="hl std">cmodel</span><span class="hl opt">$</span><span class="hl kwd">simulate</span><span class="hl std">(simNodes,</span> <span class="hl kwc">includeData</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
+  <span class="hl std">ppSamples[i, ]</span> <span class="hl kwb">&lt;-</span> <span class="hl std">cmodel[[</span><span class="hl str">&quot;y&quot;</span><span class="hl std">]]</span>
+<span class="hl std">}</span>
+</pre></div>
+</div></div>
+
+<h3>Posterior predictive sampling using <tt>values</tt></h3>
+
+That's fine, but we needed to manually insert values for the different variables. For a more general solution, we can use nimble's <tt>values</tt> function as follows.
+
+<div class="chunk" id="unnamed-chunk-6"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">ppSamples</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">matrix</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span> <span class="hl kwc">nrow</span> <span class="hl std">= nSamp,</span> <span class="hl kwc">ncol</span> <span class="hl std">=</span>
+          <span class="hl kwd">length</span><span class="hl std">(model</span><span class="hl opt">$</span><span class="hl kwd">expandNodeNames</span><span class="hl std">(dataNodes,</span> <span class="hl kwc">returnScalarComponents</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)))</span>
+<span class="hl std">postNames</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">colnames</span><span class="hl std">(samples)</span>
+
+<span class="hl kwd">set.seed</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">)</span>
+<span class="hl kwd">system.time</span><span class="hl std">({</span>
+<span class="hl kwa">for</span><span class="hl std">(i</span> <span class="hl kwa">in</span> <span class="hl kwd">seq_len</span><span class="hl std">(nSamp)) {</span>
+    <span class="hl kwd">values</span><span class="hl std">(cmodel, postNames)</span> <span class="hl kwb">&lt;-</span> <span class="hl std">samples[i, ]</span>  <span class="hl com"># assign 'flattened' values</span>
+    <span class="hl std">cmodel</span><span class="hl opt">$</span><span class="hl kwd">simulate</span><span class="hl std">(simNodes,</span> <span class="hl kwc">includeData</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
+    <span class="hl std">ppSamples[i, ]</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">values</span><span class="hl std">(cmodel, dataNodes)</span>
+<span class="hl std">}</span>
+<span class="hl std">})</span>
+</pre></div>
+<div class="output"><pre class="knitr r">##    user  system elapsed 
+##   4.657   0.000   4.656
+</pre></div>
+</div></div>
+
+Side note: For large models, it might be faster to use the variable names as the second argument to <tt>values()</tt> rather than the names of all the elements of the variables. If one chooses to do this, it's important to check that the ordering of variables in the 'flattened' values in <tt>samples</tt> is the same as the ordering of variables in the second argument to <tt>values</tt> so that the first line of the for loop assigns the values from <tt>samples</tt> correctly into the model. 
+
+<h3>Doing the posterior predictive check</h3>
+
+At this point, we can implement the check we want using our chosen discrepancy measure. Here a simple check uses the minimum observation.
+
+<div class="chunk" id="postpred_hist"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">obsMin</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">min</span><span class="hl std">(data</span><span class="hl opt">$</span><span class="hl std">y)</span>
+<span class="hl std">ppMin</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">apply</span><span class="hl std">(ppSamples,</span> <span class="hl num">1</span><span class="hl std">, min)</span>
+
+<span class="hl com"># ## Check with plot in Gelman et al. (3rd edition), Figure 6.3</span>
+<span class="hl kwd">hist</span><span class="hl std">(ppMin,</span> <span class="hl kwc">xlim</span> <span class="hl std">=</span> <span class="hl kwd">c</span><span class="hl std">(</span><span class="hl opt">-</span><span class="hl num">50</span><span class="hl std">,</span> <span class="hl num">20</span><span class="hl std">),</span>
+    <span class="hl kwc">main</span> <span class="hl std">=</span> <span class="hl str">&quot;Discrepancy = min(y)&quot;</span><span class="hl std">,</span>
+    <span class="hl kwc">xlab</span> <span class="hl std">=</span> <span class="hl str">&quot;min(y_rep)&quot;</span><span class="hl std">)</span>
+<span class="hl kwd">abline</span><span class="hl std">(</span><span class="hl kwc">v</span> <span class="hl std">= obsMin,</span> <span class="hl kwc">col</span> <span class="hl std">=</span> <span class="hl str">'red'</span><span class="hl std">)</span>
+</pre></div>
+  </div><div class="rimage default"><img src="https://r-nimble.org/wp-content/uploads/2021/08/postpred_hist-1.png" class="plot" /></div></div>
+
+<h2>Fast posterior predictive sampling using a nimbleFunction</h2>
+
+The approach above could be slow, even with a compiled model, because the loop is carried out in R. We could instead do all the work in a compiled nimbleFunction.
+
+<h3>Writing the nimbleFunction</h3>
+
+<p>Let's set up a nimbleFunction. In the setup code, we'll manipulate the nodes and variables, similarly to the code above. In the run code, we'll loop through the samples and simulate, also similarly.</p>
+
+<p>Remember that all querying of the model structure needs to happen in the setup code. We also need to pass the MCMC object to the nimble function, so that we can determine at setup time the names of the variables we are copying from the posterior samples into the model.</p>
+
+<p>The run code takes the actual samples as the input argument, so the nimbleFunction will work regardless of how long the MCMC was run for.</p>
+
+<div class="chunk" id="unnamed-chunk-7"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl std">ppSamplerNF</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">nimbleFunction</span><span class="hl std">(</span>
+          <span class="hl kwc">setup</span> <span class="hl std">=</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">model</span><span class="hl std">,</span> <span class="hl kwc">mcmc</span><span class="hl std">) {</span>
+              <span class="hl std">dataNodes</span> <span class="hl kwb">&lt;-</span> <span class="hl std">model</span><span class="hl opt">$</span><span class="hl kwd">getNodeNames</span><span class="hl std">(</span><span class="hl kwc">dataOnly</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
+              <span class="hl std">parentNodes</span> <span class="hl kwb">&lt;-</span> <span class="hl std">model</span><span class="hl opt">$</span><span class="hl kwd">getParents</span><span class="hl std">(dataNodes,</span> <span class="hl kwc">stochOnly</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
+              <span class="hl kwd">cat</span><span class="hl std">(</span><span class="hl str">&quot;Stochastic parents of data are:&quot;</span><span class="hl std">,</span> <span class="hl kwd">paste</span><span class="hl std">(parentNodes,</span> <span class="hl kwc">collapse</span> <span class="hl std">=</span> <span class="hl str">','</span><span class="hl std">),</span> <span class="hl str">&quot;.\n&quot;</span><span class="hl std">)</span>
+              <span class="hl std">simNodes</span> <span class="hl kwb">&lt;-</span> <span class="hl std">model</span><span class="hl opt">$</span><span class="hl kwd">getDependencies</span><span class="hl std">(parentNodes,</span> <span class="hl kwc">self</span> <span class="hl std">=</span> <span class="hl num">FALSE</span><span class="hl std">)</span>
+              <span class="hl std">vars</span> <span class="hl kwb">&lt;-</span> <span class="hl std">mcmc</span><span class="hl opt">$</span><span class="hl std">mvSamples</span><span class="hl opt">$</span><span class="hl kwd">getVarNames</span><span class="hl std">()</span>  <span class="hl com"># need ordering of variables in mvSamples / samples matrix</span>
+              <span class="hl kwd">cat</span><span class="hl std">(</span><span class="hl str">&quot;Using posterior samples of:&quot;</span><span class="hl std">,</span> <span class="hl kwd">paste</span><span class="hl std">(vars,</span> <span class="hl kwc">collapse</span> <span class="hl std">=</span> <span class="hl str">','</span><span class="hl std">),</span> <span class="hl str">&quot;.\n&quot;</span><span class="hl std">)</span>
+              <span class="hl std">n</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">length</span><span class="hl std">(model</span><span class="hl opt">$</span><span class="hl kwd">expandNodeNames</span><span class="hl std">(dataNodes,</span> <span class="hl kwc">returnScalarComponents</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">))</span>
+          <span class="hl std">},</span>
+          <span class="hl kwc">run</span> <span class="hl std">=</span> <span class="hl kwa">function</span><span class="hl std">(</span><span class="hl kwc">samples</span> <span class="hl std">=</span> <span class="hl kwd">double</span><span class="hl std">(</span><span class="hl num">2</span><span class="hl std">)) {</span>
+              <span class="hl std">nSamp</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">dim</span><span class="hl std">(samples)[</span><span class="hl num">1</span><span class="hl std">]</span>
+              <span class="hl std">ppSamples</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">matrix</span><span class="hl std">(</span><span class="hl kwc">nrow</span> <span class="hl std">= nSamp,</span> <span class="hl kwc">ncol</span> <span class="hl std">= n)</span>
+              <span class="hl kwa">for</span><span class="hl std">(i</span> <span class="hl kwa">in</span> <span class="hl num">1</span><span class="hl opt">:</span><span class="hl std">nSamp) {</span>
+                    <span class="hl kwd">values</span><span class="hl std">(model, vars)</span> <span class="hl kwb">&lt;&lt;-</span> <span class="hl std">samples[i, ]</span>
+                    <span class="hl std">model</span><span class="hl opt">$</span><span class="hl kwd">simulate</span><span class="hl std">(simNodes,</span> <span class="hl kwc">includeData</span> <span class="hl std">=</span> <span class="hl num">TRUE</span><span class="hl std">)</span>
+                    <span class="hl std">ppSamples[i, ]</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">values</span><span class="hl std">(model, dataNodes)</span>
+              <span class="hl std">}</span>
+              <span class="hl kwd">returnType</span><span class="hl std">(</span><span class="hl kwd">double</span><span class="hl std">(</span><span class="hl num">2</span><span class="hl std">))</span>
+              <span class="hl kwd">return</span><span class="hl std">(ppSamples)</span>
+          <span class="hl std">})</span>
+</pre></div>
+</div></div>
+
+<h3>Using the nimbleFunction</h3>
+
+We'll create the instance of the nimbleFunction for this model and MCMC.
+Then we run the compiled nimbleFunction.
+
+<div class="chunk" id="unnamed-chunk-8"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl com">## Create the sampler for this model and this MCMC.</span>
+<span class="hl std">ppSampler</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">ppSamplerNF</span><span class="hl std">(model, mcmc)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## Stochastic parents of data are: mu,sigma .
+## Using posterior samples of: mu,sigma .
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl std">cppSampler</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">compileNimble</span><span class="hl std">(ppSampler,</span> <span class="hl kwc">project</span> <span class="hl std">= model)</span>
+</pre></div>
+<div class="message"><pre class="knitr r">## compiling... this may take a minute. Use 'showCompilerOutput = TRUE' to see C++ compilation details.
+</pre></div>
+<div class="message"><pre class="knitr r">## compilation finished.
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl com">## Check ordering of variables is same in 'vars' and in 'samples'.</span>
+<span class="hl kwd">colnames</span><span class="hl std">(samples)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## [1] &quot;mu&quot;    &quot;sigma&quot;
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">identical</span><span class="hl std">(</span><span class="hl kwd">colnames</span><span class="hl std">(samples), model</span><span class="hl opt">$</span><span class="hl kwd">expandNodeNames</span><span class="hl std">(mcmc</span><span class="hl opt">$</span><span class="hl std">mvSamples</span><span class="hl opt">$</span><span class="hl kwd">getVarNames</span><span class="hl std">()))</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## [1] TRUE
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">set.seed</span><span class="hl std">(</span><span class="hl num">1</span><span class="hl std">)</span>
+<span class="hl kwd">system.time</span><span class="hl std">(ppSamples_via_nf</span> <span class="hl kwb">&lt;-</span> <span class="hl std">cppSampler</span><span class="hl opt">$</span><span class="hl kwd">run</span><span class="hl std">(samples))</span>
+</pre></div>
+<div class="output"><pre class="knitr r">##    user  system elapsed 
+##   0.004   0.000   0.004
+</pre></div>
+<div class="source"><pre class="knitr r"><span class="hl kwd">identical</span><span class="hl std">(ppSamples, ppSamples_via_nf)</span>
+</pre></div>
+<div class="output"><pre class="knitr r">## [1] TRUE
+</pre></div>
+</div></div>
+
+<p>So we get exactly the same results (note the use of <tt>set.seed</tt> to ensure this) but much faster.</p>
+
+<p>Here the speed doesn't really matter but for more samples and larger models it often will, even after accounting for the time spent to compile the nimbleFunction.</p>
+
+</body>
+</html>
