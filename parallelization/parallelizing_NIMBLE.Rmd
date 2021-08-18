@@ -28,7 +28,7 @@ First we create a cluster, specifying the number of cores we want the cluster to
 this_cluster <- makeCluster(4)
 ```
 
-(Side note: do not use `makeForkCluster` when parallelizing NIMBLE code; it will not work. `makeCluster` sets up a PSOCK cluster, which will work.)
+(Side note: do not use `makeForkCluster` when parallelizing NIMBLE code; it will not work. `makeCluster` sets up a PSOCK cluster, which will work. If you really want to use forking, if you are able to set up separate directories for NIMBLE's generated code for each worker, that should allow one to use forked processes. One option is to use `unixtools::set.tempdir()` and another is to use the `dirName` argument to `compileNimble()`.)
 
 We'll set up a situation where we run four independent MCMC simulations.
 
