@@ -68,7 +68,10 @@ This example doesn't include a full introduction to nimbleFunctions, but here ar
 * Everything else here is like R.
 * In a user-defined distribution, we must define a log argument indicating whether to return the probability or the log probability, as is standard in R's distribution functions.  Also, the first argument, representing a value of the random variable, must be named "x", which again is like R's distribution functions.
 
-In earlier versions of NIMBLE, to allow a user-defined distribution, we required one provide an "r" function (for example, `rZIP`) for random number generation. That's not required any longer unless any algorithms you use would need to generate from the distribution (e.g., generating from a prior or from the data distribution), but we show it here anyway.
+You are not required to provide an "r" function (for example, `rZIP`) for random number generation unless any algorithms you use would need to generate from the distribution. Two general situations in which the "r" function is necessary are for model initialization when no initial value is provided for a node following the user-defined distribution and for sampling posterior predictive nodes (those nodes with no downstream data dependencies) that follow the user-defined distribution.
+
+For completeness, we show the "r" function here.
+
 
 ```{r}
 rZIP <- nimbleFunction(
