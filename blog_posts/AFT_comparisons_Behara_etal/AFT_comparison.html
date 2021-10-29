@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style type="text/css">
+.inline {
+  background-color: #f7f7f7;
+  border:solid 1px #B0B0B0;
+}
+.error {
+	font-weight: bold;
+	color: #FF0000;
+}
+.warning {
+	font-weight: bold;
+}
+.message {
+	font-style: italic;
+}
+.source, .output, .warning, .error, .message {
+	padding: 0 1em;
+  border:solid 1px #F7F7F7;
+}
+.source {
+  background-color: #f5f5f5;
+}
+.left {
+  text-align: left;
+}
+.right {
+  text-align: right;
+}
+.center {
+  text-align: center;
+}
+.hl.num {
+  color: #AF0F91;
+}
+.hl.str {
+  color: #317ECC;
+}
+.hl.com {
+  color: #AD95AF;
+  font-style: italic;
+}
+.hl.opt {
+  color: #000000;
+}
+.hl.std {
+  color: #585858;
+}
+.hl.kwa {
+  color: #295F94;
+  font-weight: bold;
+}
+.hl.kwb {
+  color: #B05A65;
+}
+.hl.kwc {
+  color: #55aa55;
+}
+.hl.kwd {
+  color: #BC5A65;
+  font-weight: bold;
+}
+</style>
+  <title>A close look at some posted trials of nimble for accelerated failure time models</title>
+</head>
+<body>
+
+
+<p>A bunch of folks have brought to our attention a <a href="https://arxiv.org/abs/2107.09357">manuscript by Beraha, Falco and Guglielmi (BFG) posted on arXiv</a> giving some comparisons between JAGS, NIMBLE, and Stan.  Naturally, we wanted to take a look. Each package performs best in some of their comparisons.  There's a lot going on, so here we're just going to work through the last of their four examples, an accelerated failure time (AFT) model, because that's the one where NIMBLE looks the worst in their results. The code from BFG is given on GitHub <a href="https://github.com/daniele-falco/software_comparison">here</a>
+
+<p>There may be some issues with their other three examples as well, and we might work through those in future blog post(s).  NIMBLE provides a lot of flexibility for configuring MCMCs in different ways (with different samplers), which means a comparison using our default configuration is just a start.  Performance differences can also arise from writing the same model in different ways.  We see both kinds of issues coming up for the other examples.  But the AFT example gives a lot to talk about, so we're sticking to that one here.</p>
+
+<p>It turns out that NIMBLE and JAGS were put at a huge disadvantage compared to Stan, and that BFG's results from NIMBLE don't look valid, and that there isn't any exploration of NIMBLE's configurability.  If we make the model for NIMBLE and JAGS comparable to the model for Stan, NIMBLE does roughly 2-45 times better in various cases than what BFG reported.  If we explore a simple block sampling option, NIMBLE gets a small additional boost in some cases.  It's hard to compare results exactly with what BFG report, and we are not out to re-run the full comparison including JAGS and Stan.  A "back of the envelope" comparison suggests that NIMBLE is still less efficient than Stan for this example, but not nearly to the degree reported.  We're also not out to explore many sampling configurations to try for better performance in this particular example problem, but part of NIMBLE's design is to make it easy to do so.</p>
+
+<p>Before starting into the AFT models, it's worth recognizing that software benchmarks and other kinds of performance comparisons are really hard to do well.  It's almost inevitable that, when done by developers of one package, that package gets a boost in results even if objectivity is the honest goal.  That's because package developers almost can't help using their package effectively and likely don't know how to use other packages as well as their own.  In this case, it's fair to point out that NIMBLE needs more care in providing valid initial values (which BFG's code doesn't do) and that NIMBLE's default samplers don't work well here, which is because this problem features heavy right tails of Weibull distributions with shape parameter < 1.  For many users, that is not a typical problem.  By choosing slice samplers (which JAGS often uses too) instead of NIMBLE's default Metropolis-Hastings samplers, the mixing is much better.  This issue is only relevant to the problem as BFG formulated it for JAGS and NIMBLE and goes away when we put it on par with the formulation BFG gave to Stan.  In principle, comparisons by third parties, like BFG, might be more objective than those by package developers, but in this case the comparisons by BFG don't use JAGS or NIMBLE effectively and include incorrect results from NIMBLE.</p>
+
+<p>Below we try to reproduce their (invalid) results for NIMBLE and to run some within-NIMBLE comparisons of other methods.  We'll stick to their model scenarios and performance metrics.  Those metrics are not the way we've done some published MCMC comparisons <a href="https://link.springer.com/article/10.1007/s10651-016-0353-z">here</a>, <a href="https://doi.org/10.1002/ece3.6053">here</a> and <a href="https://doi.org/10.1002/ecs2.3385">here</a>, but using them will allow readers to interpret our results alongside theirs.</p>
+
+<p>First we'll give a brief summary of their model scenarios. Here goes.</p>
+
+<h1>Accelerated Failure Time (AFT) models</h1>
+
+<p>Here's a lightning introduction to AFT models based on Weibull distributions.  These are models for time-to-event data such as a "failure."  For shape $latex a$ and scale [latex]s[/latex], the Weibull probability density function for time [latex]t[/latex] is
+
+[latex]f_W(t | a, s)  = \frac{a}{s}\left(\frac{t}{s}\right)^{a-1} e^{-\left(\frac{t}{s}\right)^a}[/latex]
+
+<div class="chunk" id="set-up-model"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl std">(nimble)</span>
+<span class="hl std">code</span> <span class="hl kwb">&lt;-</span> <span class="hl kwd">nimbleCode</span><span class="hl std">({</span>
+  <span class="hl std">a</span> <span class="hl opt">~</span> <span class="hl kwd">dnorm</span><span class="hl std">(</span><span class="hl num">0</span><span class="hl std">,</span><span class="hl num">1</span><span class="hl std">)</span>
+  <span class="hl std">b</span> <span class="hl opt">~</span> <span class="hl kwd">dnorm</span><span class="hl std">(a,</span> <span class="hl num">1</span><span class="hl std">)</span>
+<span class="hl std">})</span>
+</pre></div>
+</div></div>

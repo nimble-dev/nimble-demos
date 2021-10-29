@@ -1,0 +1,468 @@
+---
+title: "A close look at some posted trials of nimble for accelerated failure time models"
+author: "NIMBLE Development Team"
+date: "10/29/2021"
+output: 
+  html_document: 
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+A bunch of folks have brought to our attention a [manuscript by Beraha, Falco and Guglielmi (BFG) posted on arXiv](https://arxiv.org/abs/2107.09357) giving some comparisons between JAGS, NIMBLE, and Stan.  Naturally, we wanted to take a look. Each package performs best in some of their comparisons.  There's a lot going on, so here we're just going to work through the last of their four examples, an accelerated failure time (AFT) model, because that's the one where NIMBLE looks the worst in their results. The code from BFG is given on GitHub [here](https://github.com/daniele-falco/software_comparison).
+
+There may be some issues with their other three examples as well, and we might work through those in future blog post(s).  NIMBLE provides a lot of flexibility for configuring MCMCs in different ways (with different samplers), which means a comparison using our default configuration is just a start.  Performance differences can also arise from writing the same model in different ways.  We see both kinds of issues coming up for the other examples.  But the AFT example gives a lot to talk about, so we're sticking to that one here.
+
+It turns out that NIMBLE and JAGS were put at a huge disadvantage compared to Stan, and that BFG's results from NIMBLE don't look valid, and that there isn't any exploration of NIMBLE's configurability.  If we make the model for NIMBLE and JAGS comparable to the model for Stan, NIMBLE does roughly 2-45 times better in various cases than what BFG reported.  If we explore a simple block sampling option, NIMBLE gets a small additional boost in some cases.  It's hard to compare results exactly with what BFG report, and we are not out to re-run the full comparison including JAGS and Stan.  A "back of the envelope" comparison suggests that NIMBLE is still less efficient than Stan for this example, but not nearly to the degree reported.  We're also not out to explore many sampling configurations to try for better performance in this particular example problem, but part of NIMBLE's design is to make it easy to do so.
+
+Before starting into the AFT models, it's worth recognizing that software benchmarks and other kinds of performance comparisons are really hard to do well.  It's almost inevitable that, when done by developers of one package, that package gets a boost in results even if objectivity is the honest goal.  That's because package developers almost can't help using their package effectively and likely don't know how to use other packages as well as their own.  In this case, it's fair to point out that NIMBLE needs more care in providing valid initial values (which BFG's code doesn't do) and that NIMBLE's default samplers don't work well here, which is because this problem features heavy right tails of Weibull distributions with shape parameter < 1.  For many users, that is not a typical problem.  By choosing slice samplers (which JAGS often uses too) instead of NIMBLE's default Metropolis-Hastings samplers, the mixing is much better.  This issue is only relevant to the problem as BFG formulated it for JAGS and NIMBLE and goes away when we put it on par with the formulation BFG gave to Stan.  In principle, comparisons by third parties, like BFG, might be more objective than those by package developers, but in this case the comparisons by BFG don't use JAGS or NIMBLE effectively and include incorrect results from NIMBLE.
+
+Below we try to reproduce their (invalid) results for NIMBLE and to run some within-NIMBLE comparisons of other methods.  We'll stick to their model scenarios and performance metrics.  Those metrics are not the way we've done some published MCMC comparisons [here](https://link.springer.com/article/10.1007/s10651-016-0353-z), [here](https://doi.org/10.1002/ece3.6053) and [here](https://doi.org/10.1002/ecs2.3385), but using them will allow readers to interpret our results alongside theirs.
+
+First we'll give a brief summary of their model scenarios. Here goes.
+
+# Accelerated Failure Time (AFT) models
+
+Here's a lightning introduction to AFT models based on Weibull distributions.  These are models for time-to-event data such as a "failure."  For shape $a$ and scale $s$, the Weibull probability density function for time $t$ is
+\[
+f_W(t | a, s)  = \frac{a}{s}\left(\frac{t}{s}\right)^{a-1} e^{-\left(\frac{t}{s}\right)^a}
+\]
+
+One important thing about the Weibull is that its cumulative density can be written in closed form.  It is:
+\[
+F_W(t | a, s) = 1-e^{\left(\frac{t}{s}\right)^a}
+\]
+
+The role of covariates is to accelerate or decelerate the time course towards failure, effectively stretching or shrinking the time scale for each item.  Specifically, for covariate vector $x$ and coefficient vector $\beta$, define $\theta = e^{-x' \beta}$.  Then the distribution of times-to-event is defined by rescaling the Weibull: $f(t | \theta, a, s) = \theta f_W(\theta t | a, s)$.  This gives a Weibull with shape $a$ and scale $s / \theta$, so we have
+
+\[
+f(t | \theta, a, s) = f_W(t | a, \frac{s}{\theta})
+\]
+
+In the code, there are two parameterizations in play.  The first is $(a, s)$ as just given.  This is used in Stan and could be used in NIMBLE because it supports alternative parameterizations, including that one. Given $\beta$, the scale is $\log(2)^{-\frac{1}{a}} e^{x' \beta}$.  The second is $(a, \lambda = \left(\frac{1}{s} \right)^{a})$.  This is the parameterization in the BUGS model language, so it is used in JAGS and is the default in NIMBLE. Given $\beta$, $\lambda = \log(2) e^{-a(x' \beta)}$.
+
+The reason for the $\log(2)$ is that it makes the median of $f_W(t | a, s)$ be 1 for any $a$, i.e. when $x' \beta = 0$.  Priors are put on $a$ (`alpha` in the code) and $\beta$ (`beta`).  There is no separate scale parameter.  Rather, $\lambda = \log(2)$ when $x' \beta = 0$.  The models are equivalent with either parameterization, and they shouldn't have much impact on computational efficiency.  We're just pointing them out to follow what's going on.
+
+## Right-censored failure time data.
+
+When a failure time is directly observed, its likelihood contribution is $f_W(t | a, s e^{x' \beta})$.  When a unit hasn't failed by its last observation, all that is known is that it lasted at least until $t$.  Then its likelihood contribution is $1-F_W(t | a, s e^{x' \beta})$.  This is called a right-censored observation.  Thus the data consist of some $t$s that are actual failure times and some $t$s that are right-censoring times.
+
+There are two ways to handle a right-censored observation in MCMC:
+
+* Include the likelihood factor $1-F_W(t | a, s e^{x' \beta})$.  This is how BFG set up the model for Stan.
+* Include a latent state, $t'$, for the failure time.  Include the likelihood factor $f_W(t' | a, s e^{x' \beta})$ and let MCMC sample $t'$, with the numerical effect of integrating over it.  This is how BFG set up the model for JAGS and NIMBLE.
+
+The first version is marginalized relative to the second version because $1-F_W(t | a, s e^{x' \beta})$ integrates over $t'$ without needing to sample it.  Often, but not always, marginalization is computationally faster and gives better mixing, so it makes the MCMC problem easier.  That's why the comparison as set up by BFG seems like an apples-to-oranges comparison.  They've made the problem substantially easier for Stan.
+
+It's easy to set up the marginalized version for JAGS or NIMBLE.  This can be done using the "zeroes" trick in the BUGS language, which both packages use for writing models.  In NIMBLE this can also be done by writing a user-defined distribution as a `nimbleFunction`, which can be compiled along with a model.
+
+## BFG's scenarios:
+
+BFG included the following scenarios:
+
+* Sample size, $N$, is 100 or 1000.
+* Number of explanatory variables, $p$, is 4 or 16.  These always include an intercept.  Other covariates, and the true coefficient values, are simulated.
+* Censoring times are drawn from another Weibull distribution.  This is set up following previous works such that the expected proportion of censored values is 20%, 50% or 80%.
+* Most of their comparisons use informative priors. Those are the ones we look at here.  Again, we weren't out to look at everything they did.
+* They used $N_{it} = 10,000$ total iterations.  Of these, $5,000$ were discarded as burn-in (warmup).  They used a thinning interval of 2, resulting in $N_s = 2,500$ saved samples.
+
+# Some issues to explore.
+
+Now that we've set up the background, we are ready to list some of the issues with BFG's comparisons that are worth exploring.  For the computational experiments below, we decided to limit our efforts to NIMBLE because we are not trying to re-do BFG's full analysis. Here are the main issues.
+
+1. **BFG gave Stan a much easier problem than they gave JAGS and NIMBLE.**  Stan was allowed to use direct calculation of right-censored probabilities.  These are complementary (right-tail) cumulative probability density calculations.  NIMBLE and JAGS were made to sample latent failure times for censored items, even though they can be set up to use the cumulative calculations as well.   Below we give NIMBLE a more comparable problem as the one given by BFG to Stan.  
+
+2. **It looks like BFG must not have obtained valid results from NIMBLE because they did not set up valid initial values for latent failure times**.  NIMBLE can be more sensitive to initial values ("inits") than JAGS.  We think that's partly because NIMBLE uses a lot of adaptive random-walk Metropolis-Hastings samplers in its default MCMC configuration.  In any case, NIMBLE gives warnings at multiple steps if a user should give attention to initial values.  We give warnings instead of errors because a user might have plans to add initial values at a later step, and because sometimes MCMC samplers can recover from bad initial values.  In the AFT example, the model does not "know" that initial values for latent failure times must be greater than the censoring times.  If they aren't, the likelihood calculations will return a `-Inf` (or possibly `NA`), which causes trouble for the samplers.  Inspection of the model after MCMC runs using BFG's code shows that even after 10000 iterations, the model likelihood is `-Inf`, so the results are invalid.  It's fair to say this is an issue in how to use NIMBLE, but it's confusing to include invalid results in a comparison.
+
+3. **Even with valid initial values in BFG's model formulation, NIMBLE's default samplers do not do well for this example.  In this post, we explore slice samplers instead.**  The problem is that the Weibull distributions in these scenarios give long right tails, due to simulating with shape parameter < 1.  This corresponds to failure rates that decrease with time, like when many failures occur early and then those that don't fail can last a long, long time.  MCMC sampling of long right tails is a known challenge.  In trial runs, we saw that, to some extent, the issue can be diagnosed by monitoring the latent failure times and noticing that they don't mix well.  We also saw that sometimes regression parameters displayed mixing problems.  BFG report that NIMBLE's results have mean posterior values farther from the correct values than given by the other tools, which is a hint that something is more deeply wrong.  Slice samplers work much better for this situation, and it is easy to tell NIMBLE to use slice samplers, which we did.
+
+4. **BFG's code uses matrix multiplication for $x' \beta$ in Stan, but not in NIMBLE or JAGS, even though they also support matrix multiplication.**  Instead, BFG's code for NIMBLE and JAGS has a scalar declaration for each element of the matrix multiplication operation, followed by the sums that form each element of the result.  We modify the code to use matrix multiplication.  While we don't often see this make a huge difference in run-time performance (when we've looked at the issue in other examples), it could potentially matter, and it definitely speeds up NIMBLE's model-building and compilation steps because there is less to keep track of. An intermediate option would be to use inner products (`inprod`).
+
+5. It's worth noting that *all of these examples are fairly fast and mix fairly well*.  Some might disagree, but these all generate reasonable effective sample sizes in seconds-to-minutes, not hours-to-days.
+
+6. There are some minor issues, and we don't want to get nit-picky.  One is that we don't see BFG's code being set up to be reproducible.  For example, not only is there no `set.seed` so that others can generate identical data sets, but it looks like *each package was given different simulated data sets*.  It can happen that MCMC performance depends on the data set.  While this *might* not be a huge issue, we prefer below to give each package the same, reproducible, data sets.  Another issue is that looking at *average* effective sample size across parameters can be misleading because one wants all parameters mixed well, not some mixed really well and others mixed poorly.  But in these examples the parameters compared are all regression-type coefficients that play similar roles in the model, and the averaging doesn't look like a huge issue.  Finally, BFG decline to report ESS/time, preferring instead to report ESS and time and let readers make sense of them.  We see ESS/time as the primary metric of interest, the number of effectively independent samples generated per second, so we report it below.  This gives a way to see how both mixing (ESS) and computation time contribute to MCMC performance.
+
+# Setting up the example
+
+We use BFG's code but modify it to organize it into functions and make it reproducible.  The source file for this document includes code chunks to run and save results.  We are not running JAGS or Stan because we are not trying to reproduce a full set of comparisons. Instead we are looking into  NIMBLE's performance for this example.  Since the main issue is that BFG gave NIMBLE and JAGS harder models than they gave Stan, we fix this in a way that is not NIMBLE-specific and should also work for JAGS.
+
+If you want to skip over the code chunks and go straight to the results, here is a summary of what the code chunks do:
+
+* Set up the twelve cases with informative priors included in the first twelve rows of BFG's table 5, which has their AFT results.
+* For each of the twelve cases, run:
+
+    * the original method of BFG, which gives **invalid** results but is useful for trying to see how much later steps improve over what BFG reported;
+    * a method with valid initial values and slice sampling, but still in the harder model formulation given by BFG;
+    * a method with the model formulation matching what BFG gave to Stan, using marginal probabilities for censored times and also using matrix multiplication;
+    * a method with the model formulation matching what BFG gave to Stan and also with one simple experiment in block sampling.  The block sampler used is a multivariate adaptive random-walk Metropolis-Hastings sampler for all the regression coefficients.  It sometimes helps to let these try multiple propose-accept/reject steps because otherwise $p$ tries are replaced with $1$ try (where $p$ is the number of regression coefficients).  As a heuristic choice, we used $p/2$ tries each time the sampler ran.
+
+Results here are run on a MacBook Pro (2019), with 2.4 GHz 8-Core Intel Core i9, and OS X version 11.6.
+
+What follows are the steps with code chunks for each, and finally the results.
+
+##### Load packages used by BFG:
+```{r, results='hide'}
+# From BFG:
+# Load packages:
+library(coda)
+library(tictoc)
+library(mvtnorm)
+
+# Nimble 
+library(nimble) 
+```
+
+##### Re-organize BFG's simulation code into a function, and include a `set.seed` for reproducibility. 
+```{r eval=FALSE}
+# Here is code for model simulation taken from BFG and placed into a function
+
+#MODEL: AFT, non-hierarchical prior
+#SIMULATION OF DATA of JAGS and NIMBLE
+simulate_AFT_case <- function(N = 1000, p = 16, perc = 0.8, seed = 0) {
+  set.seed(seed) # Make it reproducible
+  # N is the number of elements in the dataset
+  #
+  # simulate covariates 
+  # p is the number of covariates
+  # p <- 16
+  X<-matrix(nrow=N, ncol=p)
+  X[,1]<-rep(1,N) # intercept
+  for(i in 2:p){
+    X[,i] <- rnorm(n = N, mean = 0 , sd =1 ) # 
+  }
+  # true parameters
+  beta <- runif(p,min=-1,max=1) 
+  mu <- X %*% beta
+  sigma <- 1
+  #for repeated simulations
+  sigma <- runif(1, min = 1, max = 5)
+  alpha <- 1/sigma 
+  lambda <- exp(mu)/((log(2))^(1/alpha)) #attenzione alle diverse parametrizzazione della weibull
+  # perc=0.8 #Percentuale dati censurati. Oppure 0.5 o 0.8
+  #perc=runif(1, min = 0.2, max = 0.8) #simulazioni ripetute
+  theta=(1/perc-1)^(1/alpha)*lambda
+  
+  survt = rweibull(N, shape=alpha, scale = lambda) #t_i.  BFG label this t in some places and survt in others.
+  cent = rweibull(N, shape=alpha, scale = theta) #c_i
+
+  list(X = X,
+       survt = survt,
+       cent = cent,
+       p = p,
+       N = N,
+       beta = beta,
+       alpha = alpha)  
+}
+```
+
+##### Set up a list of cases that match those of BFG.
+
+These are listed out for easy reading.  Each has a different seed so that simulated coefficients and covariates will not be subsets from one case to another.
+
+```{r eval=FALSE}
+cases <- list()
+# Cases with expected fraction of censored data = 0.2
+cases[["N=100, p = 4, perc = 0.2"]]   <- simulate_AFT_case(N = 100 , p = 4, perc = 0.2, seed = 1)
+cases[["N=1000, p = 4, perc = 0.2"]]  <- simulate_AFT_case(N = 1000, p = 4, perc = 0.2, seed = 2)
+cases[["N=100, p = 16, perc = 0.2"]]  <- simulate_AFT_case(N = 100 , p = 16, perc = 0.2, seed = 3)
+cases[["N=1000, p = 16, perc = 0.2"]] <- simulate_AFT_case(N = 1000, p = 16, perc = 0.2, seed = 4)
+
+# Cases with expected fraction of censored data = 0.5
+cases[["N=100, p = 4, perc = 0.5"]]   <- simulate_AFT_case(N = 100 , p = 4, perc = 0.5, seed = 5)
+cases[["N=1000, p = 4, perc = 0.5"]]  <- simulate_AFT_case(N = 1000, p = 4, perc = 0.5, seed = 6)
+cases[["N=100, p = 16, perc = 0.5"]]  <- simulate_AFT_case(N = 100 , p = 16, perc = 0.5, seed = 7)
+cases[["N=1000, p = 16, perc = 0.5"]] <- simulate_AFT_case(N = 1000, p = 16, perc = 0.5, seed = 8)
+
+# Cases with expected fraction of censored data = 0.8
+cases[["N=100, p = 4, perc = 0.8"]]   <- simulate_AFT_case(N = 100 , p = 4, perc = 0.8, seed = 9)
+cases[["N=1000, p = 4, perc = 0.8"]]  <- simulate_AFT_case(N = 1000, p = 4, perc = 0.8, seed = 10)
+cases[["N=100, p = 16, perc = 0.8"]]  <- simulate_AFT_case(N = 100 , p = 16, perc = 0.8, seed = 11)
+cases[["N=1000, p = 16, perc = 0.8"]] <- simulate_AFT_case(N = 1000, p = 16, perc = 0.8, seed = 12)
+
+save(cases, file = "cases.RData")
+```
+
+##### Set up model code in NIMBLE's dialect of the BUGS language.
+
+The `use_informative_priors` allows the same code to be used to choose BFG's settings for informative priors or uninformative priors.  We only look at the former here.
+
+```{r, eval=FALSE}
+#NIMBLE
+use_informative_priors <- TRUE
+
+AFT_NH_Code <- nimbleCode({
+  #Likelihood     
+  for(i in 1:N){
+    for(s in 1:p){
+      a[i,s] <- X[i,s]*(beta[s])
+    }
+    mu[i] <- sum(a[i,])
+    lambda[i] <- log(2)*exp(-mu[i]*alpha)
+    censured[i] ~ dinterval(t[i], cent[i])
+    t[i] ~ dweib(alpha, lambda[i])
+  }
+  #Priors
+  if(use_informative_priors) {
+    for(i in 1:p){
+      beta[i] ~ dnorm(0,sd=sqrt(10))
+    }
+    alpha ~ dexp(1)
+  } else {
+    for(i in 1:p){
+      beta[i] ~ dnorm(0, var=1000)
+    }
+    alpha ~ dunif(0.01, 100)
+  }
+})
+```
+
+##### Take BFG's code for running NIMBLE, generalize it a bit, and put it in a function.
+
+We added options to set up valid initial values and to use slice sampling on all variables.  Other configurations could potentially be more efficient but only this simple step was explored.
+
+```{r, eval=FALSE}
+run_nimble_bfg <- function(code, data, set_t_inits = FALSE, use_slice = FALSE) {
+  attach(data)
+  on.exit(detach(data))
+  t <- survt
+  censured=t>cent # censured = censored
+  delta <- as.logical(1-censured)
+  t[censured==1]=NA
+  cent[censured==0]=Inf
+  beta0=rep(0.1, p)
+  alpha0=0.1
+
+  aftConsts <- list(N=N,p=p)
+  aftInits <-  list(beta=beta0,alpha=alpha0)
+  aftData <- list(X=X,cent=cent,t=t,censured=censured)
+
+  if(set_t_inits) {
+    aftInits$t <- t
+    aftInits$t[censured==1] <- cent[censured==1]*1.05
+    aftInits$t[censured==0] <- NA
+  }
+  
+  t1<- system.time(
+    {
+      aftNH <- nimbleModel(code = code,dimensions = list(a = c(N,p)),
+                           name = "aftNH",constants = aftConsts, data = aftData, inits = aftInits)
+      Caft <- compileNimble(aftNH)
+      aftConf <- configureMCMC(aftNH, print = TRUE, onlySlice = use_slice)
+      aftConf$addMonitors(c("beta","alpha","t"))
+      aftMCMC <- buildMCMC(aftConf)
+      CaftMCMC <- compileNimble(aftMCMC, project = aftNH)
+      t2<- system.time(
+        {
+          Psamples <- runMCMC(CaftMCMC, niter=(10000), nburnin=5000, thin=2,
+                              nchains=1,samplesAsCodaMCMC = TRUE,summary=TRUE)
+        })
+    })
+  list(t1 = t1, t2 = t2, Psamples = Psamples)
+}
+```
+
+##### Generate BFG-style (**invalid**) results for all cases. 
+
+We include this so we can try to roughly compare performance improvements below against what they report.  However one difficulty is that processing with `-Inf` and `NaN` values can be substantially slower than processing with actual numbers, and these issues might differ across systems.
+
+```{r eval=FALSE}
+load("cases.RData")
+use_informative_priors <- TRUE
+results_bfg <- list()
+for(case_name in names(cases)) {
+  results_bfg[[ case_name ]] <- run_nimble_bfg(AFT_NH_Code, cases[[ case_name ]])
+}
+save(results_bfg, file = "results_bfg.RData")
+#debugonce(run_nimble_bfg)
+#test_res_bfg <- run_nimble_bfg(AFT_NH_Code, test_case)
+```
+
+##### Generate results with valid initial values and slice samplers, still with the model as set up by BFG for NIMBLE and JAGS.
+
+```{r eval=FALSE}
+load("cases.RData")
+use_informative_priors <- TRUE
+results_bfg_with_slice <- list()
+for(case_name in names(cases)) {
+  results_bfg_with_slice[[ case_name ]] <- run_nimble_bfg(AFT_NH_Code, cases[[ case_name ]], set_t_inits = TRUE, use_slice = TRUE)
+}
+save(results_bfg_with_slice, file = "results_bfg_with_slice.RData")
+#debugonce(run_nimble_bfg)
+#test_res_bfg_with_slice <- run_nimble_bfg(AFT_NH_Code, test_case, set_t_inits = TRUE)
+#test_res_bfg_with_slice_slice <- run_nimble_bfg(AFT_NH_Code, test_case, set_t_inits = TRUE, use_slice = TRUE)
+```
+
+##### Set up the model in the same way it is given to Stan, with marginal calculations and matrix multiplication. 
+
+A difference is that this still uses the BUGS language parameterization of the Weibull distribution, which is different than the (shape, scale) parameterization used in Stan.  We don't think this should make a noticeable difference.  The priors are the same.
+
+```{r, eval=FALSE}
+use_informative_priors <- TRUE
+AFT_NH_Code_marg <- nimbleCode({
+  #Likelihood
+  lambda_m[] <- log(2)*exp(-((X_m[,] %*% beta[])[,1])*alpha) #exp((X_m[,] %*% beta[])[,1])/pow(log(2), (1/alpha))
+  for(i in 1:N_m) {
+    zeros_m[i] ~ dpois( lambda_m[i]*pow(y_m[i], alpha) ) # zeros trick for complementary cumulative probability density of Weibull
+  }
+  lambda_o[] <- log(2)*exp(-((X_o[,] %*% beta[])[,1])*alpha)#exp((X_o[,] %*% beta[])[,1])/pow(log(2), (1/alpha))
+  for(i in 1:N_o) {
+    y_o[i] ~ dweib(shape = alpha, lambda_o[i])
+  }
+  
+  #Priors
+  if(use_informative_priors) {
+    for(i in 1:p){
+      beta[i] ~ dnorm(0,sd=sqrt(10))
+    }
+    alpha ~ dexp(1)
+  } else {
+    for(i in 1:p){
+      beta[i] ~ dnorm(0, var=1000)
+    }
+    alpha ~ dunif(0.01, 100)
+  }
+})
+```
+
+##### Set up a function to run the marginal cases. 
+
+The data arrangement is taken from BFG's code to set up the problem for Stan.  The code to run and time NIMBLE is taken from BFG's code for that step in the previous cases.
+
+```{r, eval=FALSE}
+run_nimble_marg <- function(code, data, use_blocks = FALSE) {
+  attach(data)
+  on.exit(detach(data))
+  
+  censured=survt>cent
+  delta <- as.logical(1-censured)
+  survt[delta==0] <- cent[delta==0] # censor survival time.
+
+  # count number of missing/censored survival times
+  n_miss <- N-sum(delta)
+  
+  # data for censored subjects
+  y_m=survt[delta==0]
+  X_m=X[delta==0,]
+  
+  # data for uncensored subjects
+  y_o=survt[delta==1]
+  X_o=X[delta==1,]
+  N_m = n_miss
+  N_o = N - n_miss
+  
+  beta0=rep(0.1, p)
+  alpha0=0.1
+
+  aftConsts <- list(N_m=N_m,N_o=N_o,p=p)
+  aftInits <-  list(beta=beta0,alpha=alpha0)
+  aftData <- list(X_o=X_o, X_m = X_m, y_o = y_o, y_m = y_m, zeros_m = rep(0, N_m))
+
+  t1<- system.time(
+    {
+      aftNH <- nimbleModel(code = code,dimensions = list(a = c(N,p), lambda_m = N_m, lambda_o = N_o),
+                           name = "aftNH",constants = aftConsts, data = aftData, inits = aftInits)
+      Caft <- compileNimble(aftNH)
+      aftConf <- configureMCMC(aftNH, print = TRUE)
+      if(use_blocks) {
+        aftConf$removeSamplers("beta")
+        aftConf$addSampler("beta", type = "RW_block", control = list(tries = p/2))
+      }
+      aftConf$addMonitors(c("beta","alpha"))
+      aftMCMC <- buildMCMC(aftConf)
+      CaftMCMC <- compileNimble(aftMCMC, project = aftNH)
+      t2<- system.time(
+        {
+          Psamples <- runMCMC(CaftMCMC, niter=(10000), nburnin=5000, thin=2,
+                              nchains=1,samplesAsCodaMCMC = TRUE,summary=TRUE)
+        })
+    })
+  list(t1 = t1, t2 = t2, Psamples = Psamples)
+}
+```
+
+##### Run MCMC with the marginal implementation for all cases.
+
+```{r eval=FALSE}
+load("cases.RData")
+use_informative_priors <- FALSE
+results_marg <- list()
+for(case_name in names(cases)) {
+  results_marg[[ case_name ]] <- run_nimble_marg(AFT_NH_Code_marg, cases[[case_name]], use_blocks = FALSE)
+}
+save(results_marg, file = "results_marg.RData")
+# debugonce(run_nimble_marg)
+# test_res_marg <- run_nimble_marg(AFT_NH_Code_marg, test_case, use_blocks = FALSE)
+```
+
+##### Run MCMC with the marginal implementation and a block sampling experiment.
+
+```{r eval=FALSE}
+load("cases.RData")
+use_informative_priors <- FALSE
+results_marg_blocks <- list()
+for(case_name in names(cases)) {
+  results_marg_blocks[[ case_name ]] <- run_nimble_marg(AFT_NH_Code_marg, cases[[case_name]], use_blocks = TRUE)
+}
+save(results_marg_blocks, file = "results_marg_blocks.RData")
+# test_res_marg_blocks <- run_nimble_marg(AFT_NH_Code_marg, test_case, use_blocks = TRUE)
+```
+
+# Results
+
+Here are the results, in a table that roughly matches the format of BFG's Table 5.  "Perc" is the average fraction of observations that are right-censored.
+
+As best as we can determine:
+
+* "ESS/Ns" is their "$\varepsilon_{\beta}$". This is the mean effective sample size of the (4 or 16) beta coefficients per saved MCMC iteration.  The number of saved iterations, $N_s$ is 2500.  We used `coda::effectiveSize` to estimate ESS.  We did not see in their code what method they used.  This is another reason we can't be sure how to compare our results to theirs.
+* "Nit/t" is their "$N_{it}/t_s$", total number of iterations (10000) per computation time, not counting compilation time.
+* We calculate "ESS/t", which is the product of the previous two numbers divided by four, (ESS/Ns)*(Nit/t)/4.  This is the mean effective sample size from the saved samples per total sampling time (including burn-in).  One might also consider modifying this for the burn-in portion.  The factor 4 comes from $N_{it}/N_s$ = 4.  We do it this way to make it easier to compare to BFG's Table 5.  They decline to calculate a metric of ESS per time, which we view as a fundamental metric of MCMC performance.  An MCMC can be efficient either by generating well-mixed samples at high computational cost or generating poorly-mixed samples at low computational cost, so both mixing and computational cost contribute to MCMC efficiency.
+
+```{r, echo=FALSE}
+load("cases.RData")
+load("results_bfg.RData")
+load("results_bfg_with_slice.RData")
+load("results_marg.RData")
+load("results_marg_blocks.RData")
+
+summarize_one_result <- function(result) {
+  cols <- colnames(result$Psamples[[1]])
+  beta_cols <- grepl("beta", cols)
+  meanESS <- mean(coda::effectiveSize(result$Psamples[[1]][,beta_cols]))
+  Ns <- nrow(result$Psamples[[1]]) # Number of saved samples
+  Nit <- 4*Ns # In the settings of BFG, 50% are burn-in and thin = 2, so total number of iterations = 4 * number of saved samples
+  c(ESS_per_Ns = meanESS/Ns, Nit_per_time = Nit/sum(result$t2[1:2]), meanESS_per_time = meanESS/sum(result$t2[1:2]))
+}
+
+all_results <- cbind(
+  do.call('rbind', lapply(results_bfg, summarize_one_result)),
+  do.call('rbind', lapply(results_bfg_with_slice, summarize_one_result)),
+  do.call('rbind', lapply(results_marg, summarize_one_result)),
+  do.call('rbind', lapply(results_marg_blocks, summarize_one_result))
+)
+
+colnames(all_results) <- rep( c("ESS/Ns", "Nit/t", "ESS/t"), 4)
+```
+
+```{r}
+library(kableExtra)
+kbl(all_results, digits = 2) %>% 
+  kable_classic() %>%
+  add_header_above(c(" " = 1, "BFG (invalid)" = 3, "BFG+inits+slice" = 3, "Marginal" = 3, "Marginal+blocks" = 3)) %>%
+  pack_rows("Perc = 0.2", 1, 4) %>%
+  pack_rows("Perc = 0.5", 5, 8) %>%
+  pack_rows("Perc = 0.8", 9, 12)
+```
+
+## Interpretation
+
+The left-most set of results ("BFG (invalid)") is comparable to the right-most ("NIMBLE") column of BFG's Table 5, in the same row order for their first 12 rows.  The simulated data sets are different.  For that reason and the stochasticity of Monte Carlo methods, we shouldn't expect to see exactly matching values.  And of course the computations were run on different systems, resulting in different times.  Again, these results are **invalid**.
+
+The next column ("BFG+inits+slice") gives results when BFG's model formulation for JAGS and NIMBLE is combined with valid initialization and slice sampling in NIMBLE.  We can see that valid sampling generally gives lower ESS/time than the invalid results.
+
+The next column shows results when the problem is set up as BFG gave it to Stan, and NIMBLE's default samplers are used.  If we assume the left-most results are similar to what BFG report, but with times from the system used here, then the boost in performance is the ratio of ESS/time between methods.  For example, in the last row, the marginal method is 54.91/1.22 = 45.01 times more efficient that what BFG reported.  We can make a similar kind of ratio between Stan and NIMBLE from BFG's results, which gave Stan as about 380 times more efficient than NIMBLE (although rounding error for "1%" could be a substantial issue here).  Putting these together, Stan might really be about 8.4 times more efficient than NIMBLE for this case, which is the hardest case considered.
+
+The last column shows results of the single experiment with alternative (block) samplers that we tried.  In many cases, it gives a modest additional boost.  Often with more work one can find a better sampling strategy, which can be worth the trouble for extended work with a particular kind of model.  In the last row of our results, this gives about another 72.55 / 54.91 = 1.32 boost in performance, lowering the ratio to Stan to about 6.4.  Again, we decided to limit this post to within-NIMBLE comparisons, and the comparisons to Stan based on BFG's results should be taken with a grain of salt because we didn't re-run them.
+
+When we make these kinds of comparisons for each row, we see that giving NIMBLE the marginal problem (and using default samplers) lets it be from about 2-45 times more efficient than what it looks like BFG reported.  If we make the same comparison for the fourth row (the hardest of the perc = 0.2 cases), BFG report NIMBLE about 41 times less efficient than Stan, but it looks to be about 5.3 times less efficient, or 3.9 times less efficient if the block sampling is used.  It still looks like NIMBLE's default samplers are less efficient than Stan for this AFT example, but not by the extreme amounts reported by BFG.
