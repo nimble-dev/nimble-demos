@@ -71,7 +71,6 @@ run_MCMC_allcode <- function(seed, data) {
 
 Now, we execute the desired code using `parLapply`, which is equivalent to `lapply` with each process running in parallel. 
 
-Alternatively, we could use `foreach` with the *doParallel* backend (via `registerDoParallel`, which uses `makeCluster` by default under the hood) to invoke `run_MCMC_allcode` in parallel.
 
 ```{r}
 chain_output <- parLapply(cl = this_cluster, X = 1:4, 
@@ -82,6 +81,8 @@ chain_output <- parLapply(cl = this_cluster, X = 1:4,
 stopCluster(this_cluster)
 ```
 
+Alternatively, we could use `foreach` with the *doParallel* backend (via `registerDoParallel`, which uses `makeCluster` by default under the hood) to invoke `run_MCMC_allcode` in parallel.
+
 We ran four independent MCMCs.
 
 ```{r, fig.width=10, fig.height=6}
@@ -91,6 +92,40 @@ for (i in 1:4) {
   plot(this_output[,"b"], type = "l", ylab = 'b')
 }
 ```
+
+### Setting up initial values with parallelization
+
+In the example above, we provided a different random number seed to use for each chain. However we didn't start the chain from different (dispersed) starting values. That's often a good idea as part of assessing convergence. To do so, you could generate random initial values inside the function that would then differ between the chains.
+
+Alternatively, you could generate your initial values outside of the parallelization (either randomly or via some other approach) and pass in the initial values as an argument to `run_MCMC_allcode`. Here's an example:
+
+```{r, eval=FALSE}
+per_chain_info <- list(
+  list(seed = 1,
+       inits = list(a = 0.5, b = 0.5)),
+  list(seed = 2,
+       inits = list(a = 0.3, b = 0.3)),
+  list(seed = 3,
+       inits = list(a = 0.2, b = 0.6)),
+  list(seed = 4,
+       inits = list(a = 0.6, b = 0.2)))
+
+run_MCMC_allcode <- function(info, data) {
+  ## Remaining code as shown above, except modify the `nimbleModel`
+  ## call to use `info$seed` and `info$inits`.
+  ## ....
+}
+
+```{r, eval=FALSE}
+chain_output <- parLapply(cl = this_cluster, X = per_chain_info, 
+                          fun = run_MCMC_allcode, 
+                          data = myData)
+
+# It's good practice to close the cluster when you're done with it.
+stopCluster(this_cluster)
+```
+
+
 
 ### Using user-defined distributions, functions, or samplers with parallelization
 
