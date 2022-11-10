@@ -16,15 +16,15 @@ library(nimble, warn.conflicts = FALSE)
 library(CARBayesdata, quietly = TRUE)
 library(sp, quietly = TRUE)
 library(spdep, quietly = TRUE)
-data(GGHB.IG)
+data(GGHB.IZ)
 data(respiratorydata)
 ```
 
 We handle the spatial analysis here with `nb2WB` from the package `spdep`.
 
 ```{r}
-respiratorydata_spatial <- merge(x = GGHB.IG, y = respiratorydata, by = "IG", all.x = FALSE)
-W.nb <- poly2nb(respiratorydata_spatial, row.names =  rownames(respiratorydata_spatial@data))
+respiratorydata_spatial <- merge(x = GGHB.IZ, y = respiratorydata, by = "IZ", all.x = FALSE)
+W.nb <- poly2nb(respiratorydata_spatial, row.names =  rownames(respiratorydata_spatial))
 ## Determine neighborhood/adjacency information needed for neighborhood-based CAR model
 nbInfo <- nb2WB(W.nb)
 

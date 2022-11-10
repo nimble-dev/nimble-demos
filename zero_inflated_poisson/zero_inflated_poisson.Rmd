@@ -132,8 +132,8 @@ Let's look at a summary and trace plots to see if everything looks reasonable.
 
 ```{r}
 summary(samples)
-plot(samples[,'lambda'], pch = '.', main = 'lambda trace plot')
-plot(samples[,'p'], pch = '.', main = 'p trace plot')
+plot(samples[,'lambda'], type = 'l', main = 'lambda trace plot')
+plot(samples[,'p'], type = 'l', main = 'p trace plot')
 ```
 
 It worked!

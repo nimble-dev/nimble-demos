@@ -45,13 +45,14 @@ code <- nimbleCode({
 })
 
 library(CARBayesdata)
-data(GGHB.IG)
+data(GGHB.IZ)
 data(respiratorydata)
 
-respiratorydata_spatial <- merge(x = GGHB.IG, y = respiratorydata, by = "IG", all.x = FALSE)
+respiratorydata_spatial <- merge(x = GGHB.IZ, y = respiratorydata, by = "IZ", all.x = FALSE)
 nregions <- nrow(respiratorydata_spatial)
 
-dists <- as.matrix(dist(respiratorydata_spatial[ , c('easting', 'northing')]))
+dists <- as.matrix(dist(cbind(respiratorydata_spatial$easting,
+      respiratorydata_spatial$northing)))
 dists <- dists / max(dists)  # normalize to max distance of 1
 
 x <- respiratorydata_spatial$incomedep

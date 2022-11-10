@@ -114,8 +114,8 @@ system.time(samplesRJ <- runMCMC(CMCMCRJ, niter = 100000, nburnin = 10000, thin 
 For each variable we can look at the sampled values of the indicator and corresponding coefficient.
 
 ```{r, fig.align = "center"}
-plot(samplesRJ[,'z[5]'], pch = '.', main = "z[5] traceplot")
-plot(samplesRJ[,'beta[5]'], pch = '.', main = "beta[5] traceplot")
+plot(samplesRJ[,'z[5]'], type = 'l', main = "z[5] traceplot")
+plot(samplesRJ[,'beta[5]'], type = 'l', main = "beta[5] traceplot")
 ```
 
 ### Posterior inclusion probability, `psi`
