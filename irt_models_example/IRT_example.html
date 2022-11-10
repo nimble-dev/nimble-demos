@@ -391,12 +391,12 @@ pre code {
 <div id="item-response-theory" class="section level2">
 <h2>Item Response Theory</h2>
 <p>Item Response Theory (IRT) refers to a family of models that attempt
-to explaining the relationship between latent traits and their
+to explain the relationship between latent traits and their
 manifestation in observations of the individual. The basic assumption is
 that an individual’s observable behavior is related to this latent
 trait. Common contexts include educational testing and health
 status.</p>
-<p>In a testing context, the tandard setting considers <span class="math inline">\(I\)</span> items and <span class="math inline">\(P\)</span> persons for which responses <span class="math inline">\(y_{pi} \in \{0, 1\}\)</span> are observed with
+<p>In a testing context, the standard setting considers <span class="math inline">\(I\)</span> items and <span class="math inline">\(P\)</span> persons for which responses <span class="math inline">\(y_{pi} \in \{0, 1\}\)</span> are observed with
 values encoding incorrect and correct answers. The probability of a
 correct answer for each item/person <span class="math inline">\(\pi_{pi}
 = \text{Pr}(y_{pi} = 1)\)</span> is modeled via logistic or probit
@@ -409,9 +409,10 @@ from a common distribution, taking the role of ‘random effects’.</p>
 associated with each item. Here we consider two classic models for
 dichotomous item responses, namely the one-parameter logistic (1PL)
 model and the two-parameter logistic (2PL) model.</p>
-<p>For this example we use data from the The Law School Admission Test
-(LSAT) which is classic example in educational testing <span class="citation">(Bock and Lieberman 1970)</span>, from the
-<code>ltm</code> package. The dataset comprises <span class="math inline">\(1000\)</span> responses to <span class="math inline">\(5\)</span> questions.</p>
+<p>For this example, we use the Law School Admission Test (LSAT) data
+from the <code>ltm</code> package, which is a classic example in
+educational testing <span class="citation">(Bock and Lieberman
+1970)</span>. The dataset comprises <span class="math inline">\(1000\)</span> responses to <span class="math inline">\(5\)</span> questions.</p>
 <pre class="r"><code>LSATdata &lt;- ltm::LSAT</code></pre>
 </div>
 <div id="pl-model" class="section level2">
@@ -490,7 +491,7 @@ cModel1PLMCMC &lt;- compileNimble(model1PLMCMC, project = model1PL)</code></pre>
 <pre><code>## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|</code></pre>
 <pre><code>##    user  system elapsed 
-##  35.827   0.108  35.989</code></pre>
+##  31.566   0.095  31.802</code></pre>
 </div>
 <div id="checking-the-results" class="section level3">
 <h3>Checking the results</h3>
@@ -549,7 +550,7 @@ so we choose independent lognormal distributions as priors.</p>
 <p>Given the additional parameter, the metric (location and scale) of
 the individual parameters is only known up to a linear transformation.
 In the literature, several types of restrictions are proposed to anchor
-the metric, either acting on item or ability parameters. A simple
+the metric, either acting on the item or ability parameters. A simple
 restriction is to assume that abilities are drawn from a <span class="math inline">\(\mathcal{N}(0,1)\)</span> and freely estimate item
 parameters.</p>
 <pre class="r"><code>code2PL &lt;- nimbleCode({
@@ -612,7 +613,7 @@ cModel2PLMCMC &lt;- compileNimble(model2PLMCMC, project = model2PL)</code></pre>
 <pre><code>## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|</code></pre>
 <pre><code>##    user  system elapsed 
-##  41.699   0.104  41.936</code></pre>
+##  39.669   0.060  39.744</code></pre>
 </div>
 <div id="checking-the-results-1" class="section level3">
 <h3>Checking the results</h3>

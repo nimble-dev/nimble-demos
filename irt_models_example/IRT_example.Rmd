@@ -6,14 +6,14 @@ bibliography: bibliography.bib
 
 ## Item Response Theory
 
-Item Response Theory (IRT) refers to a family of models that attempt to explaining the relationship between latent traits and their manifestation in observations of the individual. The basic assumption is that an individual's observable behavior is related to this latent trait. Common contexts include educational testing and health status.
+Item Response Theory (IRT) refers to a family of models that attempt to explain the relationship between latent traits and their manifestation in observations of the individual. The basic assumption is that an individual's observable behavior is related to this latent trait. Common contexts include educational testing and health status.
 
-In a testing context, the tandard setting considers $I$ items and $P$ persons for which responses $y_{pi} \in \{0, 1\}$ are observed with values encoding incorrect and correct answers.
+In a testing context, the standard setting considers $I$ items and $P$ persons for which responses $y_{pi} \in \{0, 1\}$ are observed with values encoding incorrect and correct answers.
 The probability of a correct answer for each item/person $\pi_{pi} = \text{Pr}(y_{pi} = 1)$ is modeled via logistic or probit regression, conditionally on a set of parameters encoding the characteristics of respondents and items. Typically a parameter $\eta_p$ is defined for each respondent $p = 1, \ldots, P$ representing the unobserved ability of the respondent. Parameters $\{\eta_p\}_1^P$ are assumed to be drawn from a common distribution, taking the role of 'random effects'. 
 
 Different models can be defined according to the number of parameters associated with each item. Here we consider two classic models for dichotomous item responses, namely the one-parameter logistic (1PL) model and the two-parameter logistic (2PL) model. 
 
-For this example we use data from the The Law School Admission Test (LSAT) which is classic example in educational testing [@DarrellBock1970], from the `ltm` package. The dataset comprises $1000$ responses to $5$ questions. 
+For this example, we use the Law School Admission Test (LSAT) data from the `ltm` package, which is a classic example in educational testing [@DarrellBock1970]. The dataset comprises $1000$ responses to $5$ questions. 
 
 ```{r}
 LSATdata <- ltm::LSAT
@@ -133,7 +133,7 @@ ggplot(df, aes(x = Ability, y = Probability, group = Item)) +
 
 A generalization of the 1PL model is the two-parameter logistic model, which considers an additional parameter, $\lambda_i$, for each item $i = 1, \ldots, I$, often referred as *discrimination* parameter, because items with a large $\lambda_i$ are better at discriminating between subjects with different abilities. Typically the $\lambda_i$'s are assumed to be positive, so we choose independent lognormal distributions as priors. 
 
-Given the additional parameter, the metric (location and scale) of the individual parameters is only known up to a linear transformation. In the literature, several types of restrictions are proposed to anchor the metric, either acting on item or ability parameters. A simple restriction is to assume that abilities are drawn from a $\mathcal{N}(0,1)$ and freely estimate item parameters.
+Given the additional parameter, the metric (location and scale) of the individual parameters is only known up to a linear transformation. In the literature, several types of restrictions are proposed to anchor the metric, either acting on the item or ability parameters. A simple restriction is to assume that abilities are drawn from a $\mathcal{N}(0,1)$ and freely estimate item parameters.
 
 
 ```{r 2PLmodel}
