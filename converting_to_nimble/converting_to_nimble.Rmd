@@ -295,4 +295,4 @@ If the main steps above aren't sufficient, consider these additional steps when 
     - When using `nimbleMCMC` or `runMCMC`, `inits` can be a function, as in R packages for calling WinBUGS, OpenBUGS or JAGS.  Alternatively, it can be a list.
     - When you build a model with `nimbleModel` for more control than `nimbleMCMC`, you can provide `inits` as a list.  This sets defaults that can be over-ridden with the `inits` argument to `runMCMC`.
 
-You can use  `model$initializeInfo()` to see which nodes are not initialized. You can also call `model$calculate()` to see if the model has a valid log probability density or `model$calculate(nodes)` to see if the log probability density for the set of `nodes` is valid.
+You can use  `model$initializeInfo()` to see which nodes are not initialized. For tips on how to diagnose and fix initialization issues, please see [this section](https://r-nimble.org/html_manual/cha-mcmc.html#sec:initMCMC) of the NIMBLE User Manual.
