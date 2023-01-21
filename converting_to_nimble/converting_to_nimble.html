@@ -298,8 +298,8 @@ pre code {
   border-radius: 4px;
 }
 
-.tabset-dropdown > .nav-tabs > li.active:before {
-  content: "";
+.tabset-dropdown > .nav-tabs > li.active:before, .tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "\e259";
   font-family: 'Glyphicons Halflings';
   display: inline-block;
   padding: 10px;
@@ -307,16 +307,9 @@ pre code {
 }
 
 .tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
-  content: "";
-  border: none;
-}
-
-.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
-  content: "";
+  content: "\e258";
   font-family: 'Glyphicons Halflings';
-  display: inline-block;
-  padding: 10px;
-  border-right: 1px solid #ddd;
+  border: none;
 }
 
 .tabset-dropdown > .nav-tabs > li.active {
@@ -644,13 +637,8 @@ chain, using the same settings as Kéry and Royle.</p>
 simple matrix with named columns. There are numerous packages for
 processing MCMC output. If you want to use the <code>coda</code>
 package, you can convert a matrix to a coda mcmc object like this:</p>
-<pre class="r"><code>library(coda)</code></pre>
-<pre><code>## 
-## Attaching package: &#39;coda&#39;</code></pre>
-<pre><code>## The following object is masked _by_ &#39;.GlobalEnv&#39;:
-## 
-##     densplot</code></pre>
-<pre class="r"><code>coda.samples &lt;- as.mcmc(samples)</code></pre>
+<pre class="r"><code>library(coda)
+coda.samples &lt;- as.mcmc(samples)</code></pre>
 <p>Alternatively, if you call <code>nimbleMCMC</code> with the argument
 <code>samplesAsCodaMCMC = TRUE</code>, the samples will be returned as a
 coda object.</p>

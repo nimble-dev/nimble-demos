@@ -298,8 +298,8 @@ pre code {
   border-radius: 4px;
 }
 
-.tabset-dropdown > .nav-tabs > li.active:before {
-  content: "";
+.tabset-dropdown > .nav-tabs > li.active:before, .tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "\e259";
   font-family: 'Glyphicons Halflings';
   display: inline-block;
   padding: 10px;
@@ -307,16 +307,9 @@ pre code {
 }
 
 .tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
-  content: "";
-  border: none;
-}
-
-.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
-  content: "";
+  content: "\e258";
   font-family: 'Glyphicons Halflings';
-  display: inline-block;
-  padding: 10px;
-  border-right: 1px solid #ddd;
+  border: none;
 }
 
 .tabset-dropdown > .nav-tabs > li.active {
@@ -388,7 +381,7 @@ explanatory variables, of which five have real effects. The other 10
 have null effects, i.e. the corresponding coefficient is equal to
 zero.</p>
 <pre class="r"><code>library(nimble, warn.conflicts = FALSE)</code></pre>
-<pre><code>## nimble version 0.13.0 is loaded.
+<pre><code>## nimble version 0.13.1 is loaded.
 ## For more information on NIMBLE and a User Manual,
 ## please visit https://R-nimble.org.
 ## 
@@ -544,7 +537,7 @@ system.time(samplesRJ &lt;- runMCMC(CMCMCRJ, niter = 100000, nburnin = 10000, th
 <pre><code>## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|</code></pre>
 <pre><code>##    user  system elapsed 
-##  17.536   0.008  17.553</code></pre>
+##  17.242   0.004  17.260</code></pre>
 </div>
 <div id="look-at-the-results" class="section level2">
 <h2>Look at the results</h2>

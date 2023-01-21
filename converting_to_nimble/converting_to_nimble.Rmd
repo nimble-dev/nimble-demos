@@ -287,6 +287,12 @@ If the main steps above aren't sufficient, consider these additional steps when 
 6.  Possibly update initial values (`inits`).
 
     - In some cases, NIMBLE likes to have more complete `inits` than the other packages.
-    - In a model with stochastic indices, those indices should have `inits` values.
+       - For MCMC (and SMC), missing parameter values will be drawn from their prior. In some cases this can cause slow convergence, and users may want to set up initial values more consistent with the data. 
+    - Some important types of nodes to initialize include:
+       - In a model with stochastic indices, those indices should have (valid) `inits` values.
+       - In a model with constraints, the model should be initialized such that the constraints are satisfied.
+       - In a model with censoring, the initial value(s) of `t` in `dinterval` for the censored node(s) should be consistent with the censoring that is specified.
     - When using `nimbleMCMC` or `runMCMC`, `inits` can be a function, as in R packages for calling WinBUGS, OpenBUGS or JAGS.  Alternatively, it can be a list.
     - When you build a model with `nimbleModel` for more control than `nimbleMCMC`, you can provide `inits` as a list.  This sets defaults that can be over-ridden with the `inits` argument to `runMCMC`.
+
+You can use  `model$initializeInfo()` to see which nodes are not initialized. You can also call `model$calculate()` to see if the model has a valid log probability density or `model$calculate(nodes)` to see if the log probability density for the set of `nodes` is valid.
