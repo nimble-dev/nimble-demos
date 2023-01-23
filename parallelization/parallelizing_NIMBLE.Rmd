@@ -31,42 +31,50 @@ this_cluster <- makeCluster(4)
 (Side note: do not use `makeForkCluster` when parallelizing NIMBLE code; it will not work. `makeCluster` sets up a PSOCK cluster, which will work. If you really want to use forking, if you are able to set up separate directories for NIMBLE's generated code for each worker, that should allow one to use forked processes. One option is to use `unixtools::set.tempdir()` and another is to use the `dirName` argument to `compileNimble()`.)
 
 We'll set up a situation where we run four independent MCMC simulations.
+As part of this, we'll also calculate WAIC, a model selection tool, from the combined chains. Note that calculating WAIC in this way only allows calculation of the default conditional WAIC and requires that all parent nodes of data nodes be monitored, as discussed further in `help(calculateWAIC)`. 
 
 The key is to create a function that includes all the modeling steps and run that function in parallel. Note that `myCode` could have been created outside the parallelized code, but all the other steps need to be done inside the parallelized code.
 
 ```{r}
 set.seed(10120)
+
+useWAIC <- TRUE
+
 # Simulate some data
 myData <- rgamma(1000, shape = 0.4, rate = 0.8)
 
+library(nimble)
+myCode <- nimbleCode({
+  a ~ dunif(0, 100)
+  b ~ dnorm(0, 100)
+  
+  for (i in 1:length_y) {
+    y[i] ~ dgamma(shape = a, rate = b)
+  }
+})
+
 # Create a function with all the needed code
-run_MCMC_allcode <- function(seed, data) {
+run_MCMC_allcode <- function(seed, data, code, useWAIC = TRUE) {
   library(nimble)
   
-  myCode <- nimbleCode({
-    a ~ dunif(0, 100)
-    b ~ dnorm(0, 100)
-  
-    for (i in 1:length_y) {
-      y[i] ~ dgamma(shape = a, rate = b)
-    }
-  })
-  
-  myModel <- nimbleModel(code = myCode,
+  myModel <- nimbleModel(code = code,
                           data = list(y = data),
                           constants = list(length_y = 1000),
                           inits = list(a = 0.5, b = 0.5))
   
   CmyModel <- compileNimble(myModel)
+
+  if(useWAIC) 
+    monitors <- myModel$getParents(myModel$getNodeNames(dataOnly = TRUE), stochOnly = TRUE)
+  ## One may also wish to add additional monitors
   
-  myMCMC <- buildMCMC(CmyModel)
+  myMCMC <- buildMCMC(CmyModel, monitors = monitors)
   CmyMCMC <- compileNimble(myMCMC)
   
   results <- runMCMC(CmyMCMC, niter = 10000, setSeed = seed)
   
   return(results)
 }
-
 ```
 
 Now, we execute the desired code using `parLapply`, which is equivalent to `lapply` with each process running in parallel. 
@@ -75,7 +83,8 @@ Now, we execute the desired code using `parLapply`, which is equivalent to `lapp
 ```{r}
 chain_output <- parLapply(cl = this_cluster, X = 1:4, 
                           fun = run_MCMC_allcode, 
-                          data = myData)
+                          data = myData, code = myCode,
+                          useWAIC = useWAIC)
 
 # It's good practice to close the cluster when you're done with it.
 stopCluster(this_cluster)
@@ -92,6 +101,22 @@ for (i in 1:4) {
   plot(this_output[,"b"], type = "l", ylab = 'b')
 }
 ```
+
+### Calculating WAIC
+
+We can calculate WAIC using NIMBLE's off-line WAIC function, passing in the full matrix of samples from all the chains.
+
+```{r}
+if(useWAIC) {
+  myModel <- nimbleModel(code = myCode,
+                         data = list(y = myData),
+                         constants = list(length_y = 1000))
+  CmyModel <- compileNimble(myModel)         # calculateWAIC needs compiled model to exist
+  samples <- do.call(rbind, chain_output)    # single matrix of samples
+  waic <- calculateWAIC(samples, myModel)
+  print(waic)
+}
+
 
 ### Setting up initial values with parallelization
 
