@@ -284,7 +284,7 @@ If the main steps above aren't sufficient, consider these additional steps when 
   constants and data for the `constants` argument to
   `nimbleModel`, and NIMBLE will try to determine which is which.  Usually this will work, but when in doubt, try separating them.
 
-6.  Possibly update initial values (`inits`).
+6. Possibly update initial values (`inits`).
 
     - In some cases, NIMBLE likes to have more complete `inits` than the other packages.
        - For MCMC (and SMC), missing parameter values will be drawn from their prior. In some cases this can cause slow convergence, and users may want to set up initial values more consistent with the data. 
@@ -296,3 +296,11 @@ If the main steps above aren't sufficient, consider these additional steps when 
     - When you build a model with `nimbleModel` for more control than `nimbleMCMC`, you can provide `inits` as a list.  This sets defaults that can be over-ridden with the `inits` argument to `runMCMC`.
 
 You can use  `model$initializeInfo()` to see which nodes are not initialized. For tips on how to diagnose and fix initialization issues, please see [this section](https://r-nimble.org/html_manual/cha-mcmc.html#sec:initMCMC) of the NIMBLE User Manual.
+
+7. Avoid non-sequential indexing in for loops and when subsetting variables.
+
+Unlike in JAGS, one cannot use `for(i in expr)` or `mu[expr]` where `expr` evaluates to an integer vector. There are workarounds one can use in NIMBLE.
+
+  - For the for loop case, one can define a constant vector `k` containing the values of `expr` and use `k[i]` in the body of the for loop instead of `i`.
+  - For the case of indexing a variable, one can sometimes write a nimbleFunction to do the indexing. For example if one wants `sum(mu[expr])` one can write a nimbleFunction that takes `mu` and the vector of indices as arguments and carries out the summation.
+
