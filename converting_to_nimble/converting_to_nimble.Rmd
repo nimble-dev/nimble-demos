@@ -304,3 +304,6 @@ Unlike in JAGS, one cannot use `for(i in expr)` or `mu[expr]` where `expr` evalu
   - For the for loop case, one can define a constant vector `k` containing the values of `expr` and use `k[i]` in the body of the for loop instead of `i`.
   - For the case of indexing a variable, one can sometimes write a nimbleFunction to do the indexing. For example if one wants `sum(mu[expr])` one can write a nimbleFunction that takes `mu` and the vector of indices as arguments and carries out the summation.
 
+8. Avoid using a vector of indices that involve non-constant values, such as `mu[1:n]` where `n` is not a constant.
+
+One can generally write a nimbleFunction to handle this situation. For example if one wants `sum(mu[1:n])` one can write a nimbleFunction that takes `mu` and `n` and carries out the summation.
