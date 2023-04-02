@@ -108,6 +108,7 @@ We can calculate WAIC using NIMBLE's off-line WAIC function, passing in the full
 
 ```{r}
 if(useWAIC) {
+  ## We'll need a model object with which to do the WAIC calculation on the MCMC samples.
   myModel <- nimbleModel(code = myCode,
                          data = list(y = myData),
                          constants = list(length_y = 1000))
