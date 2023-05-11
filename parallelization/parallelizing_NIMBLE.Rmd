@@ -117,7 +117,7 @@ if(useWAIC) {
   waic <- calculateWAIC(samples, myModel)
   print(waic)
 }
-
+```
 
 ### Setting up initial values with parallelization
 

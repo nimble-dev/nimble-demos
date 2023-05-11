@@ -362,13 +362,14 @@ pre code {
 <h2>Restarting an MCMC</h2>
 <p>You can restart an MCMC in NIMBLE, picking up exactly where the MCMC
 left off (including the state of the random number generator).</p>
-<p>If the R session in which you ran the MCMC is still open, you can
-simply call <code>runMCMC</code> again, or you can use the
-<code>reset = FALSE</code> argument to the <code>$run()</code> method of
-the MCMC object. (You can’t restart the MCMC from where it left off if
-using <code>nimbleMCMC</code>.) Note that if you’ve done any random
-number generation since running the MCMC, this will affect the state of
-the random number generator.</p>
+<p>To do this, you need to use the <code>$run()</code> method of the
+MCMC object. (You can’t restart the MCMC from where it left off if using
+<code>runMCMC</code> or <code>nimbleMCMC</code>.) When calling
+<code>$run()</code> to restart the MCMC, make sure to use the
+<code>reset = FALSE</code> argument (as well as
+<code>resetWAIC = FALSE</code> if calculating WAIC). Note that if you’ve
+done any random number generation since running the MCMC, this will
+affect the state of the random number generator.</p>
 <p>To restart an MCMC after the R session has ended, please see <a href="https://danielturek.github.io/public/restartingMCMC/restartingMCMC.html">this
 vignette</a>, as well as <a href="https://danielturek.github.io/public/saveMCMCstate/saveMCMCstate.html">this
 additional vignette</a> that encapsulates the steps into a few useful

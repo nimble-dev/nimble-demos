@@ -637,8 +637,13 @@ chain, using the same settings as Kéry and Royle.</p>
 simple matrix with named columns. There are numerous packages for
 processing MCMC output. If you want to use the <code>coda</code>
 package, you can convert a matrix to a coda mcmc object like this:</p>
-<pre class="r"><code>library(coda)
-coda.samples &lt;- as.mcmc(samples)</code></pre>
+<pre class="r"><code>library(coda)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;coda&#39;</code></pre>
+<pre><code>## The following object is masked _by_ &#39;.GlobalEnv&#39;:
+## 
+##     densplot</code></pre>
+<pre class="r"><code>coda.samples &lt;- as.mcmc(samples)</code></pre>
 <p>Alternatively, if you call <code>nimbleMCMC</code> with the argument
 <code>samplesAsCodaMCMC = TRUE</code>, the samples will be returned as a
 coda object.</p>
@@ -685,9 +690,22 @@ when in doubt, try separating them.</li>
 <li><p>Possibly update initial values (<code>inits</code>).</p>
 <ul>
 <li>In some cases, NIMBLE likes to have more complete <code>inits</code>
-than the other packages.</li>
+than the other packages.
+<ul>
+<li>For MCMC (and SMC), missing parameter values will be drawn from
+their prior. In some cases this can cause slow convergence, and users
+may want to set up initial values more consistent with the data.</li>
+</ul></li>
+<li>Some important types of nodes to initialize include:
+<ul>
 <li>In a model with stochastic indices, those indices should have
-<code>inits</code> values.</li>
+(valid) <code>inits</code> values.</li>
+<li>In a model with constraints, the model should be initialized such
+that the constraints are satisfied.</li>
+<li>In a model with censoring, the initial value(s) of <code>t</code> in
+<code>dinterval</code> for the censored node(s) should be consistent
+with the censoring that is specified.</li>
+</ul></li>
 <li>When using <code>nimbleMCMC</code> or <code>runMCMC</code>,
 <code>inits</code> can be a function, as in R packages for calling
 WinBUGS, OpenBUGS or JAGS. Alternatively, it can be a list.</li>
@@ -697,6 +715,37 @@ as a list. This sets defaults that can be over-ridden with the
 <code>inits</code> argument to <code>runMCMC</code>.</li>
 </ul></li>
 </ol>
+<p>You can use <code>model$initializeInfo()</code> to see which nodes
+are not initialized. For tips on how to diagnose and fix initialization
+issues, please see <a href="https://r-nimble.org/html_manual/cha-mcmc.html#sec:initMCMC">this
+section</a> of the NIMBLE User Manual.</p>
+<ol start="7" style="list-style-type: decimal">
+<li>Avoid non-sequential indexing in for loops and when subsetting
+variables.</li>
+</ol>
+<p>Unlike in JAGS, one cannot use <code>for(i in expr)</code> or
+<code>mu[expr]</code> where <code>expr</code> evaluates to an integer
+vector. There are workarounds one can use in NIMBLE.</p>
+<ul>
+<li>For the for loop case, one can define a constant vector
+<code>k</code> containing the values of <code>expr</code> and use
+<code>k[i]</code> in the body of the for loop instead of
+<code>i</code>.</li>
+<li>For the case of indexing a variable, one can sometimes write a
+nimbleFunction to do the indexing. For example if one wants
+<code>sum(mu[expr])</code> one can write a nimbleFunction that takes
+<code>mu</code> and the vector of indices as arguments and carries out
+the summation.</li>
+</ul>
+<ol start="8" style="list-style-type: decimal">
+<li>Avoid using a vector of indices that involve non-constant values,
+such as <code>mu[1:n]</code> where <code>n</code> is not a
+constant.</li>
+</ol>
+<p>One can generally write a nimbleFunction to handle this situation.
+For example if one wants <code>sum(mu[1:n])</code> one can write a
+nimbleFunction that takes <code>mu</code> and <code>n</code> and carries
+out the summation.</p>
 </div>
 </div>
 
