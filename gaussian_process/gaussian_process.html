@@ -479,7 +479,8 @@ cMCMC &lt;- compileNimble(MCMC, project = cModel)</code></pre>
 explore the correlated spatial process, <code>s</code>, which is
 generally less effective in non-conjugate settings, such as this one,
 where the observations are Poisson and the prior for the latent process
-is normal.</p>
+is normal. It could be worthwhile to explore using NIMBLE’s HMC sampler
+(via the <code>nimbleHMC</code> package) in this case.</p>
 
 
 
