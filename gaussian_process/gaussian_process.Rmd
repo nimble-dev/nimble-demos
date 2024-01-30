@@ -92,4 +92,4 @@ samples <- runMCMC(cMCMC, niter = 10000, nburnin = 5000)
 
 Note that mixing in this model is slow, because of the need to explore the correlated spatial process, `s`,
 which is generally less effective in non-conjugate settings, such as this one, where the observations
-are Poisson and the prior for the latent process is normal.
+are Poisson and the prior for the latent process is normal. It could be worthwhile to explore using NIMBLE's HMC sampler (via the `nimbleHMC` package) in this case.

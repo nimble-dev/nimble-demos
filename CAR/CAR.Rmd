@@ -86,3 +86,4 @@ plot(density(samples[,"s[1]"]))
 plot(density(samples[,"beta"]))
 ```
 
+In some cases, MCMC mixing in CAR models (particularly when considering the CAR hyperparameter(s)) can be slow, and considering NIMBLE's HMC sampler (in the `nimbleHMC` package) may be worthwhile.
