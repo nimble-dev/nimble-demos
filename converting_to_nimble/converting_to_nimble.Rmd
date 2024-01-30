@@ -295,15 +295,15 @@ If the main steps above aren't sufficient, consider these additional steps when 
     - When using `nimbleMCMC` or `runMCMC`, `inits` can be a function, as in R packages for calling WinBUGS, OpenBUGS or JAGS.  Alternatively, it can be a list.
     - When you build a model with `nimbleModel` for more control than `nimbleMCMC`, you can provide `inits` as a list.  This sets defaults that can be over-ridden with the `inits` argument to `runMCMC`.
 
-You can use  `model$initializeInfo()` to see which nodes are not initialized. For tips on how to diagnose and fix initialization issues, please see [this section](https://r-nimble.org/html_manual/cha-mcmc.html#sec:initMCMC) of the NIMBLE User Manual.
+    You can use  `model$initializeInfo()` to see which nodes are not initialized. For tips on how to diagnose and fix initialization issues, please see [this section](https://r-nimble.org/html_manual/cha-mcmc.html#sec:initMCMC) of the NIMBLE User Manual.
 
 7. Avoid non-sequential indexing in for loops and when subsetting variables.
 
-Unlike in JAGS, one cannot use `for(i in expr)` or `mu[expr]` where `expr` evaluates to an integer vector. There are workarounds one can use in NIMBLE.
+   Unlike in JAGS, one cannot use `for(i in expr)` or `mu[expr]` where `expr` evaluates to an integer vector. There are workarounds one can use in NIMBLE.
 
-  - For the for loop case, one can define a constant vector `k` containing the values of `expr` and use `k[i]` in the body of the for loop instead of `i`.
-  - For the case of indexing a variable, one can sometimes write a nimbleFunction to do the indexing. For example if one wants `sum(mu[expr])` one can write a nimbleFunction that takes `mu` and the vector of indices as arguments and carries out the summation.
+     - For the for loop case, one can define a constant vector `k` containing the values of `expr` and use `k[i]` in the body of the for loop instead of `i`.
+     - For the case of indexing a variable, one can sometimes write a nimbleFunction to do the indexing. For example if one wants `sum(mu[expr])` one can write a nimbleFunction that takes `mu` and the vector of indices as arguments and carries out the summation.
 
 8. Avoid using a vector of indices that involve non-constant values, such as `mu[1:n]` where `n` is not a constant.
 
-One can generally write a nimbleFunction to handle this situation. For example if one wants `sum(mu[1:n])` one can write a nimbleFunction that takes `mu` and `n` and carries out the summation.
+   One can generally write a nimbleFunction to handle this situation. For example if one wants `sum(mu[1:n])` one can write a nimbleFunction that takes `mu` and `n` and carries out the summation.
