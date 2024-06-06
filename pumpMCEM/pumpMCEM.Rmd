@@ -45,7 +45,7 @@ pumpInits <- list(alpha = 0.1, beta = 0.1,
 
 ## Create the model
 pump <- nimbleModel(code = pumpCode, name = "pump", constants = pumpConsts,
-                    data = pumpData, inits = pumpInits)
+                    data = pumpData, inits = pumpInits, buildDerivs = TRUE)
 
 ```
 
@@ -58,8 +58,8 @@ Cpump <- compileNimble(pump)
 #### Run the MCEM algorithm provided by NIMBLE
 
 ```{r}
-box <- list( list(c("alpha","beta"), c(0, Inf))) ## Constraints for the parameters
-pumpMCEM <- buildMCEM(model = pump, latentNodes = "theta[1:10]", boxConstraints = box)
-pumpMLE <- pumpMCEM$run()
+pumpMCEM <- buildMCEM(model = pump, latentNodes = "theta[1:10]")
+CpumpMCEM <- compileNimble(pumpMCEM, project = pump)
+pumpMLE <- CpumpMCEM$findMLE()
 pumpMLE
 ```
