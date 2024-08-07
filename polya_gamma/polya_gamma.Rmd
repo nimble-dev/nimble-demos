@@ -1,0 +1,150 @@
+# Using the Pólya-gamma sampler
+
+As of version 1.2.0, NIMBLE provides a Pólya-gamma sampler for parameters in the linear predictor a logistic regression specification.
+
+The Pólya-gamma (PG) sampler is a sampler that can be used on parameters involved in the linear predictor of a logistic regression when those parameters have normal or multivariate normal prior distribution(s). Often this would simply be a logistic regression for a set of Bernoulli or binomial observations with the target nodes being the regression coefficients in the linear predictor (the logit-transformed probabilities), but the "observations" could also be unknowns as well, such as in the occupancy component of an ecological occupancy model. PG sampling has been found to be useful in a variety of contexts, such as in sampling the detection and occupancy components of ecological occupancy models. 
+
+The sampler is similar to the well-known data augmentation strategy for probit regression, though the computational complexity of sampling the auxiliary variables in the PG is more intensive. For each observation, an auxiliary variable is introduced. The sampler first samples the auxiliary variables conditional on the observations and the target node. Then conditional on the auxiliary variables and the prior, it draws a conjugate sample from the multivariate normal conditional distribution of the target node.
+
+Users must assign a PG sampler manually via `addSampler`. 
+
+One should generally assign a PG sampler to all of the parameters involved in the linear predictor for a given logistic regression component in a model. The reason for this is that the auxiliary variables are internal to each sampler and cannot be shared across different PG samplers. Since there is a distinct auxiliary variable for each observation, having multiple PG samplers for a given logistic regression component would involve updating those auxiliary variables multiple times. Furthermore, the sampling of the target nodes conditional on the auxiliary variables is a conjugate sampler, so the dimensionality of the target nodes is not a concern (although having more target nodes does increase the amount of computation in the conjugate update).
+
+In most situations, the covariates in the linear predictors are fixed and known in advance. As discussed in detail in the documentation, available via `help(samplers)`, one should in that situation indicate that using the `fixedDesignColumns` element of the sampler control list, as shown in the examples below.
+
+
+## Basic example
+
+First, we'll illustrate usage on a very simple simulated logistic regression example.
+
+```{r}
+library(nimble)
+
+set.seed(1)
+n <- 100
+x <- rnorm(n)
+beta0 <- 0.5
+beta1 <- 2.5
+beta2 <- 0
+
+linpred <- beta0 + beta1 * x + beta2 * x^2
+
+p <- expit(linpred)
+y <- rbinom(n, 1, p)
+
+code <- nimbleCode({
+   for(i in 1:n) {
+      y[i] ~ dbern(p[i])
+      logit(p[i]) <- beta[1] + beta[2] * x[i] + beta[3] * x[i]^2
+      }
+      for(j in 1:3)
+      beta[j] ~ dnorm(0, sd = 10)
+      })      
+
+model <- nimbleModel(code, data = list(y=y), constants = list(x=x, n = n),
+   inits = list(beta = rep(0,3)))
+```
+
+Often with a regression we might center the covariate to remove dependence between the intercept and the regression coefficients. But the Pólya-gamma sampler samples from the joint distribution of the elements of `beta`, so centering should make little difference in this context.
+
+Once the default sampler is assigned we remove them and add the Pólya-gamma. We could also have set `nodes=NULL` in `configureMCMC` to avoid having to remove the samplers.
+
+```{r}
+conf <- configureMCMC(model, print=FALSE)
+conf$removeSamplers('beta')
+conf$addSampler('beta','polyagamma', control = list(fixedDesignColumns=TRUE))
+conf$printSamplers()
+
+mcmc <- buildMCMC(conf)
+cmodel <- compileNimble(model)
+cmcmc <- compileNimble(mcmc, project = model)
+samples <- runMCMC(cmcmc, niter = 5000)
+```
+
+```{r}
+par(mfrow = c(1,3))
+for(i in 1:3)
+  ts.plot(samples[,i])
+```
+
+
+## Occupancy model example
+
+We'll consider a very simple ecological occupancy model. In such models, there is a logistic regression for the presence of an animal at a set of sites. This is unobserved, so there is a latent variable, `z` here, representing the unknown presence. Then there is a separate logistic regression for the detection of an anaimal over a set of visits to each site. The two logistic regressions can share none, some or all of their covariates.
+
+When an animal is detected at a site at least once, the presence (occupancy) is known, but when it is never observed, presence must be inferred by the model.
+Again for simplicity we'll simulate some data.
+
+```{r}
+set.seed(1)
+n_sites <- 100
+n_visits <- 5
+rho <- 0.7
+x1 <- rnorm(n_sites)
+x2 <- rnorm(n_sites) + rho*x1
+x3 <- rnorm(n_sites)
+
+beta <- c(1, 0.5, 0, -0.5)
+alpha <- c(-.5, 0.25, 1)
+
+w1 <- rnorm(n_sites)
+w2 <- rnorm(n_sites) + rho*x1
+
+prob_occ <- expit(beta[1] + beta[2]*x1 + beta[3]*x2 + beta[4]*x3)
+prob_detect <- expit(alpha[1] + alpha[2]*w1 + alpha[3]*w2)
+
+z <- rbinom(n_sites, 1, prob_occ)
+y <- matrix(rbinom(n_sites*n_visits, 1, prob_detect*z), n_sites, n_visits)
+```
+
+For sites known to be occupied set their values as data, to avoid unnecessary MCMC sampling of the `z[i]` occupancy indicators.
+
+```{r}
+visited <- apply(y, 1, max)
+z_data <- rep(NA, n)
+z_data[visited == 1] <- 1
+
+z_init <- z_data
+z_init[is.na(z_init)] <- 0
+```
+
+
+```{r}
+code <- nimbleCode({
+   for(j in 1:4)
+      beta[j] ~ dnorm(0, sd=10)  # use all three covariates
+   for(j in 1:3)
+      alpha[j] ~ dnorm(0, sd=10)  # only use first two covariates
+   for(i in 1:n_sites) {
+      logit(p_occ[i]) <- beta[1] + beta[2]*x1[i]+beta[3]*x2[i] + beta[4]*x3[i]
+      z[i] ~ dbern(p_occ[i])
+      logit(p_detect[i]) <- alpha[1]+alpha[2]*w1[i] + alpha[3]*w2[i]
+      p_eff[i] <- z[i]*p_detect[i]
+      for(j in 1:n_visits) {
+         y[i,j] ~ dbern(p_eff[i])
+      }
+    }
+ })      
+
+model <- nimbleModel(code, data = list(y=y, z=z_data),
+   constants = list(x1=x1, x2=x2, x3=x3, w1=w1, w2=w2,
+   n_sites = n_sites, n_visits=n_visits),
+   inits = list(beta = rep(0,4), alpha = rep(0,3), z=z_init))
+```
+
+As discussed above, we remove the default samplers on the parameters in the linear predictors for both the occupancy and detection logistic regressions and we then assign separate Pólya-gamma samplers to `beta` and `alpha`.
+
+
+```{r}
+conf <- configureMCMC(model)
+conf$removeSamplers(c('alpha','beta'))
+conf # binary samplers assigned to z[i]
+conf$addSampler('beta','polyagamma', control = list(fixedDesignColumns=TRUE))
+conf$addSampler('alpha','polyagamma', control = list(fixedDesignColumns=TRUE))
+conf
+mcmc <- buildMCMC(conf)
+cmodel <- compileNimble(model)
+cmcmc <- compileNimble(mcmc, project = model)
+samples <- runMCMC(cmcmc, niter = 5000)
+```
+
