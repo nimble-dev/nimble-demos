@@ -121,16 +121,17 @@ cZIPmodel <- compileNimble(ZIPmodel)       ## Compile the model.
 For info on how to run MCMC in NIMBLE, see other examples. Here we'll use `buildHMC` to set up an HMC sampler, but we could use `buildMCMC` to set up NIMBLE's default sampling.
 
 ```{r}
-ZIPmcmc <- buildHMC(ZIPmodel)
+nsamples <- 2000
+library(nimbleHMC)
+ZIPmcmc <- buildHMC(ZIPmodel, control = list(warmup = nsamples/2))
 cZIPmcmc <- compileNimble(ZIPmcmc, project = ZIPmodel)
-samples <- runMCMC(cZIPmcmc, niter = 10000)
+samples <- runMCMC(cZIPmcmc, niter = nsamples)
 ```
 
 Let's look at a summary and trace plots to see if everything looks reasonable. As stated in the message, the second half are the valid HMC samples, although in this case they all look similar.
 
 ```{r}
-samples <- samples[ , 5001:10000] 
-summary(samples)
+summary(samples[(nsamples/2 + 1):nsamples, ])
 plot(samples[,'lambda'], type = 'l', main = 'lambda trace plot')
 plot(samples[,'p'], type = 'l', main = 'p trace plot')
 ```

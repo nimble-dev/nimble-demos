@@ -361,7 +361,7 @@ effects.</p>
 <h2>Model Creation</h2>
 <pre class="r"><code>## load the NIMBLE library
 library(nimble, warn.conflicts = FALSE)</code></pre>
-<pre><code>## nimble version 1.2.1 is loaded.
+<pre><code>## nimble version 1.3.0 is loaded.
 ## For more information on NIMBLE and a User Manual,
 ## please visit https://R-nimble.org.
 ## 
@@ -465,7 +465,7 @@ choice to it:</p>
 spec$addSampler(type = &#39;slice&#39;, target = &#39;beta1&#39;)
 spec$addSampler(type = &#39;RW&#39;, target = &#39;sigma_RE&#39;)
 spec$addSampler(type = &#39;RW_block&#39;, target = &#39;beta2[1:10]&#39;)</code></pre>
-<pre><code>##   [Note] Assigning an RW_block sampler to nodes with very different scales can result in low MCMC efficiency.  If all nodes assigned to RW_block are not on a similar scale, we recommend providing an informed value for the &quot;propCov&quot; control list argument, or using the AFSS sampler instead.</code></pre>
+<pre><code>##   [Note] Assigning an RW_block sampler to nodes with very different scales can result in low MCMC efficiency.  If all nodes assigned to RW_block are not on a similar scale, we recommend providing an informed value for the &quot;propCov&quot; control list argument, or using the &quot;barker&quot; sampler instead.</code></pre>
 <p>Then we build the MCMC from the configuration:</p>
 <pre class="r"><code>customGlmmMCMC &lt;- buildMCMC(spec)</code></pre>
 </div>

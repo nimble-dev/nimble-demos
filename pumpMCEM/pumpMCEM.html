@@ -361,7 +361,7 @@ evaluate potentially high-dimensional integrals.</p>
 implement the MCEM algorithm to find maximum likelihood estimates of
 parameters for statistical models with latent states.</p>
 <pre class="r"><code>library(nimble, warn.conflicts = FALSE)</code></pre>
-<pre><code>## nimble version 1.2.1 is loaded.
+<pre><code>## nimble version 1.3.0 is loaded.
 ## For more information on NIMBLE and a User Manual,
 ## please visit https://R-nimble.org.
 ## 
@@ -426,25 +426,25 @@ pump &lt;- nimbleModel(code = pumpCode, name = &quot;pump&quot;, constants = pum
 <pre><code>##   [Note] Iteration Number: 1.
 ##   [Note] Current number of MCMC iterations: 1000.
 ##   [Note] Parameter Estimates: 
-## 0.666625
-## 0.914379
-##   [Note] Convergence Criterion: 8.3784.
+## 0.679112
+## 0.927349
+##   [Note] Convergence Criterion: 8.4924.
 ## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|
 ##   [Note] Iteration Number: 2.
 ##   [Note] Current number of MCMC iterations: 1000.
 ##   [Note] Parameter Estimates: 
-## 0.784881
-##  1.15731
-##   [Note] Convergence Criterion: 0.119502.
+## 0.784673
+##  1.14538
+##   [Note] Convergence Criterion: 0.0970515.
 ## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|
 ##   [Note] Iteration Number: 3.
 ##   [Note] Current number of MCMC iterations: 1000.
 ##   [Note] Parameter Estimates: 
-## 0.809269
-##  1.21251
-##   [Note] Convergence Criterion: 0.00766885.
+## 0.807621
+##  1.22919
+##   [Note] Convergence Criterion: 0.0152672.
 ## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|
 ## Monte Carlo error too big: increasing MCMC sample size.
@@ -453,52 +453,39 @@ pump &lt;- nimbleModel(code = pumpCode, name = &quot;pump&quot;, constants = pum
 ##   [Note] Iteration Number: 4.
 ##   [Note] Current number of MCMC iterations: 1167.
 ##   [Note] Parameter Estimates: 
-## 0.817341
-##  1.23881
-##   [Note] Convergence Criterion: 0.00245337.
+## 0.819977
+##  1.25236
+##   [Note] Convergence Criterion: 0.00207652.
 ## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|
 ##   [Note] Iteration Number: 5.
 ##   [Note] Current number of MCMC iterations: 1167.
 ##   [Note] Parameter Estimates: 
-## 0.813753
-##  1.24414
-##   [Note] Convergence Criterion: 0.00111602.
-## |-------------|-------------|-------------|-------------|
-## |-------------------------------------------------------|
-##   [Note] Iteration Number: 6.
-##   [Note] Current number of MCMC iterations: 1167.
-##   [Note] Parameter Estimates: 
-## 0.821559
-##  1.24541
-##   [Note] Convergence Criterion: 0.0014256.
-## |-------------|-------------|-------------|-------------|
-## |-------------------------------------------------------|
-##   [Note] Iteration Number: 7.
-##   [Note] Current number of MCMC iterations: 1167.
-##   [Note] Parameter Estimates: 
-## 0.817846
-##  1.25846
-##   [Note] Convergence Criterion: 0.00227314.
+## 0.821779
+##  1.27048
+##   [Note] Convergence Criterion: 0.00182642.
 ## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|
 ## Monte Carlo error too big: increasing MCMC sample size.
 ## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|
-##   [Note] Iteration Number: 8.
-##   [Note] Current number of MCMC iterations: 1390.
+## Monte Carlo error too big: increasing MCMC sample size.
+## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|
+##   [Note] Iteration Number: 6.
+##   [Note] Current number of MCMC iterations: 1687.
 ##   [Note] Parameter Estimates: 
-## 0.82526
-## 1.26595
-##   [Note] Convergence Criterion: 0.000835403.</code></pre>
+## 0.817154
+##  1.25532
+##   [Note] Convergence Criterion: 0.000927936.</code></pre>
 <pre class="r"><code>pumpMLE</code></pre>
 <pre><code>## nimbleList object of type OptimResultNimbleList
 ## Field &quot;par&quot;:
-## [1] 0.82526 1.26595
+## [1] 0.8171536 1.2553249
 ## Field &quot;value&quot;:
-## [1] -27.00395
+## [1] -26.87812
 ## Field &quot;counts&quot;:
-## [1] 16  4
+## [1] 17  4
 ## Field &quot;convergence&quot;:
 ## [1] 0
 ## Field &quot;message&quot;:
