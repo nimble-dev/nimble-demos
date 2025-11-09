@@ -6,7 +6,6 @@
 ## It should be a character vector of filenames to `source()` that contain objects
 ## used in the MCMC configuration.
 ## `ncores` by default uses the number of cores detected on the machine but can be set to a different value.
-
 nimbleParallelMCMC <- function (code, constants = list(), data = list(), inits = list(), dimensions = list(),
     mcmcConfig = NULL, monitors = NULL, monitors2 = NULL, thin = 1, thin2 = 1, niter = 10000, nburnin = 0, nchains = 1, 
     check = FALSE, calculate = FALSE, setSeed = FALSE,
@@ -96,7 +95,7 @@ nimbleParallelMCMC <- function (code, constants = list(), data = list(), inits =
     samplesList  <- vector('list', nchains); names(samplesList)  <- paste0('chain', 1:nchains)
     samplesList2 <- vector('list', nchains); names(samplesList2) <- paste0('chain', 1:nchains)
     
-    output <- parLapply(cl = thisCluster, seq_len(nchains),
+    output <- parallel::parLapply(cl = thisCluster, seq_len(nchains),
                         fun = runOneMCMC, code = code, constants = constants, data = data, inits = inits,
                         dimensions = dimensions, mcmcConfig = mcmcConfig, monitors = monitors, monitors2 = monitors2,
                         thin = thin, thin2 = thin2, niter = niter, nburnin = nburnin,
