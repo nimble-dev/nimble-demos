@@ -6,6 +6,8 @@ With posterior predictive sampling, we need to simulate new data values, once fo
 
 In this example, we'll follow the posterior predictive checking done in the Gelman et al. Bayesian Data Analysis book, using Newcomb's speed of light measurements (Section 6.3).
 
+Note that as of NIMBLE version 1.4.0, one could also potentially carry out this kind of calculation using a "derived quantity", as discussed in [Section 7.2.3 of the NIMBLE User Manual](https://r-nimble.org/manual/cha-mcmc.html#sec:derived-quantities).
+
 ## Posterior predictive sampling using a loop in R
 
 Simon Newcomb made 66 measurements of the speed of light, which one might model using a normal distribution. One question discussed in Gelman et al. is whether the lowest measurements, which look like outliers, could have reasonably come from a normal distribution.

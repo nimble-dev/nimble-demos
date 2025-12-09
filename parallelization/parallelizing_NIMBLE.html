@@ -375,9 +375,9 @@ easier and more powerful.</p>
 <h3>Parallelization in practice</h3>
 <p>In this example, we’ll use basic functionality from the
 <code>parallel</code> package to run MCMC in parallel chains.</p>
-<p>Here we lay out how to do the steps manually. The <a href="https://github.com/nimble-dev/nimble-demos/blob/master/parallelization/parallelizingNimble.R">function
+<p>Here we lay out how to do the steps manually. The <a href="https://github.com/nimble-dev/nimble-demos/blob/master/parallelization/parallelMCMC.R">function
 <code>nimbleParallelMCMC</code> (available here)</a> provides a wrapper
-function to do this.</p>
+function to do this easily in one function call.</p>
 <pre class="r"><code>library(parallel)</code></pre>
 <p>First we create a cluster, specifying the number of cores we want the
 cluster to operate across.</p>

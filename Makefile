@@ -1,4 +1,4 @@
-all: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22
+all: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23
 
 %.html: %.Rmd
 	Rscript -e "rmarkdown::render(\"$<\")"
@@ -26,3 +26,4 @@ all: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22
 20: converting_to_nimble/converting_to_nimble.html
 21: posterior_predictive/posterior_predictive.html
 22: restart_mcmc/restart_mcmc.html
+23: polya_gamma/polya_gamma.html

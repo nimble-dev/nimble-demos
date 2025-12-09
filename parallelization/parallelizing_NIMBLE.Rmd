@@ -17,7 +17,7 @@ Note that we have work in progress to make parallelizing NIMBLE code easier and 
 
 In this example, we'll use basic functionality from the  `parallel` package to run MCMC in parallel chains.
 
-Here we lay out how to do the steps manually. The [function `nimbleParallelMCMC` (available here)](https://github.com/nimble-dev/nimble-demos/blob/master/parallelization/parallelizingNimble.R) provides a wrapper function to do this easily in one function call.
+Here we lay out how to do the steps manually. The [function `nimbleParallelMCMC` (available here)](https://github.com/nimble-dev/nimble-demos/blob/master/parallelization/parallelMCMC.R) provides a wrapper function to do this easily in one function call.
 
 ```{r}
 library(parallel)
