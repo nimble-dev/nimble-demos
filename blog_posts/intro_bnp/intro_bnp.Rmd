@@ -392,7 +392,7 @@ As expected, this estimate looks identical to the one we obtained through the CR
 
 We will illustrate the use of nonparametric mixture models for modeling random effects distributions in the context of a meta-analysis of the side effects of a formerly very popular drug for diabetes called Avandia. The data we analyze played a role in raising serious questions about the safety of this drug.  The question is whether Avandia use increases the risk of myocardial infarction (heart attack). There are 48 studies (the 49th study in the data file is different in some ways and excluded here), each with treatment and control arms.
 ```{r, avandia-view}
-dat <- read.csv('https://rawgit.com/nimble-dev/nimble-demos/master/intro_bnp/avandia.csv')
+dat <- read.csv('https://raw.githubusercontent.com/nimble-dev/nimble-demos/refs/heads/master/blog_posts/intro_bnp/avandia.csv')
 head(dat)
 dat <- dat[-49, ]
 ```

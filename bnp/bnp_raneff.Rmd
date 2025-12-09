@@ -9,7 +9,7 @@ Here we will take a parametric generalized linear mixed model and show how to sw
 <p>We will illustrate the use of nonparametric mixture models for modeling random effects distributions in the context of a meta-analysis of the side effects of a formerly very popular drug for diabetes called Avandia. The data we analyze played a role in raising serious questions about the safety of this drug.  The question is whether Avandia use increases the risk of myocardial infarction (heart attack). There are 48 studies (the 49th study in the data file is different in some ways and excluded here), each with treatment and control arms.</p>
 
 ```{r}
-dat <- read.csv('https://r-nimble.org/nimbleExamples/avandia.csv')
+dat <- read.csv('https://raw.githubusercontent.com/nimble-dev/nimble-demos/refs/heads/master/blog_posts/intro_bnp/avandia.csv')
 head(dat)
 dat <- dat[-49, ]
 ```
