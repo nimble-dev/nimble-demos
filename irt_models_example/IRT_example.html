@@ -412,7 +412,7 @@ prior <span class="math inline">\(\mathcal{N}(0, 100)\)</span> for the
 difficulty parameters, and a uniform distribution for abilities
 variance.</p>
 <pre class="r"><code>library(nimble, warn.conflicts = FALSE)</code></pre>
-<pre><code>## nimble version 1.4.0 is loaded.
+<pre><code>## nimble version 1.4.1 is loaded.
 ## For more information on NIMBLE and a User Manual,
 ## please visit https://R-nimble.org.</code></pre>
 <pre class="r"><code>code1PL &lt;- nimbleCode({  
@@ -473,7 +473,7 @@ cModel1PLMCMC &lt;- compileNimble(model1PLMCMC, project = model1PL)</code></pre>
 <pre><code>## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|</code></pre>
 <pre><code>##    user  system elapsed 
-##  26.873   0.147  27.020</code></pre>
+##  50.769   0.188  58.150</code></pre>
 </div>
 <div id="checking-the-results" class="section level3">
 <h3>Checking the results</h3>
@@ -595,7 +595,7 @@ cModel2PLMCMC &lt;- compileNimble(model2PLMCMC, project = model2PL)</code></pre>
 <pre><code>## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|</code></pre>
 <pre><code>##    user  system elapsed 
-##  36.455   0.096  36.549</code></pre>
+##  55.526   0.123  64.381</code></pre>
 </div>
 <div id="checking-the-results-1" class="section level3">
 <h3>Checking the results</h3>

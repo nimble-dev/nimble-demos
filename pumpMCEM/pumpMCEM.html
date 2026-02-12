@@ -361,7 +361,7 @@ evaluate potentially high-dimensional integrals.</p>
 implement the MCEM algorithm to find maximum likelihood estimates of
 parameters for statistical models with latent states.</p>
 <pre class="r"><code>library(nimble, warn.conflicts = FALSE)</code></pre>
-<pre><code>## nimble version 1.4.0 is loaded.
+<pre><code>## nimble version 1.4.1 is loaded.
 ## For more information on NIMBLE and a User Manual,
 ## please visit https://R-nimble.org.</code></pre>
 <div id="nimble-code-for-the-pump-example" class="section level4">
@@ -421,58 +421,110 @@ pump &lt;- nimbleModel(code = pumpCode, name = &quot;pump&quot;, constants = pum
 ##   [Note] Iteration Number: 1.
 ##   [Note] Current number of MCMC iterations: 1000.
 ##   [Note] Parameter Estimates: 
-## 0.663597
-##  0.90113
-##   [Note] Convergence Criterion: 8.3585.
+## 0.667791
+## 0.907853
+##   [Note] Convergence Criterion: 8.39348.
 ## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|
 ##   [Note] Iteration Number: 2.
 ##   [Note] Current number of MCMC iterations: 1000.
 ##   [Note] Parameter Estimates: 
-## 0.795416
-##  1.16721
-##   [Note] Convergence Criterion: 0.141664.
+## 0.78777
+## 1.14575
+##   [Note] Convergence Criterion: 0.11857.
 ## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|
 ##   [Note] Iteration Number: 3.
 ##   [Note] Current number of MCMC iterations: 1000.
 ##   [Note] Parameter Estimates: 
-## 0.801675
-##  1.21711
-##   [Note] Convergence Criterion: 0.00878229.
+## 0.81602
+## 1.24355
+##   [Note] Convergence Criterion: 0.0193487.
 ## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|
 ##   [Note] Iteration Number: 4.
 ##   [Note] Current number of MCMC iterations: 1000.
 ##   [Note] Parameter Estimates: 
-## 0.831234
-##  1.27561
-##   [Note] Convergence Criterion: 0.00838705.
-## |-------------|-------------|-------------|-------------|
-## |-------------------------------------------------------|
-## Monte Carlo error too big: increasing MCMC sample size.
-## |-------------|-------------|-------------|-------------|
-## |-------------------------------------------------------|
-## Monte Carlo error too big: increasing MCMC sample size.
-## |-------------|-------------|-------------|-------------|
-## |-------------------------------------------------------|
-## Monte Carlo error too big: increasing MCMC sample size.
+## 0.822555
+##  1.24463
+##   [Note] Convergence Criterion: 0.00125835.
 ## |-------------|-------------|-------------|-------------|
 ## |-------------------------------------------------------|
 ##   [Note] Iteration Number: 5.
-##   [Note] Current number of MCMC iterations: 1687.
+##   [Note] Current number of MCMC iterations: 1000.
 ##   [Note] Parameter Estimates: 
-## 0.825454
-##  1.27014
-##   [Note] Convergence Criterion: 0.000543371.</code></pre>
+## 0.81829
+## 1.25849
+##   [Note] Convergence Criterion: 0.00280475.
+## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|
+##   [Note] Iteration Number: 6.
+##   [Note] Current number of MCMC iterations: 1000.
+##   [Note] Parameter Estimates: 
+## 0.825224
+##   1.2482
+##   [Note] Convergence Criterion: 0.0029885.
+## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|
+##   [Note] Iteration Number: 7.
+##   [Note] Current number of MCMC iterations: 1000.
+##   [Note] Parameter Estimates: 
+## 0.816474
+##  1.23413
+##   [Note] Convergence Criterion: 0.00129778.
+## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|
+##   [Note] Iteration Number: 8.
+##   [Note] Current number of MCMC iterations: 1000.
+##   [Note] Parameter Estimates: 
+## 0.830852
+##   1.2621
+##   [Note] Convergence Criterion: 0.00281276.
+## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|
+##   [Note] Iteration Number: 9.
+##   [Note] Current number of MCMC iterations: 1000.
+##   [Note] Parameter Estimates: 
+## 0.825273
+##  1.26494
+##   [Note] Convergence Criterion: 0.00139367.
+## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|
+## Monte Carlo error too big: increasing MCMC sample size.
+## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|
+## Monte Carlo error too big: increasing MCMC sample size.
+## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|
+## Monte Carlo error too big: increasing MCMC sample size.
+## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|
+## Monte Carlo error too big: increasing MCMC sample size.
+## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|
+## Monte Carlo error too big: increasing MCMC sample size.
+## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|
+## Monte Carlo error too big: increasing MCMC sample size.
+## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|
+## Monte Carlo error too big: increasing MCMC sample size.
+## |-------------|-------------|-------------|-------------|
+## |-------------------------------------------------------|
+##   [Note] Iteration Number: 10.
+##   [Note] Current number of MCMC iterations: 4254.
+##   [Note] Parameter Estimates: 
+## 0.824422
+##  1.26846
+##   [Note] Convergence Criterion: 0.00020708.</code></pre>
 <pre class="r"><code>pumpMLE</code></pre>
 <pre><code>## nimbleList object of type OptimResultNimbleList
 ## Field &quot;par&quot;:
-## [1] 0.8254538 1.2701413
+## [1] 0.8244225 1.2684644
 ## Field &quot;value&quot;:
-## [1] -26.94994
+## [1] -26.87382
 ## Field &quot;counts&quot;:
-## [1] 16  4
+## [1] 15  4
 ## Field &quot;convergence&quot;:
 ## [1] 0
 ## Field &quot;message&quot;:
